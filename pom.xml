@@ -47,6 +47,16 @@
 			<version>1.7.12</version>
 		</dependency>
 		<dependency>
+			<groupId>com.simiacryptus</groupId>
+			<artifactId>java-util</artifactId>
+			<version>1.0.2</version>
+		</dependency>
+		<dependency>
+			<groupId>org.boofcv</groupId>
+			<artifactId>all</artifactId>
+			<version>0.26</version>
+		</dependency>
+		<dependency>
 			<groupId>org.scalatest</groupId>
 			<artifactId>scalatest_2.11</artifactId>
 			<version>3.0.1</version>
