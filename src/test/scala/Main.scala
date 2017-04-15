@@ -67,7 +67,6 @@ class Main extends WordSpec with MustMatchers with MarkdownReporter {
                 val y1 = (line.p.y - line.p.x * line.slope.y / line.slope.x).toInt
                 val x2 = image1.getWidth
                 val y2 = y1 + (x2 * line.slope.y / line.slope.x).toInt
-                System.out.println(s"$line -> ($x1,$y1)->($x2,$y2)")
                 gfx.setColor(Color.RED)
                 gfx.drawLine(
                   x1 * width / image1.getWidth, y1 * height / image1.getHeight,
@@ -77,7 +76,6 @@ class Main extends WordSpec with MustMatchers with MarkdownReporter {
                 val x1 = (line.p.x - line.p.y * line.slope.x / line.slope.y).toInt
                 val y2 = image1.getHeight
                 val x2 = x1 + (y2 * line.slope.x / line.slope.y).toInt
-                System.out.println(s"$line -> ($x1,$y1)->($x2,$y2)")
                 gfx.setColor(Color.GREEN)
                 gfx.drawLine(
                   x1 * width / image1.getWidth, y1 * height / image1.getHeight,
