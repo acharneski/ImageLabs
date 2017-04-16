@@ -52,7 +52,7 @@ import org.scalatest.{MustMatchers, WordSpec}
 
 import scala.collection.JavaConverters._
 
-class BoofcvSpec extends WordSpec with MustMatchers with MarkdownReporter {
+class BoofcvTest extends WordSpec with MustMatchers with MarkdownReporter {
 
   "BoofCV" should {
 

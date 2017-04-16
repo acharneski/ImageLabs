@@ -18,13 +18,15 @@
  */
 
 import java.awt.image.BufferedImage
-import java.awt.{Color, Graphics, Graphics2D, RenderingHints}
+import java.awt.{BasicStroke, Color, Graphics, Graphics2D, RenderingHints}
 import java.util
 import javax.imageio.ImageIO
 
+import boofcv.abst.feature.describe.ConfigSurfDescribe.Stability
 import boofcv.abst.feature.detdesc.DetectDescribePoint
 import boofcv.abst.feature.detect.interest.ConfigFastHessian
 import boofcv.abst.feature.detect.line.{DetectLine, DetectLineSegment}
+import boofcv.abst.feature.orientation.ConfigSlidingIntegral
 import boofcv.alg.descriptor.UtilFeature
 import boofcv.alg.distort.impl.DistortSupport
 import boofcv.alg.distort.{ImageDistort, PixelTransformHomography_F32}
@@ -32,7 +34,7 @@ import boofcv.core.image.border.BorderType
 import boofcv.factory.feature.associate.FactoryAssociation
 import boofcv.factory.feature.detdesc.FactoryDetectDescribe
 import boofcv.factory.feature.detect.line.{ConfigHoughFoot, ConfigHoughFootSubimage, ConfigHoughPolar, FactoryDetectLineAlgs}
-import boofcv.factory.geo.{ConfigRansac, FactoryMultiViewRobust}
+import boofcv.factory.geo.{ConfigHomography, ConfigRansac, FactoryMultiViewRobust}
 import boofcv.factory.interpolate.FactoryInterpolation
 import boofcv.io.image.ConvertBufferedImage
 import boofcv.struct.feature.{AssociatedIndex, BrightFeature}
@@ -74,52 +76,41 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
       report("whiteboard", log ⇒ {
 
         val image1 = ImageIO.read(getClass.getClassLoader.getResourceAsStream("Whiteboard1.jpg"))
-        val width = 1200
-        val height = image1.getHeight * width / image1.getWidth()
-        val edgeThreshold: Float = 100
-        val maxLines: Int = 20
-        val localMaxRadius = 4
-        val minCounts = 5
-        val minDistanceFromOrigin = 1
-        val resolutionAngle = Math.PI / (3 * 180)
-        val totalHorizontalDivisions = 8
-        val totalVerticalDivisions = 8
-
-        def mix(a: Point2D_F32, b: Point2D_F32, d: Float): Point2D_F32 = {
-          return new Point2D_F32(a.x * d + b.x * (1 - d), a.y * d + b.y * (1 - d))
-        }
-        def shrink(quad: Quadrilateral_F32, size: Float) = {
-          val center = UtilPolygons2D_F32.center(quad, null)
-          new Quadrilateral_F32(
-            mix(quad.a, center, size),
-            mix(quad.b, center, size),
-            mix(quad.c, center, size),
-            mix(quad.d, center, size)
-          )
-        }
-        def draw(gfx : Graphics, quad: Quadrilateral_F32) = {
-          gfx.drawPolygon(
-            Array(
-              quad.b.x.toInt * width / image1.getWidth,
-              quad.a.x.toInt * width / image1.getWidth,
-              quad.c.x.toInt * width / image1.getWidth,
-              quad.d.x.toInt * width / image1.getWidth
-            ),
-            Array(
-              quad.b.y.toInt * height / image1.getHeight,
-              quad.a.y.toInt * height / image1.getHeight,
-              quad.c.y.toInt * height / image1.getHeight,
-              quad.d.y.toInt * height / image1.getHeight
-            ), 4)
-        }
-
         val detector: DetectLine[GrayU8] = log.code(() ⇒ {
+          val localMaxRadius = 4
+          val minCounts = 5
+          val minDistanceFromOrigin = 1
+          val edgeThreshold: Float = 100
+          val maxLines: Int = 20
           FactoryDetectLineAlgs.houghFoot(new ConfigHoughFoot(localMaxRadius, minCounts, minDistanceFromOrigin, edgeThreshold, maxLines), classOf[GrayU8], classOf[GrayS16])
         })
+        val featureDetector: DetectDescribePoint[GrayF32, BrightFeature] = {
+          val detectThreshold = 5
+          val extractRadius = 1
+          val maxFeaturesPerScale = 500
+          val initialSampleSize = 3
+          val initialSize = 15
+          val numberScalesPerOctave = 4
+          val numberOfOctaves = 8
+          val fastHessian = new ConfigFastHessian(detectThreshold, extractRadius, maxFeaturesPerScale, initialSampleSize, initialSize, numberScalesPerOctave, numberOfOctaves)
+          val samplePeriod = 0.65
+          val windowSize = 1.0471975511965976
+          val radius = 8
+          val weightSigma = -1.0
+          val sampleWidth = 6
+          val stabilityConfig = new Stability
+          FactoryDetectDescribe.surfStable(fastHessian, stabilityConfig, new ConfigSlidingIntegral(samplePeriod, windowSize, radius, weightSigma, sampleWidth), classOf[GrayF32])
+        }
+        val modelMatcher: ModelMatcher[Homography2D_F64, AssociatedPair] = {
+          val maxIterations = 60
+          val inlierThreshold = 5
+          val normalize = true
+          FactoryMultiViewRobust.homographyRansac(new ConfigHomography(normalize), new ConfigRansac(maxIterations, inlierThreshold))
+        }
+
         val found: util.List[LineParametric2D_F32] = detector.detect(ConvertBufferedImage.convertFromSingle(image1, null, classOf[GrayU8]))
         val horizontals = found.asScala.filter(line ⇒ Math.abs(line.slope.x) > Math.abs(line.slope.y)).toList
         val verticals = found.asScala.filter(line ⇒ Math.abs(line.slope.x) <= Math.abs(line.slope.y)).toList
-
         val candidateQuadrangles: List[Quadrilateral_F32] = log.code(() ⇒ {
           val imageBounds = new Rectangle2D_F32(0, 0, image1.getWidth, image1.getHeight)
           cross(pairs(horizontals), pairs(verticals)).map(xa ⇒ {
@@ -136,13 +127,7 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
               Intersection2D_F32.contains(imageBounds, quad.d.x, quad.d.y)
           )
         })
-
-        def rotate(r: Quadrilateral_F32): Quadrilateral_F32 = {
-          val center = UtilPolygons2D_F32.center(r, null)
-          if(r.a.x < center.x && r.a.y < center.y) r
-          return new Quadrilateral_F32(r.d,r.c,r.b,r.a)
-        }
-        val bestQuadrangle: Quadrilateral_F32 = shrink(rotate(log.code(() ⇒ {
+        val bestQuadrangle: Quadrilateral_F32 = scale(rotate(log.code(() ⇒ {
           candidateQuadrangles.maxBy(quad ⇒ {
             val bounds = new Rectangle2D_F32()
             UtilPolygons2D_F32.bounding(quad, bounds)
@@ -153,14 +138,14 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
           })
         })), 1.0f)
 
-        log.draw((gfx: Graphics) ⇒ {
-          gfx.drawImage(image1, 0, 0, width, height, null)
+        log.draw(gfx ⇒ {
+          gfx.drawImage(image1, 0, 0, null)
+          gfx.setStroke(new BasicStroke(3))
           gfx.setColor(Color.YELLOW)
           draw(gfx, bestQuadrangle)
           gfx.setColor(Color.RED)
-          draw(gfx, shrink(bestQuadrangle, 0.9f))
-        }, width = width, height = height)
-
+          draw(gfx, scale(bestQuadrangle, 0.9f))
+        }, width = image1.getWidth, height = image1.getHeight)
 
         val (areaHeight, areaWidth) = log.code(()⇒{(
             (bestQuadrangle.getSideLength(0)+bestQuadrangle.getSideLength(2)).toInt / 2,
@@ -173,10 +158,10 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
             new AssociatedPair(areaWidth,0,bestQuadrangle.b.x,bestQuadrangle.b.y),
             new AssociatedPair(areaWidth,areaHeight,bestQuadrangle.d.x,bestQuadrangle.d.y)
           ).asJava)
-          val modelMatcher: ModelMatcher[Homography2D_F64, AssociatedPair] = FactoryMultiViewRobust.homographyRansac(null, new ConfigRansac(60, 3));
           if (!modelMatcher.process(pairs)) throw new RuntimeException("Model Matcher failed!")
           modelMatcher.getModelParameters
         })
+
         val primaryImage: BufferedImage = log.code(() ⇒ {
           val distortion: ImageDistort[Planar[GrayF32], Planar[GrayF32]] = {
             val interpolation = FactoryInterpolation.bilinearPixelS(classOf[GrayF32], BorderType.ZERO)
@@ -194,106 +179,131 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
           output
         })
 
-        val featureDetector: DetectDescribePoint[GrayF32, BrightFeature] = FactoryDetectDescribe.surfStable(new ConfigFastHessian(1, 2, 300, 1, 9, 4, 4), null, null, classOf[GrayF32])
-        val (pointsA, descriptionsA) = log.code(() ⇒ {
-          describe(featureDetector, primaryImage)
-        })
+        val images: List[BufferedImage] = rectify(log,featureDetector,false)(primaryImage,
+          ImageIO.read(getClass.getClassLoader.getResourceAsStream("Whiteboard2.jpg")),
+          ImageIO.read(getClass.getClassLoader.getResourceAsStream("Whiteboard3.jpg"))
+        )
 
-        def rectify(primaryImage: BufferedImage, secondaryImages: BufferedImage*)(expand: Boolean = true): List[BufferedImage] = {
-          def findTransform(secondaryImage:BufferedImage) = {
-            val (pointsB, descriptionsB) = log.code(() ⇒ {
-              describe(featureDetector, secondaryImage)
-            })
+        val tileBounds = new Rectangle2D_F32(1000,1000,1500,1500)
+        val superTileBounds = scale(tileBounds, 1.5f)
+        log.draw(gfx⇒{
+          gfx.drawImage(primaryImage,0,0,null)
+          gfx.setStroke(new BasicStroke(3))
+          gfx.setColor(Color.YELLOW)
+          gfx.drawRect(tileBounds.p0.x.toInt, tileBounds.p0.x.toInt, tileBounds.getWidth.toInt, tileBounds.getHeight.toInt)
+          gfx.setColor(Color.RED)
+          gfx.drawRect(superTileBounds.p0.x.toInt, superTileBounds.p0.x.toInt, superTileBounds.getWidth.toInt, superTileBounds.getHeight.toInt)
+        },height=primaryImage.getHeight,width=primaryImage.getWidth)
 
-            val pairs: util.ArrayList[AssociatedPair] = log.code(() ⇒ {
-              associate(featureDetector, pointsA, descriptionsA, pointsB, descriptionsB)
-            })
-
-            log.code(() ⇒ {
-              val modelMatcher: ModelMatcher[Homography2D_F64, AssociatedPair] = FactoryMultiViewRobust.homographyRansac(null, new ConfigRansac(60, 3));
-              if (!modelMatcher.process(pairs)) throw new RuntimeException("Model Matcher failed!")
-              modelMatcher.getModelParameters
-            })
-          }
-          val transforms: List[Homography2D_F64] = secondaryImages.map(findTransform).toList
-
-          val boundsPoints: List[(Double, Double)] = log.code(() ⇒ {
-            secondaryImages.zip(transforms).toMap.flatMap(x ⇒ {
-              val (secondaryImage, transformParameters) = x
-              val fromBtoA = transformParameters.invert(null)
-              List((0, 0), (0, secondaryImage.getHeight), (secondaryImage.getWidth, 0), (secondaryImage.getWidth, secondaryImage.getHeight)).map(xx ⇒ {
-                val (x, y) = xx
-                tranform(x, y, fromBtoA)
-              })
-            }).toList
-          }) ++ List[(Double, Double)]((0, 0), (0, primaryImage.getHeight), (primaryImage.getWidth, 0), (primaryImage.getWidth, primaryImage.getHeight))
-
-          val (offsetX: Double, offsetY: Double) = log.code(() ⇒ {
-            val renderMinX = boundsPoints.map(_._1).min
-            val renderMaxX = boundsPoints.map(_._1).max
-            val renderMinY = boundsPoints.map(_._2).min
-            val renderMaxY = boundsPoints.map(_._2).max
-            if (expand) (Math.max(0, -renderMinX), Math.max(0, -renderMinY))
-            else (0.0, 0.0)
-          })
-
-          val (renderWidth: Double, renderHeight: Double) = log.code(() ⇒ {
-            val renderMinX = boundsPoints.map(_._1).min
-            val renderMaxX = boundsPoints.map(_._1).max
-            val renderMinY = boundsPoints.map(_._2).min
-            val renderMaxY = boundsPoints.map(_._2).max
-            if (expand) (renderMaxX - renderMinX, renderMaxY - renderMinY)
-            else (primaryImage.getWidth.toDouble, primaryImage.getHeight.toDouble)
-          })
-
-          def transform(secondaryImage: BufferedImage, transformParameters: Homography2D_F64) = {
-            val distortion: ImageDistort[Planar[GrayF32], Planar[GrayF32]] = log.code(() ⇒ {
-              val interpolation = FactoryInterpolation.bilinearPixelS(classOf[GrayF32], BorderType.ZERO)
-              val model = new PixelTransformHomography_F32
-              val distort = DistortSupport.createDistortPL(classOf[GrayF32], model, interpolation, false)
-              model.set(transformParameters)
-              distort.setRenderAll(false)
-              distort
-            })
-            log.code(() ⇒ {
-              val boofImage = ConvertBufferedImage.convertFromMulti(secondaryImage, null, true, classOf[GrayF32])
-              val work: Planar[GrayF32] = boofImage.createNew(renderWidth.toInt, renderHeight.toInt)
-              distortion.apply(boofImage, work)
-              val output = new BufferedImage(renderWidth.toInt, renderHeight.toInt, primaryImage.getType)
-              ConvertBufferedImage.convertTo(work, output, true)
-              output
-            })
-          }
-
-          val secondaryTransformed = secondaryImages.zip(transforms).map(x ⇒ {
-            val (secondaryImage, transformParameters: Homography2D_F64) = x
-            val transform1 = transform(secondaryImage, transformParameters)
-            val refinement: Homography2D_F64 = findTransform(transform1)
-            val transform2 = transform(secondaryImage, transformParameters.concat(refinement, null))
-            transform2
-          }).toList
-
-          List({
-            val output = new BufferedImage(renderWidth.toInt, renderHeight.toInt, primaryImage.getType)
-            output.getGraphics.drawImage(primaryImage, offsetX.toInt, offsetY.toInt, null)
-            output
-          }) ++ secondaryTransformed
-
-        }
-
-        val images: List[BufferedImage] = rectify(primaryImage
-          , ImageIO.read(getClass.getClassLoader.getResourceAsStream("Whiteboard2.jpg"))
-          , ImageIO.read(getClass.getClassLoader.getResourceAsStream("Whiteboard3.jpg"))
-        )(false)
-
-
+        val tileImages = rectify(log,featureDetector,false)(
+          images.head.getSubimage(tileBounds.p0.x.toInt, tileBounds.p0.x.toInt, tileBounds.getWidth.toInt, tileBounds.getHeight.toInt),
+          images.tail.map(_.getSubimage(superTileBounds.p0.x.toInt, superTileBounds.p0.x.toInt, superTileBounds.getWidth.toInt, superTileBounds.getHeight.toInt)):_*)
 
       })
     }
 
   }
 
-  def tranform(x0: Int, y0: Int, fromBtoWork: Homography2D_F64): (Double, Double) = {
+  def rectify(log:ScalaMarkdownPrintStream,featureDetector : DetectDescribePoint[GrayF32, BrightFeature], expand: Boolean = true)(primaryImage: BufferedImage, secondaryImages: BufferedImage*): List[BufferedImage] = {
+    val (pointsA, descriptionsA) = log.code(() ⇒ {
+      describe(featureDetector, primaryImage)
+    })
+    def draw(primaryImage: BufferedImage, points: util.ArrayList[Point2D_F64], descriptions: FastQueue[BrightFeature]) = {
+      log.draw(gfx ⇒ {
+        gfx.drawImage(primaryImage, 0, 0, null)
+        points.asScala.zip(descriptions.toList.asScala).foreach(x ⇒ {
+          val (pt,d) = x
+          if(d.white) {
+            gfx.setColor(Color.GREEN)
+          } else {
+            gfx.setColor(Color.RED)
+          }
+          gfx.drawRect(pt.x.toInt - 4, pt.y.toInt - 4, 9, 9)
+        })
+      }, width = primaryImage.getWidth, height = primaryImage.getHeight())
+    }
+    draw(primaryImage, pointsA, descriptionsA)
+    def findTransform(secondaryImage:BufferedImage) = {
+      val (pointsB, descriptionsB) = log.code(() ⇒ {
+        describe(featureDetector, secondaryImage)
+      })
+      draw(secondaryImage, pointsB, descriptionsB)
+      val pairs: util.ArrayList[AssociatedPair] = associate(featureDetector, pointsA, descriptionsA, pointsB, descriptionsB)
+      val modelMatcher: ModelMatcher[Homography2D_F64, AssociatedPair] = FactoryMultiViewRobust.homographyRansac(null, new ConfigRansac(60, 3));
+      if (!modelMatcher.process(pairs)) throw new RuntimeException("Model Matcher failed!")
+      modelMatcher.getModelParameters
+    }
+
+    val transforms: List[Homography2D_F64] = secondaryImages.map(findTransform).toList
+
+    val boundsPoints: List[(Double, Double)] = log.code(() ⇒ {
+      val boundsPoints = secondaryImages.zip(transforms).toMap.flatMap(x ⇒ {
+        val (secondaryImage, transformParameters) = x
+        val fromBtoA: Homography2D_F64 = transformParameters.invert(null)
+        List((0, 0), (0, secondaryImage.getHeight), (secondaryImage.getWidth, 0), (secondaryImage.getWidth, secondaryImage.getHeight)).map(xx ⇒ {
+          val (x: Int, y: Int) = xx
+          transformXY(x, y, fromBtoA)
+        })
+      }).toList ++ List[(Double, Double)]((0, 0), (0, primaryImage.getHeight), (primaryImage.getWidth, 0), (primaryImage.getWidth, primaryImage.getHeight))
+      System.out.println("renderMinX = " + boundsPoints.map(_._1).min)
+      System.out.println("renderMaxX = " + boundsPoints.map(_._1).max)
+      System.out.println("renderMinY = " + boundsPoints.map(_._2).min)
+      System.out.println("renderMaxY = " + boundsPoints.map(_._2).max)
+      boundsPoints
+    })
+    val (offsetX: Double, offsetY: Double) = log.code(() ⇒ {
+      val renderMinX = boundsPoints.map(_._1).min
+      val renderMaxX = boundsPoints.map(_._1).max
+      val renderMinY = boundsPoints.map(_._2).min
+      val renderMaxY = boundsPoints.map(_._2).max
+      if (expand) (Math.max(0, -renderMinX), Math.max(0, -renderMinY))
+      else (0.0, 0.0)
+    })
+    val (renderWidth: Double, renderHeight: Double) = log.code(() ⇒ {
+      val renderMinX = boundsPoints.map(_._1).min
+      val renderMaxX = boundsPoints.map(_._1).max
+      val renderMinY = boundsPoints.map(_._2).min
+      val renderMaxY = boundsPoints.map(_._2).max
+      if (expand) (renderMaxX - renderMinX, renderMaxY - renderMinY)
+      else (primaryImage.getWidth.toDouble, primaryImage.getHeight.toDouble)
+    })
+
+    def transform(secondaryImage: BufferedImage, transformParameters: Homography2D_F64) = {
+      val distortion: ImageDistort[Planar[GrayF32], Planar[GrayF32]] = log.code(() ⇒ {
+        val interpolation = FactoryInterpolation.bilinearPixelS(classOf[GrayF32], BorderType.ZERO)
+        val model = new PixelTransformHomography_F32
+        val distort = DistortSupport.createDistortPL(classOf[GrayF32], model, interpolation, false)
+        model.set(transformParameters)
+        distort.setRenderAll(false)
+        distort
+      })
+      log.code(() ⇒ {
+        val boofImage = ConvertBufferedImage.convertFromMulti(secondaryImage, null, true, classOf[GrayF32])
+        val work: Planar[GrayF32] = boofImage.createNew(renderWidth.toInt, renderHeight.toInt)
+        distortion.apply(boofImage, work)
+        val output = new BufferedImage(renderWidth.toInt, renderHeight.toInt, primaryImage.getType)
+        ConvertBufferedImage.convertTo(work, output, true)
+        output
+      })
+    }
+
+    val secondaryTransformed = secondaryImages.zip(transforms).map(x ⇒ {
+      val (secondaryImage, transformParameters: Homography2D_F64) = x
+      val transform1 = transform(secondaryImage, transformParameters)
+      val refinement: Homography2D_F64 = findTransform(transform1)
+      val transform2 = transform(secondaryImage, transformParameters.concat(refinement, null))
+      transform2
+    }).toList
+
+    List({
+      val output = new BufferedImage(renderWidth.toInt, renderHeight.toInt, primaryImage.getType)
+      output.getGraphics.drawImage(primaryImage, offsetX.toInt, offsetY.toInt, null)
+      output
+    }) ++ secondaryTransformed
+
+  }
+
+  def transformXY(x0: Int, y0: Int, fromBtoWork: Homography2D_F64): (Double, Double) = {
     val result = new Point2D_F64
     HomographyPointOps_F64.transform(fromBtoWork, new Point2D_F64(x0, y0), result)
     val rx = result.x
@@ -333,6 +343,51 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
       i += 1
     }
     pairs
+  }
+
+  def mix(a: Point2D_F32, b: Point2D_F32, d: Float): Point2D_F32 = {
+    return new Point2D_F32(a.x * d + b.x * (1 - d), a.y * d + b.y * (1 - d))
+  }
+
+  def scale(quad: Quadrilateral_F32, size: Float) = {
+    val center = UtilPolygons2D_F32.center(quad, null)
+    new Quadrilateral_F32(
+      mix(quad.a, center, size),
+      mix(quad.b, center, size),
+      mix(quad.c, center, size),
+      mix(quad.d, center, size)
+    )
+  }
+
+  def scale(quad: Rectangle2D_F32, size: Float) = {
+    val center = mix(quad.p0, quad.p1, 0.5f)
+    val a = mix(quad.p0, center, size)
+    val b = mix(quad.p1, center, size)
+    new Rectangle2D_F32(
+      a.x,a.y,b.x,b.y
+    )
+  }
+
+  def draw(gfx : Graphics, quad: Quadrilateral_F32) = {
+    gfx.drawPolygon(
+      Array(
+        quad.b.x.toInt,
+        quad.a.x.toInt,
+        quad.c.x.toInt,
+        quad.d.x.toInt
+      ),
+      Array(
+        quad.b.y.toInt,
+        quad.a.y.toInt,
+        quad.c.y.toInt,
+        quad.d.y.toInt
+      ), 4)
+  }
+
+  def rotate(r: Quadrilateral_F32): Quadrilateral_F32 = {
+    val center = UtilPolygons2D_F32.center(r, null)
+    if(r.a.x < center.x && r.a.y < center.y) r
+    return new Quadrilateral_F32(r.d,r.c,r.b,r.a)
   }
 
 }

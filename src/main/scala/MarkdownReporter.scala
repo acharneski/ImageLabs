@@ -11,11 +11,11 @@ class ScalaMarkdownPrintStream(file : File, name : String) extends MarkdownPrint
       override def get(): T = fn()
     }, 8*1024, 3)
   }
-  def draw[T](fn: (Graphics) ⇒ Unit, width: Int = 600, height: Int = 400):BufferedImage = {
+  def draw[T](fn: (Graphics2D) ⇒ Unit, width: Int = 600, height: Int = 400):BufferedImage = {
     code(new Supplier[BufferedImage] {
       override def get(): BufferedImage = {
         val image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
-        fn(image.getGraphics)
+        fn(image.getGraphics.asInstanceOf[Graphics2D])
         image
       }
     }, 8*1024, 3)
