@@ -151,7 +151,7 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
             assert(squareness >= 0 && squareness <= 1.01)
             area * Math.pow(squareness, 2)
           })
-        })), 1.0f/0.9f)
+        })), 1.0f)
 
         log.draw((gfx: Graphics) ⇒ {
           gfx.drawImage(image1, 0, 0, width, height, null)
@@ -200,7 +200,7 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
         })
 
         def rectify(primaryImage: BufferedImage, secondaryImages: BufferedImage*)(expand: Boolean = true): List[BufferedImage] = {
-          val transforms: Map[BufferedImage, Homography2D_F64] = secondaryImages.map(secondaryImage ⇒ {
+          def findTransform(secondaryImage:BufferedImage) = {
             val (pointsB, descriptionsB) = log.code(() ⇒ {
               describe(featureDetector, secondaryImage)
             })
@@ -209,15 +209,16 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
               associate(featureDetector, pointsA, descriptionsA, pointsB, descriptionsB)
             })
 
-            secondaryImage → log.code(() ⇒ {
+            log.code(() ⇒ {
               val modelMatcher: ModelMatcher[Homography2D_F64, AssociatedPair] = FactoryMultiViewRobust.homographyRansac(null, new ConfigRansac(60, 3));
               if (!modelMatcher.process(pairs)) throw new RuntimeException("Model Matcher failed!")
               modelMatcher.getModelParameters
             })
-          }).toMap
+          }
+          val transforms: List[Homography2D_F64] = secondaryImages.map(findTransform).toList
 
           val boundsPoints: List[(Double, Double)] = log.code(() ⇒ {
-            transforms.flatMap(x ⇒ {
+            secondaryImages.zip(transforms).toMap.flatMap(x ⇒ {
               val (secondaryImage, transformParameters) = x
               val fromBtoA = transformParameters.invert(null)
               List((0, 0), (0, secondaryImage.getHeight), (secondaryImage.getWidth, 0), (secondaryImage.getWidth, secondaryImage.getHeight)).map(xx ⇒ {
@@ -245,27 +246,15 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
             else (primaryImage.getWidth.toDouble, primaryImage.getHeight.toDouble)
           })
 
-          List({
-            val output = new BufferedImage(renderWidth.toInt, renderHeight.toInt, primaryImage.getType)
-            output.getGraphics.drawImage(primaryImage, offsetX.toInt, offsetY.toInt, null)
-            output
-          }) ++ transforms.map(x ⇒ {
-            val (secondaryImage, transformParameters) = x
-
+          def transform(secondaryImage: BufferedImage, transformParameters: Homography2D_F64) = {
             val distortion: ImageDistort[Planar[GrayF32], Planar[GrayF32]] = log.code(() ⇒ {
-              val scale = 1
-              val fromAToWork = new Homography2D_F64(scale, 0, offsetX, 0, scale, offsetY, 0, 0, 1)
-              val fromWorkToA = fromAToWork.invert(null)
-              val fromWorkToB: Homography2D_F64 = fromWorkToA.concat(transformParameters, null)
-
               val interpolation = FactoryInterpolation.bilinearPixelS(classOf[GrayF32], BorderType.ZERO)
               val model = new PixelTransformHomography_F32
               val distort = DistortSupport.createDistortPL(classOf[GrayF32], model, interpolation, false)
-              model.set(fromWorkToB)
+              model.set(transformParameters)
               distort.setRenderAll(false)
               distort
             })
-
             log.code(() ⇒ {
               val boofImage = ConvertBufferedImage.convertFromMulti(secondaryImage, null, true, classOf[GrayF32])
               val work: Planar[GrayF32] = boofImage.createNew(renderWidth.toInt, renderHeight.toInt)
@@ -274,7 +263,21 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
               ConvertBufferedImage.convertTo(work, output, true)
               output
             })
+          }
+
+          val secondaryTransformed = secondaryImages.zip(transforms).map(x ⇒ {
+            val (secondaryImage, transformParameters: Homography2D_F64) = x
+            val transform1 = transform(secondaryImage, transformParameters)
+            val refinement: Homography2D_F64 = findTransform(transform1)
+            val transform2 = transform(secondaryImage, transformParameters.concat(refinement, null))
+            transform2
           }).toList
+
+          List({
+            val output = new BufferedImage(renderWidth.toInt, renderHeight.toInt, primaryImage.getType)
+            output.getGraphics.drawImage(primaryImage, offsetX.toInt, offsetY.toInt, null)
+            output
+          }) ++ secondaryTransformed
 
         }
 
@@ -282,6 +285,9 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
           , ImageIO.read(getClass.getClassLoader.getResourceAsStream("Whiteboard2.jpg"))
           , ImageIO.read(getClass.getClassLoader.getResourceAsStream("Whiteboard3.jpg"))
         )(false)
+
+
+
       })
     }
 
