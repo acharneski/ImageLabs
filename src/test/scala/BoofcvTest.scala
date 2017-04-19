@@ -18,30 +18,36 @@
  */
 
 import java.awt.image.BufferedImage
-import java.awt.{Color, Graphics2D, RenderingHints}
+import java.awt.{BasicStroke, Color, Graphics2D, RenderingHints}
 import java.util
 import javax.imageio.ImageIO
 
 import boofcv.abst.feature.associate.{AssociateDescription, ScoreAssociation}
+import boofcv.abst.feature.describe.{ConfigBrief, DescribeRegionPoint}
+import boofcv.abst.feature.describe.ConfigSurfDescribe.Stability
 import boofcv.abst.feature.detdesc.DetectDescribePoint
-import boofcv.abst.feature.detect.interest.{ConfigFastHessian, ConfigGeneralDetector}
+import boofcv.abst.feature.detect.interest.{ConfigFastHessian, ConfigGeneralDetector, InterestPointDetector}
 import boofcv.abst.feature.detect.line.{DetectLine, DetectLineSegment}
+import boofcv.abst.feature.orientation.ConfigSlidingIntegral
 import boofcv.abst.feature.tracker.{PointTrack, PointTracker}
 import boofcv.alg.descriptor.UtilFeature
 import boofcv.alg.distort.impl.DistortSupport
 import boofcv.alg.distort.{ImageDistort, PixelTransformHomography_F32}
+import boofcv.alg.feature.detect.interest.GeneralFeatureDetector
 import boofcv.alg.filter.derivative.GImageDerivativeOps
 import boofcv.core.image.border.BorderType
 import boofcv.factory.feature.associate.FactoryAssociation
+import boofcv.factory.feature.describe.FactoryDescribeRegionPoint
 import boofcv.factory.feature.detdesc.FactoryDetectDescribe
+import boofcv.factory.feature.detect.interest.{FactoryDetectPoint, FactoryInterestPoint}
 import boofcv.factory.feature.detect.line.{ConfigHoughFoot, ConfigHoughFootSubimage, ConfigHoughPolar, FactoryDetectLineAlgs}
 import boofcv.factory.feature.tracker.FactoryPointTracker
 import boofcv.factory.geo.{ConfigRansac, FactoryMultiViewRobust}
 import boofcv.factory.interpolate.FactoryInterpolation
 import boofcv.io.image.ConvertBufferedImage
-import boofcv.struct.feature.{AssociatedIndex, BrightFeature}
+import boofcv.struct.feature.{AssociatedIndex, BrightFeature, TupleDesc, TupleDesc_B}
 import boofcv.struct.geo.AssociatedPair
-import boofcv.struct.image.{GrayF32, GrayS16, GrayU8, Planar}
+import boofcv.struct.image._
 import georegression.struct.homography.Homography2D_F64
 import georegression.struct.line.{LineParametric2D_F32, LineSegment2D_F32}
 import georegression.struct.point.Point2D_F64
@@ -53,6 +59,7 @@ import org.scalatest.{MustMatchers, WordSpec}
 import scala.collection.JavaConverters._
 
 class BoofcvTest extends WordSpec with MustMatchers with MarkdownReporter {
+
 
   "BoofCV" should {
 
@@ -129,17 +136,78 @@ class BoofcvTest extends WordSpec with MustMatchers with MarkdownReporter {
             })
           }, width = width, height = height)
         }
-        val edgeThreshold: Float = 100
-        val maxLines: Int = 20
-        val localMaxRadius = 2
-        val minCounts = 16
-        val minDistanceFromOrigin = 0
-        val resolutionAngle = Math.PI / 180.0
-        val totalHorizontalDivisions = 8
-        val totalVerticalDivisions = 8
         fn(log.code(()⇒{
           FactoryDetectLineAlgs.lineRansac(40, 30, 2.36, true, classOf[GrayF32], classOf[GrayF32])
         }))
+      })
+    }
+
+    "Feature Decection" in {
+      report("features", log ⇒ {
+
+        def draw(primaryImage: BufferedImage, points: util.ArrayList[Point2D_F64], descriptions: FastQueue[BrightFeature]) = {
+          log.draw(gfx ⇒ {
+            gfx.drawImage(primaryImage, 0, 0, null)
+            gfx.setStroke(new BasicStroke(2))
+            points.asScala.zip(descriptions.toList.asScala).foreach(x ⇒ {
+              val (pt,d) = x
+              if(d.white) {
+                gfx.setColor(Color.GREEN)
+              } else {
+                gfx.setColor(Color.RED)
+              }
+              gfx.drawRect(pt.x.toInt - 4, pt.y.toInt - 4, 9, 9)
+            })
+          }, width = primaryImage.getWidth, height = primaryImage.getHeight())
+        }
+
+        def draw2(primaryImage: BufferedImage, points: util.ArrayList[Point2D_F64], descriptions: FastQueue[TupleDesc_B]) = {
+          log.draw(gfx ⇒ {
+            gfx.drawImage(primaryImage, 0, 0, null)
+            gfx.setStroke(new BasicStroke(2))
+            points.asScala.zip(descriptions.toList.asScala).foreach(x ⇒ {
+              val (pt,d) = x
+              gfx.drawRect(pt.x.toInt - 4, pt.y.toInt - 4, 9, 9)
+            })
+          }, width = primaryImage.getWidth, height = primaryImage.getHeight())
+        }
+
+        def test(image1: BufferedImage, featureDetector: DetectDescribePoint[GrayF32, BrightFeature]) = {
+          val (pointsA, descriptionsA) = describe(featureDetector, image1)
+          draw(image1, pointsA, descriptionsA)
+        }
+        def test2(image1: BufferedImage, featureDetector: DetectDescribePoint[GrayF32, TupleDesc_B]) = {
+          val (pointsA, descriptionsA) = describe2(featureDetector, image1)
+          draw2(image1, pointsA, descriptionsA)
+        }
+
+        test(ImageIO.read(getClass.getClassLoader.getResourceAsStream("Whiteboard1.jpg")), {
+          val detectThreshold = 5
+          val extractRadius = 1
+          val maxFeaturesPerScale = 500
+          val initialSampleSize = 3
+          val initialSize = 15
+          val numberScalesPerOctave = 4
+          val numberOfOctaves = 8
+          val fastHessian = new ConfigFastHessian(detectThreshold, extractRadius, maxFeaturesPerScale, initialSampleSize, initialSize, numberScalesPerOctave, numberOfOctaves)
+          val samplePeriod = 0.65
+          val windowSize = 1.0471975511965976
+          val radius = 1
+          val weightSigma = -1.0
+          val sampleWidth = 6
+          val stabilityConfig = new Stability
+          FactoryDetectDescribe.surfStable(fastHessian, stabilityConfig, new ConfigSlidingIntegral(samplePeriod, windowSize, radius, weightSigma, sampleWidth), classOf[GrayF32])
+        })
+
+        test2(ImageIO.read(getClass.getClassLoader.getResourceAsStream("Whiteboard1.jpg")), {
+          val imageType: Class[GrayF32] = classOf[GrayF32]
+          val derivType: Class[GrayF[_]] = GImageDerivativeOps.getDerivativeType(imageType)
+          val corner: GeneralFeatureDetector[GrayF32, GrayF[_]] = FactoryDetectPoint.createShiTomasi(new ConfigGeneralDetector(1000, 5, 1), false, derivType)
+          val detector: InterestPointDetector[GrayF32] = FactoryInterestPoint.wrapPoint(corner, 1, imageType, derivType)
+          val describe: DescribeRegionPoint[GrayF32, TupleDesc_B] = FactoryDescribeRegionPoint.brief(new ConfigBrief(true), imageType)
+          FactoryDetectDescribe.fuseTogether(detector, null, describe)
+        })
+
       })
     }
 
@@ -299,12 +367,30 @@ class BoofcvTest extends WordSpec with MustMatchers with MarkdownReporter {
   def describe(detDesc: DetectDescribePoint[GrayF32, BrightFeature], image: BufferedImage): (util.ArrayList[Point2D_F64], FastQueue[BrightFeature]) = {
     val points: util.ArrayList[Point2D_F64] = new util.ArrayList[Point2D_F64]()
     val input = ConvertBufferedImage.convertFromSingle(image, null, classOf[GrayF32])
-    val descriptions: FastQueue[BrightFeature] = UtilFeature.createQueue(detDesc, 100)
+    val descriptions: FastQueue[BrightFeature] = UtilFeature.createQueue[BrightFeature](detDesc, 100)
     detDesc.detect(input)
     var i = 0
     while (i < detDesc.getNumberOfFeatures) {
       points.add(detDesc.getLocation(i).copy)
-      descriptions.grow.setTo(detDesc.getDescription(i))
+      val grow: BrightFeature = descriptions.grow
+      val v = detDesc.getDescription(i)
+      grow.setTo(v)
+      i += 1;
+    }
+    (points, descriptions)
+  }
+
+  def describe2(detDesc: DetectDescribePoint[GrayF32, TupleDesc_B], image: BufferedImage): (util.ArrayList[Point2D_F64], FastQueue[TupleDesc_B]) = {
+    val points: util.ArrayList[Point2D_F64] = new util.ArrayList[Point2D_F64]()
+    val input = ConvertBufferedImage.convertFromSingle(image, null, classOf[GrayF32])
+    val descriptions: FastQueue[TupleDesc_B] = UtilFeature.createQueue[TupleDesc_B](detDesc, 100)
+    detDesc.detect(input)
+    var i = 0
+    while (i < detDesc.getNumberOfFeatures) {
+      points.add(detDesc.getLocation(i).copy)
+      val grow: TupleDesc_B = descriptions.grow
+      val v = detDesc.getDescription(i)
+      grow.setTo(v)
       i += 1;
     }
     (points, descriptions)
