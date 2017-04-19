@@ -79,6 +79,7 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
         })
         log.draw(gfx ⇒ {
           gfx.drawImage(sourceImage, 0, 0, null)
+          gfx.setStroke(new BasicStroke(3))
           found.asScala.foreach(line ⇒ {
             if(Math.abs(line.slope.x) > Math.abs(line.slope.y)) {
               val x1 = 0
@@ -190,10 +191,10 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
           gfx.drawImage(primaryImage, 0, 0, null)
           gfx.setStroke(new BasicStroke(3))
           gfx.setColor(Color.RED)
-          gfx.drawRect(tileBounds.p0.x.toInt, tileBounds.p0.x.toInt, tileBounds.getWidth.toInt, tileBounds.getHeight.toInt)
+          gfx.drawRect(tileBounds.p0.x.toInt, tileBounds.p0.y.toInt, tileBounds.getWidth.toInt, tileBounds.getHeight.toInt)
         }, height = primaryImage.getHeight, width = primaryImage.getWidth)
         val tile = log.code(()⇒{
-          primaryImage.getSubimage(tileBounds.p0.x.toInt, tileBounds.p0.x.toInt, tileBounds.getWidth.toInt, tileBounds.getHeight.toInt)
+          primaryImage.getSubimage(tileBounds.p0.x.toInt, tileBounds.p0.y.toInt, tileBounds.getWidth.toInt, tileBounds.getHeight.toInt)
         })
 
         val rgb: Planar[GrayF32] = ConvertBufferedImage.convertFromMulti(tile, null, true, classOf[GrayF32])
