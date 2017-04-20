@@ -14,7 +14,7 @@ class ScalaMarkdownPrintStream(file : File, name : String) extends MarkdownPrint
   def draw[T](fn: (Graphics2D) ⇒ Unit, width: Int = 600, height: Int = 400):BufferedImage = {
     code(new Supplier[BufferedImage] {
       override def get(): BufferedImage = {
-        val image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
+        val image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
         fn(image.getGraphics.asInstanceOf[Graphics2D])
         image
       }

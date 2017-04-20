@@ -1,6 +1,6 @@
 First, we load an photo of a whiteboard
 
-Code from [WhiteboardWorkflow.scala:64](../../src/test/scala/WhiteboardWorkflow.scala#L64) executed in 0.94 seconds: 
+Code from [WhiteboardWorkflow.scala:72](../../src/test/scala/WhiteboardWorkflow.scala#L72) executed in 0.89 seconds: 
 ```java
     ImageIO.read(getClass.getClassLoader.getResourceAsStream("Whiteboard1.jpg"))
 ```
@@ -10,9 +10,10 @@ Returns:
 
 
 
+## Region Selection
 We start looking for long edges which can be used to find the board:
 
-Code from [WhiteboardWorkflow.scala:70](../../src/test/scala/WhiteboardWorkflow.scala#L70) executed in 0.15 seconds: 
+Code from [WhiteboardWorkflow.scala:242](../../src/test/scala/WhiteboardWorkflow.scala#L242) executed in 0.13 seconds: 
 ```java
     val localMaxRadius = 10
     val minCounts = 5
@@ -24,12 +25,12 @@ Code from [WhiteboardWorkflow.scala:70](../../src/test/scala/WhiteboardWorkflow.
 
 Returns: 
 ```
-    boofcv.abst.feature.detect.line.DetectLineHoughFoot@6eeade6c
+    boofcv.abst.feature.detect.line.DetectLineHoughFoot@674658f7
 ```
 
 
 
-Code from [WhiteboardWorkflow.scala:69](../../src/test/scala/WhiteboardWorkflow.scala#L69) executed in 0.92 seconds: 
+Code from [WhiteboardWorkflow.scala:241](../../src/test/scala/WhiteboardWorkflow.scala#L241) executed in 0.88 seconds: 
 ```java
     val rulerDetector: DetectLine[GrayU8] = log.code(() ⇒ {
       val localMaxRadius = 10
@@ -49,12 +50,12 @@ Returns:
 
 
 
-Code from [WhiteboardWorkflow.scala:80](../../src/test/scala/WhiteboardWorkflow.scala#L80) executed in 0.06 seconds: 
+Code from [WhiteboardWorkflow.scala:252](../../src/test/scala/WhiteboardWorkflow.scala#L252) executed in 0.05 seconds: 
 ```java
     gfx.drawImage(sourceImage, 0, 0, null)
     gfx.setStroke(new BasicStroke(3))
     found.asScala.foreach(line ⇒ {
-      if(Math.abs(line.slope.x) > Math.abs(line.slope.y)) {
+      if (Math.abs(line.slope.x) > Math.abs(line.slope.y)) {
         val x1 = 0
         val y1 = (line.p.y - line.p.x * line.slope.y / line.slope.x).toInt
         val x2 = sourceImage.getWidth
@@ -83,7 +84,7 @@ Returns:
 
 This can then be searched for the largest, most upright, and rectangular shape
 
-Code from [WhiteboardWorkflow.scala:107](../../src/test/scala/WhiteboardWorkflow.scala#L107) executed in 0.10 seconds: 
+Code from [WhiteboardWorkflow.scala:279](../../src/test/scala/WhiteboardWorkflow.scala#L279) executed in 0.10 seconds: 
 ```java
     val horizontals = found.asScala.filter(line ⇒ Math.abs(line.slope.x) > Math.abs(line.slope.y)).toList
     val verticals = found.asScala.filter(line ⇒ Math.abs(line.slope.x) <= Math.abs(line.slope.y)).toList
@@ -120,7 +121,7 @@ Returns:
 
 
 
-Code from [WhiteboardWorkflow.scala:135](../../src/test/scala/WhiteboardWorkflow.scala#L135) executed in 0.05 seconds: 
+Code from [WhiteboardWorkflow.scala:307](../../src/test/scala/WhiteboardWorkflow.scala#L307) executed in 0.07 seconds: 
 ```java
     gfx.drawImage(sourceImage, 0, 0, null)
     gfx.setStroke(new BasicStroke(3))
@@ -135,7 +136,7 @@ Returns:
 
 We then distort the image using a homographic transform back into a rectangle. First we estimate the correct size of the image:
 
-Code from [WhiteboardWorkflow.scala:143](../../src/test/scala/WhiteboardWorkflow.scala#L143) executed in 0.00 seconds: 
+Code from [WhiteboardWorkflow.scala:315](../../src/test/scala/WhiteboardWorkflow.scala#L315) executed in 0.00 seconds: 
 ```java
     (
       (bestQuadrangle.getSideLength(0) + bestQuadrangle.getSideLength(2)).toInt / 2,
@@ -152,7 +153,7 @@ Returns:
 
 We derive the transform:
 
-Code from [WhiteboardWorkflow.scala:151](../../src/test/scala/WhiteboardWorkflow.scala#L151) executed in 0.08 seconds: 
+Code from [WhiteboardWorkflow.scala:323](../../src/test/scala/WhiteboardWorkflow.scala#L323) executed in 0.08 seconds: 
 ```java
     val transformModel: ModelMatcher[Homography2D_F64, AssociatedPair] = {
       val maxIterations = 100
@@ -179,7 +180,7 @@ Returns:
 
 And we transform the image:
 
-Code from [WhiteboardWorkflow.scala:169](../../src/test/scala/WhiteboardWorkflow.scala#L169) executed in 1.39 seconds: 
+Code from [WhiteboardWorkflow.scala:341](../../src/test/scala/WhiteboardWorkflow.scala#L341) executed in 1.38 seconds: 
 ```java
     val distortion: ImageDistort[Planar[GrayF32], Planar[GrayF32]] = {
       val interpolation = FactoryInterpolation.bilinearPixelS(classOf[GrayF32], BorderType.ZERO)
@@ -204,7 +205,7 @@ Returns:
 
 Now we refine our selection using some region selection, perhaps by manual selection
 
-Code from [WhiteboardWorkflow.scala:187](../../src/test/scala/WhiteboardWorkflow.scala#L187) executed in 0.00 seconds: 
+Code from [WhiteboardWorkflow.scala:80](../../src/test/scala/WhiteboardWorkflow.scala#L80) executed in 0.00 seconds: 
 ```java
     new Rectangle2D_F32(100, 40, 2700, 2100)
 ```
@@ -216,7 +217,7 @@ Returns:
 
 
 
-Code from [WhiteboardWorkflow.scala:190](../../src/test/scala/WhiteboardWorkflow.scala#L190) executed in 0.03 seconds: 
+Code from [WhiteboardWorkflow.scala:83](../../src/test/scala/WhiteboardWorkflow.scala#L83) executed in 0.03 seconds: 
 ```java
     gfx.drawImage(primaryImage, 0, 0, null)
     gfx.setStroke(new BasicStroke(3))
@@ -229,7 +230,7 @@ Returns:
 
 
 
-Code from [WhiteboardWorkflow.scala:196](../../src/test/scala/WhiteboardWorkflow.scala#L196) executed in 0.00 seconds: 
+Code from [WhiteboardWorkflow.scala:89](../../src/test/scala/WhiteboardWorkflow.scala#L89) executed in 0.00 seconds: 
 ```java
     primaryImage.getSubimage(tileBounds.p0.x.toInt, tileBounds.p0.y.toInt, tileBounds.getWidth.toInt, tileBounds.getHeight.toInt)
 ```
@@ -239,9 +240,13 @@ Returns:
 
 
 
+## Color Normalization
+### Method 1 - Thresholding
+Our default method uses binarization and morphological operations:
+
 Dectection of markings uses the luminosity
 
-Code from [WhiteboardWorkflow.scala:205](../../src/test/scala/WhiteboardWorkflow.scala#L205) executed in 1.02 seconds: 
+Code from [WhiteboardWorkflow.scala:182](../../src/test/scala/WhiteboardWorkflow.scala#L182) executed in 1.23 seconds: 
 ```java
     val bandImg: GrayF32 = hsv.getBand(2)
     val to = ConvertBufferedImage.convertTo(bandImg, null)
@@ -255,7 +260,7 @@ Returns:
 
 ...by detecting local variations within a gaussian radius
 
-Code from [WhiteboardWorkflow.scala:212](../../src/test/scala/WhiteboardWorkflow.scala#L212) executed in 4.30 seconds: 
+Code from [WhiteboardWorkflow.scala:189](../../src/test/scala/WhiteboardWorkflow.scala#L189) executed in 4.31 seconds: 
 ```java
     val single = ConvertBufferedImage.convertFromSingle(colorBand, null, classOf[GrayF32])
     val binary = new GrayU8(single.width, single.height)
@@ -266,12 +271,12 @@ Code from [WhiteboardWorkflow.scala:212](../../src/test/scala/WhiteboardWorkflow
 
 Returns: 
 ```
-    boofcv.struct.image.GrayU8@37f21974
+    boofcv.struct.image.GrayU8@439a8f59
 ```
 
 
 
-Code from [WhiteboardWorkflow.scala:219](../../src/test/scala/WhiteboardWorkflow.scala#L219) executed in 0.03 seconds: 
+Code from [WhiteboardWorkflow.scala:196](../../src/test/scala/WhiteboardWorkflow.scala#L196) executed in 0.03 seconds: 
 ```java
     VisualizeBinaryData.renderBinary(localGaussian, false, null)
 ```
@@ -283,12 +288,13 @@ Returns:
 
 This binarization is then refined by eroding and thinning operations
 
-Code from [WhiteboardWorkflow.scala:224](../../src/test/scala/WhiteboardWorkflow.scala#L224) executed in 0.26 seconds: 
+Code from [WhiteboardWorkflow.scala:201](../../src/test/scala/WhiteboardWorkflow.scala#L201) executed in 0.82 seconds: 
 ```java
-    var prefiltered = localGaussian
-    prefiltered = BinaryImageOps.erode4(prefiltered, 1, null)
-    prefiltered = BinaryImageOps.erode8(prefiltered, 1, null)
-    VisualizeBinaryData.renderBinary(prefiltered, false, null)
+    var binary = localGaussian
+    binary = BinaryImageOps.erode8(binary, 2, null)
+    binary = BinaryImageOps.thin(binary, 3, null)
+    binary = BinaryImageOps.dilate8(binary, 2, null)
+    VisualizeBinaryData.renderBinary(binary, false, null)
 ```
 
 Returns: 
@@ -298,7 +304,7 @@ Returns:
 
 We can now identify segments which may be markings:
 
-Code from [WhiteboardWorkflow.scala:232](../../src/test/scala/WhiteboardWorkflow.scala#L232) executed in 18.61 seconds: 
+Code from [WhiteboardWorkflow.scala:210](../../src/test/scala/WhiteboardWorkflow.scala#L210) executed in 30.39 seconds: 
 ```java
     val input = ConvertBufferedImage.convertFrom(thresholdImg, null: GrayF32)
     val imageType = ImageType.single(classOf[GrayF32])
@@ -310,12 +316,12 @@ Code from [WhiteboardWorkflow.scala:232](../../src/test/scala/WhiteboardWorkflow
 
 Returns: 
 ```
-    (1080,boofcv.struct.image.GrayS32@a1217f9)
+    (6903,boofcv.struct.image.GrayS32@64da2a7)
 ```
 
 
 
-Code from [WhiteboardWorkflow.scala:240](../../src/test/scala/WhiteboardWorkflow.scala#L240) executed in 0.04 seconds: 
+Code from [WhiteboardWorkflow.scala:218](../../src/test/scala/WhiteboardWorkflow.scala#L218) executed in 0.04 seconds: 
 ```java
     VisualizeRegions.regions(segmentation, superpixels, null)
 ```
@@ -327,41 +333,162 @@ Returns:
 
 For each segment, we categorize and colorize each using some logic
 
-Code from [WhiteboardWorkflow.scala:245](../../src/test/scala/WhiteboardWorkflow.scala#L245) executed in 7.87 seconds: 
+Code from [WhiteboardWorkflow.scala:122](../../src/test/scala/WhiteboardWorkflow.scala#L122) executed in 15.59 seconds: 
 ```java
-    val regionMemberCount = new GrowQueue_I32
-    regionMemberCount.resize(superpixels)
-    ImageSegmentationOps.countRegionPixels(segmentation, superpixels, regionMemberCount.data)
-    val avgColors: Map[Int, Array[Float]] = (0 until segmentation.getWidth).flatMap(x ⇒ (0 until segmentation.getHeight).map(y ⇒ {
-      segmentation.get(x, y) → rgb.bands.map(_.get(x,y))
-    })).groupBy(x⇒x._1).mapValues(_.map(_._2)).mapValues((pixels: immutable.Seq[Array[Float]]) ⇒ {
-      (0 until 3).map(band⇒pixels.map(_(band)).sum / pixels.size).toArray
+    val averageLuminosity = ImageStatistics.mean(hsv.getBand(2))
+    val varianceLuminosity = ImageStatistics.variance(hsv.getBand(2), averageLuminosity)
+    val regions = (0 until segmentation.getWidth).flatMap(x ⇒ (0 until segmentation.getHeight).map(y ⇒ {
+      segmentation.get(x, y) → ((x,y)→rgb.bands.map(_.get(x, y)))
+    })).groupBy(x ⇒ x._1).mapValues(_.map(t⇒t._2))
+    case class RegionStats(color: Array[Float])
+    val segmentStats = regions.mapValues(pixels ⇒ {
+      val hsvValues = pixels.map(_._2).map(rgb ⇒ {
+        val hsv = new Array[Float](3)
+        ColorHsv.rgbToHsv(rgb(0), rgb(1), rgb(2), hsv)
+        hsv
+      })
+      val hueStats = hsvValues.map(hsv ⇒ {
+        val weight = hsv(1) * hsv(1) //+ hsv(2) * hsv(2)
+        (weight, hsv(0) * weight, hsv(0) * hsv(0) * weight)
+      }).reduce((xa, xb)⇒(xa._1+xb._1,xa._2+xb._2,xa._3+xb._3))
+      val hueMean = hueStats._2 / hueStats._1
+      val hueStdDev = Math.sqrt(Math.abs((hueStats._3 / hueStats._1) - hueMean * hueMean)).toFloat
+      val lumStats = hsvValues.map(hsv ⇒ {
+        (1, hsv(2), hsv(2) * hsv(2))
+      }).reduce((xa,xb)⇒(xa._1+xb._1,xa._2+xb._2,xa._3+xb._3))
+      val lumMean = lumStats._2 / lumStats._1
+      val lumStdDev = Math.sqrt((lumStats._3 / lumStats._1) - lumMean * lumMean).toFloat
+      val xMax = pixels.map(_._1._1).max
+      val xMin = pixels.map(_._1._1).min
+      val yMax = pixels.map(_._1._2).max
+      val yMin = pixels.map(_._1._2).min
+      val length = Math.max(xMax - xMin, yMax - yMin)
+      val area = pixels.size
+      val width = area / Math.max(xMax - xMin, yMax - yMin)
+      val aspect = length.toDouble / width
+      val isWhite = hueStdDev > 0.05 && (lumMean - lumStdDev) > averageLuminosity
+      val isBlack = hueStdDev > 0.05 && (lumMean + lumStdDev) < averageLuminosity
+      def WHITE = Array(255.0f, 255.0f, 255.0f)
+      def BLACK = Array(0.0f, 0.0f, 0.0f)
+      val isMarking = aspect > 4
+      if(isMarking) {
+        if(isBlack) {
+          new RegionStats(BLACK)
+        } else  {
+          val rgb = new Array[Float](3)
+          ColorHsv.hsvToRgb(hueMean,1.0f,255.0f,rgb)
+          new RegionStats(rgb)
+        }
+      } else {
+        new RegionStats(WHITE)
+      }
     })
     val segmentColors: ColorQueue_F32 = new ColorQueue_F32(3)
     segmentColors.resize(superpixels)
-    val averageLuminosity = ImageStatistics.mean(hsv.getBand(2))
     (0 until superpixels).foreach(i ⇒ {
-      val count = regionMemberCount.get(i)
-      val avgColor = avgColors(i)
-      val hsvColor = new Array[Float](3)
-      val rgbColor = new Array[Float](3)
-      ColorHsv.rgbToHsv(avgColor(0),avgColor(1),avgColor(2),hsvColor)
-      val isWhite = hsvColor(1) < 0.05 && hsvColor(2) > averageLuminosity
-      val isBlack = hsvColor(1) < 0.05 && hsvColor(2) < averageLuminosity
-      if (count > 50 && count < 50000 && !isWhite) {
-        hsvColor(2) = if(isBlack) 0.0f else 255.0f
-        hsvColor(1) = if(isBlack) 0.0f else 1.0f
-        ColorHsv.hsvToRgb(hsvColor(0),hsvColor(1),hsvColor(2),rgbColor)
-        segmentColors.getData()(i) = rgbColor
-      } else {
-        segmentColors.getData()(i) = Array(255.0f, 255.0f, 255.0f)
-      }
+      segmentColors.getData()(i) = segmentStats(i).color
     })
     VisualizeRegions.regionsColor(segmentation, segmentColors, null)
 ```
 
 Returns: 
 ![Result](workflow.11.png)
+
+
+
+### Method 2 - Color Segmentation
+Here is an alternate method using direct-color segmentation:
+
+We can identify segments which may be markings using the full color image:
+
+Code from [WhiteboardWorkflow.scala:226](../../src/test/scala/WhiteboardWorkflow.scala#L226) executed in 27.94 seconds: 
+```java
+    val imageType = ImageType.pl(3, classOf[GrayF32])
+    val alg = FactoryImageSegmentation.fh04(new ConfigFh04(100, 30), imageType)
+    val segmentation = new GrayS32(rgb.getWidth, rgb.getHeight)
+    alg.segment(rgb, segmentation)
+    (alg.getTotalSuperpixels, segmentation)
+```
+
+Returns: 
+```
+    (9938,boofcv.struct.image.GrayS32@ca27722)
+```
+
+
+
+Code from [WhiteboardWorkflow.scala:233](../../src/test/scala/WhiteboardWorkflow.scala#L233) executed in 0.02 seconds: 
+```java
+    VisualizeRegions.regions(segmentation, superpixels, null)
+```
+
+Returns: 
+![Result](workflow.12.png)
+
+
+
+For each segment, we categorize and colorize each using some logic
+
+Code from [WhiteboardWorkflow.scala:122](../../src/test/scala/WhiteboardWorkflow.scala#L122) executed in 11.09 seconds: 
+```java
+    val averageLuminosity = ImageStatistics.mean(hsv.getBand(2))
+    val varianceLuminosity = ImageStatistics.variance(hsv.getBand(2), averageLuminosity)
+    val regions = (0 until segmentation.getWidth).flatMap(x ⇒ (0 until segmentation.getHeight).map(y ⇒ {
+      segmentation.get(x, y) → ((x,y)→rgb.bands.map(_.get(x, y)))
+    })).groupBy(x ⇒ x._1).mapValues(_.map(t⇒t._2))
+    case class RegionStats(color: Array[Float])
+    val segmentStats = regions.mapValues(pixels ⇒ {
+      val hsvValues = pixels.map(_._2).map(rgb ⇒ {
+        val hsv = new Array[Float](3)
+        ColorHsv.rgbToHsv(rgb(0), rgb(1), rgb(2), hsv)
+        hsv
+      })
+      val hueStats = hsvValues.map(hsv ⇒ {
+        val weight = hsv(1) * hsv(1) //+ hsv(2) * hsv(2)
+        (weight, hsv(0) * weight, hsv(0) * hsv(0) * weight)
+      }).reduce((xa, xb)⇒(xa._1+xb._1,xa._2+xb._2,xa._3+xb._3))
+      val hueMean = hueStats._2 / hueStats._1
+      val hueStdDev = Math.sqrt(Math.abs((hueStats._3 / hueStats._1) - hueMean * hueMean)).toFloat
+      val lumStats = hsvValues.map(hsv ⇒ {
+        (1, hsv(2), hsv(2) * hsv(2))
+      }).reduce((xa,xb)⇒(xa._1+xb._1,xa._2+xb._2,xa._3+xb._3))
+      val lumMean = lumStats._2 / lumStats._1
+      val lumStdDev = Math.sqrt((lumStats._3 / lumStats._1) - lumMean * lumMean).toFloat
+      val xMax = pixels.map(_._1._1).max
+      val xMin = pixels.map(_._1._1).min
+      val yMax = pixels.map(_._1._2).max
+      val yMin = pixels.map(_._1._2).min
+      val length = Math.max(xMax - xMin, yMax - yMin)
+      val area = pixels.size
+      val width = area / Math.max(xMax - xMin, yMax - yMin)
+      val aspect = length.toDouble / width
+      val isWhite = hueStdDev > 0.05 && (lumMean - lumStdDev) > averageLuminosity
+      val isBlack = hueStdDev > 0.05 && (lumMean + lumStdDev) < averageLuminosity
+      def WHITE = Array(255.0f, 255.0f, 255.0f)
+      def BLACK = Array(0.0f, 0.0f, 0.0f)
+      val isMarking = aspect > 4
+      if(isMarking) {
+        if(isBlack) {
+          new RegionStats(BLACK)
+        } else  {
+          val rgb = new Array[Float](3)
+          ColorHsv.hsvToRgb(hueMean,1.0f,255.0f,rgb)
+          new RegionStats(rgb)
+        }
+      } else {
+        new RegionStats(WHITE)
+      }
+    })
+    val segmentColors: ColorQueue_F32 = new ColorQueue_F32(3)
+    segmentColors.resize(superpixels)
+    (0 until superpixels).foreach(i ⇒ {
+      segmentColors.getData()(i) = segmentStats(i).color
+    })
+    VisualizeRegions.regionsColor(segmentation, segmentColors, null)
+```
+
+Returns: 
+![Result](workflow.13.png)
 
 
 
