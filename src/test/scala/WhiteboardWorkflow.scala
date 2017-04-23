@@ -28,7 +28,7 @@ import boofcv.abst.feature.detect.line.DetectLine
 import boofcv.alg.color.ColorHsv
 import boofcv.alg.distort.impl.DistortSupport
 import boofcv.alg.distort.{ImageDistort, PixelTransformHomography_F32}
-import boofcv.alg.filter.binary.GThresholdImageOps
+import boofcv.alg.filter.binary.{BinaryImageOps, GThresholdImageOps}
 import boofcv.alg.filter.blur.GBlurImageOps
 import boofcv.alg.misc.ImageStatistics
 import boofcv.core.image.border.BorderType
@@ -93,20 +93,11 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
         val hsv = rgb.createSameShape()
         ColorHsv.rgbToHsv_F32(rgb, hsv)
 
-        log.h3("Method 1 - Thresholding")
-        log.p("Our default method uses binarization and morphological operations:")
-        var (superpixels1: Int, segmentation1: GrayS32) = findSuperpixels_Binary(log, hsv, rgb)
-        colorize(log, rgb, hsv, superpixels1, segmentation1, "binary_segments")
-
-        log.h3("Method 2 - Color Segmentation")
         log.p("Here is an alternate method using direct-color segmentation:")
-        val (superpixels2, segmentation2) = findSuperpixels_Color(log, rgb)
-        colorize(log, rgb, hsv, superpixels2, segmentation2, "colored_segments")
-
-        log.h3("Method 3 - Hybrid")
-        log.p("Here is an alternate method using direct-color segmentation:")
-        val (superpixels3, segmentation3) = findSuperpixels_Hybrid(log, hsv, rgb)
-        colorize(log, rgb, hsv, superpixels3, segmentation3, "colored_segments")
+        val (superpixels3, segmentation3, filteredRgb) = findSuperpixels_Hybrid(log, hsv, rgb)
+        val filteredHsv = rgb.createSameShape()
+        ColorHsv.rgbToHsv_F32(filteredRgb, filteredHsv)
+        colorize(log, filteredRgb, filteredHsv, superpixels3, segmentation3, "hybrid_segments")
       })
     }
   }
@@ -311,26 +302,6 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
 
   }
 
-  private def findSuperpixels_Binary(log: ScalaMarkdownPrintStream, hsv: Planar[GrayF32], rgb: Planar[GrayF32]) = {
-    val finalBinaryMask = threshold(log, hsv, rgb)
-    val thresholdImg = log.code(() ⇒ {
-      VisualizeBinaryData.renderBinary(finalBinaryMask, false, null)
-    })
-
-    log.p("We can now identify segments which may be markings:")
-    val (superpixels, segmentation) = log.code(() ⇒ {
-      val input = ConvertBufferedImage.convertFrom(thresholdImg, null: GrayF32)
-      val imageType = ImageType.single(classOf[GrayF32])
-      val alg = FactoryImageSegmentation.fh04(new ConfigFh04(100, 30), imageType)
-      val segmentation = new GrayS32(thresholdImg.getWidth, thresholdImg.getHeight)
-      alg.segment(input, segmentation)
-      (alg.getTotalSuperpixels, segmentation)
-    })
-    log.code(() ⇒ {
-      VisualizeRegions.regions(segmentation, superpixels, null)
-    })
-    (superpixels, segmentation)
-  }
 
   private def findSuperpixels_Hybrid(log: ScalaMarkdownPrintStream, hsv: Planar[GrayF32], rgb: Planar[GrayF32]) = {
     val finalBinaryMask = threshold(log, hsv, rgb)
@@ -338,19 +309,52 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
       VisualizeBinaryData.renderBinary(finalBinaryMask, false, null)
     })
 
-    log.p("Use threshold mask to clean white area on board")
-    val maskedRgb: Planar[GrayF32] = log.code(() ⇒ {
-      val maskedRgb: Planar[GrayF32] = rgb.clone()
-      (0 until maskedRgb.getWidth).foreach(x ⇒
-        (0 until maskedRgb.getHeight).foreach(y ⇒
-          (0 until maskedRgb.getNumBands).foreach(b ⇒
-            if(finalBinaryMask.get(x,y)==0) {
-              maskedRgb.getBand(b).set(x, y, 255.0f)
+    log.p("Use threshold mask to generate a background image")
+    val averageRGB = log.code(() ⇒ {
+      (0 until 3).map(b⇒ImageStatistics.mean(rgb.getBand(b)))
+    })
+    val maskedBackground: Planar[GrayF32] = log.code(() ⇒ {
+      val mask = BinaryImageOps.dilate8(BinaryImageOps.thin(finalBinaryMask.clone(),2,null),5,null)
+      val maskedBackground: Planar[GrayF32] = rgb.clone()
+      (0 until maskedBackground.getWidth).foreach(x ⇒
+        (0 until maskedBackground.getHeight).foreach(y ⇒
+          (0 until maskedBackground.getNumBands).foreach(b ⇒
+            if(mask.get(x,y)!=0) {
+              maskedBackground.getBand(b).set(x, y, averageRGB(b))
             })))
-      maskedRgb
+      List(150.0, 50.0, 15.0, 5.0).foreach(blurRadius ⇒ {
+        val nextIteration: Planar[GrayF32] = maskedBackground.clone()
+        GBlurImageOps.gaussian(nextIteration,nextIteration, blurRadius, -1, null)
+        (0 until maskedBackground.getWidth).foreach(x ⇒
+          (0 until maskedBackground.getHeight).foreach(y ⇒
+            (0 until maskedBackground.getNumBands).foreach(b ⇒
+              if(mask.get(x,y)!=0) {
+                maskedBackground.getBand(b).set(x, y, nextIteration.getBand(b).get(x,y))
+              })))
+      })
+      maskedBackground
     })
     log.code(() ⇒ {
-      ConvertBufferedImage.convertTo(maskedRgb, null, false)
+      ConvertBufferedImage.convertTo(maskedBackground, null, false)
+    })
+
+    log.p("Use threshold mask to generate a mask the foreground image (contrasted with the background)")
+    val maskedForground: Planar[GrayF32] = log.code(() ⇒ {
+      val maskedForground: Planar[GrayF32] = rgb.clone()
+      (0 until maskedForground.getWidth).foreach(x ⇒
+        (0 until maskedForground.getHeight).foreach(y ⇒
+          (0 until maskedForground.getNumBands).foreach(b ⇒
+            if(finalBinaryMask.get(x,y)==0) {
+              maskedForground.getBand(b).set(x, y, 255.0f)
+            } else {
+              val forground = maskedForground.getBand(b).get(x,y)
+              val background = maskedBackground.getBand(b).get(x,y)
+              maskedForground.getBand(b).set(x, y, forground * (255.0f  / background))
+            })))
+      maskedForground
+    })
+    log.code(() ⇒ {
+      ConvertBufferedImage.convertTo(maskedForground, null, false)
     })
 
     log.p("We can identify segments which may be markings using the masked color image:")
@@ -358,13 +362,13 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
       val imageType = ImageType.pl(3, classOf[GrayF32])
       val alg = FactoryImageSegmentation.fh04(new ConfigFh04(0.5f, 30), imageType)
       val segmentation = new GrayS32(rgb.getWidth, rgb.getHeight)
-      alg.segment(maskedRgb, segmentation)
+      alg.segment(maskedForground, segmentation)
       (alg.getTotalSuperpixels, segmentation)
     })
     log.code(() ⇒ {
       VisualizeRegions.regions(segmentation, superpixels, null)
     })
-    (superpixels, segmentation)
+    (superpixels, segmentation, maskedForground)
   }
 
   private def threshold(log: ScalaMarkdownPrintStream, hsv: Planar[GrayF32], rgb: Planar[GrayF32]) = {
@@ -386,20 +390,6 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
     binaryMask
   }
 
-  private def findSuperpixels_Color(log: ScalaMarkdownPrintStream, rgb: Planar[GrayF32]) = {
-    log.p("We can identify segments which may be markings using the full color image:")
-    val (superpixels, segmentation) = log.code(() ⇒ {
-      val imageType = ImageType.pl(3, classOf[GrayF32])
-      val alg = FactoryImageSegmentation.fh04(new ConfigFh04(1.0f, 20), imageType)
-      val segmentation = new GrayS32(rgb.getWidth, rgb.getHeight)
-      alg.segment(rgb, segmentation)
-      (alg.getTotalSuperpixels, segmentation)
-    })
-    log.code(() ⇒ {
-      VisualizeRegions.regions(segmentation, superpixels, null)
-    })
-    (superpixels, segmentation)
-  }
 
   private def rectifyQuadrangle(log: ScalaMarkdownPrintStream, sourceImage: BufferedImage) = {
     log.p("We start looking for long edges which can be used to find the board:")
