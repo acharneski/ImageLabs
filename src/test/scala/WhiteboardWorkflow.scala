@@ -30,16 +30,17 @@ import boofcv.alg.distort.impl.DistortSupport
 import boofcv.alg.distort.{ImageDistort, PixelTransformHomography_F32}
 import boofcv.alg.filter.binary.{BinaryImageOps, GThresholdImageOps}
 import boofcv.alg.filter.blur.GBlurImageOps
-import boofcv.alg.misc.ImageStatistics
+import boofcv.alg.misc.{GPixelMath, ImageStatistics}
 import boofcv.core.image.border.BorderType
 import boofcv.factory.feature.detect.line.{ConfigHoughFoot, FactoryDetectLineAlgs}
 import boofcv.factory.geo.{ConfigHomography, ConfigRansac, FactoryMultiViewRobust}
 import boofcv.factory.interpolate.FactoryInterpolation
-import boofcv.factory.segmentation.{ConfigFh04, FactoryImageSegmentation}
+import boofcv.factory.segmentation._
 import boofcv.gui.binary.VisualizeBinaryData
 import boofcv.gui.feature.VisualizeRegions
 import boofcv.gui.image.VisualizeImageData
 import boofcv.io.image.ConvertBufferedImage
+import boofcv.struct.ConnectRule
 import boofcv.struct.feature._
 import boofcv.struct.geo.AssociatedPair
 import boofcv.struct.image.{GrayF32, GrayS32, ImageType, Planar, _}
@@ -91,47 +92,29 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
         val rgb: Planar[GrayF32] = ConvertBufferedImage.convertFromMulti(tile, null, true, classOf[GrayF32])
         // Pre-filter image to improve segmentation results
         GBlurImageOps.median(rgb, rgb, 1)
-        GBlurImageOps.gaussian(rgb, rgb, 0.3, -1, null)
-        GBlurImageOps.median(rgb, rgb, 1)
-        GBlurImageOps.gaussian(rgb, rgb, 0.3, -1, null)
+        GBlurImageOps.gaussian(rgb, rgb, 0.5, -1, null)
+//        GBlurImageOps.median(rgb, rgb, 1)
+//        GBlurImageOps.gaussian(rgb, rgb, 0.3, -1, null)
         // Prepare HSV
         val hsv = rgb.createSameShape()
         ColorHsv.rgbToHsv_F32(rgb, hsv)
 
         log.h3("Method 1 - Thresholding")
         log.p("Our default method uses binarization and morphological operations:")
-        var (superpixels1: Int, segmentation1: GrayS32) = findSuperpixels_Binary(log, hsv)
+        var (superpixels1: Int, segmentation1: GrayS32) = findSuperpixels_Binary(log, hsv, rgb)
         colorize(log, rgb, hsv, superpixels1, segmentation1, "binary_segments")
 
         log.h3("Method 2 - Color Segmentation")
         log.p("Here is an alternate method using direct-color segmentation:")
         val (superpixels2, segmentation2) = findSuperpixels_Color(log, rgb)
         colorize(log, rgb, hsv, superpixels2, segmentation2, "colored_segments")
-      })
-    }
-    "Cluster superpixels using density tree" in {
-      report("clustering_density", log ⇒ {
-        List(
-          "binary_segments",
-          "colored_segments"
-        ).foreach(name ⇒ {
-          log.h2(name)
-          clusterAnalysis_density(log, name)
-        })
-      })
-    }
-    "Cluster superpixels using Smile" in {
-      report("clustering_smile", log ⇒ {
-        List(
-          "binary_segments",
-          "colored_segments"
-        ).foreach(name ⇒ {
-          log.h2(name)
-          clusterAnalysis_smile(log, name)
-        })
-      })
-    }
 
+        log.h3("Method 3 - Hybrid")
+        log.p("Here is an alternate method using direct-color segmentation:")
+        val (superpixels3, segmentation3) = findSuperpixels_Hybrid(log, hsv, rgb)
+        colorize(log, rgb, hsv, superpixels3, segmentation3, "colored_segments")
+      })
+    }
   }
 
 
@@ -215,6 +198,7 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
     }
     clusterAnalysis_density(log, name)
 
+    log.p("Now, we recolor the image by classifying each superpixel as white, black, or color:");
     val segmentationImg: BufferedImage = log.code(() ⇒ {
       val segmentColors: ColorQueue_F32 = new ColorQueue_F32(3)
       segmentColors.resize(superpixels)
@@ -228,13 +212,13 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
           var isBlack = false
           var isWhite = false
 
-          if (lumStdDev < 0.9121574759483337) {
+          if (lumStdDev < 1.5) {
               isWhite = true
           } else {
-            if (hueStdDev < 0.04582565650343895) {
+            if (hueStdDev < 0.05) {
               isColored = true
             } else {
-              if (chromaMean < 7.085714340209961) {
+              if (chromaMean < 5.0) {
                 isBlack = true
               } else {
                 isColored = true
@@ -244,10 +228,9 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
 
           // Decision Logic
           def WHITE = Array(255.0f, 255.0f, 255.0f)
-
           def BLACK = Array(0.0f, 0.0f, 0.0f)
 
-          val isMarkingShape = aspect > 3 && width < 30
+          val isMarkingShape = aspect > 2 && width < 35
           val isMarking = isMarkingShape && !isWhite
           val (typeName, color) = if (isMarking) {
             if (isBlack) {
@@ -260,97 +243,11 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
           } else {
             "white" → WHITE
           }
-          //System.out.println(s"$length x $width; $hueStdDev; $chromaMean; ${lumMean / averageLuminosity}; $typeName")
           color
         }
       })
       VisualizeRegions.regionsColor(segmentation, segmentColors, null)
     })
-  }
-
-  private def clusterAnalysis_smile[T](log: ScalaMarkdownPrintStream, name: String): Unit = {
-    val stream = new FileInputStream(log.newFile(name + ".csv"))
-    val data = try {
-      IOUtils.toString(stream, Charset.forName("UTF-8")).split("\n").map(_.split(",").map(java.lang.Double.parseDouble(_)))
-    } finally {
-      stream.close()
-    }
-    val superpixels = data.length
-    val superpixelParameters = (0 until superpixels).map(i ⇒ i → data(i)).filterNot(_._2.contains(Double.NaN)).toMap
-
-    def stats[T](numbers: Seq[T])(implicit n: Numeric[T]) = {
-      val sum0 = numbers.size
-      val sum1 = numbers.map(n.toDouble).sum
-      val sum2 = numbers.map(n.toDouble).map(x ⇒ x * x).sum
-      val mean = sum1 / sum0
-      val stdDev = Math.sqrt((sum2 / sum0) - (mean * mean))
-      Map("c" → numbers.size, "m" → mean) ++ (if (0.0 < stdDev) Map("v" → stdDev) else Map.empty)
-    }
-
-    def summary(superpixels: Array[Array[Double]]) = {
-      Map(
-        "hueMean" → stats(superpixels.map(_ (0))),
-        "hueStdDev" → stats(superpixels.map(_ (1))),
-        "lumMean" → stats(superpixels.map(_ (2))),
-        "lumStdDev" → stats(superpixels.map(_ (3))),
-        "chromaMean" → stats(superpixels.map(_ (4))),
-        "width" → stats(superpixels.map(_ (5))),
-        "length" → stats(superpixels.map(_ (6)))
-      )
-    }
-
-    List(
-      new KMeans((0 until superpixels).map(superpixelParameters(_)).toArray, 100),
-      new DENCLUE((0 until superpixels).map(superpixelParameters(_)).toArray, 0.5, 100),
-      new NeuralGas((0 until superpixels).map(superpixelParameters(_)).toArray, 100)
-      //new SIB((0 until superpixels).map(superpixelParameters(_)).toArray, 100),
-      //new SOM((0 until superpixels).map(superpixelParameters(_)).toArray, 100)
-      //new GMeans((0 until superpixels).map(superpixelParameters(_)).toArray, 100)
-    ).foreach(model ⇒ {
-      log.h3(model.getClass.getSimpleName)
-      log.code(() ⇒ {
-        val clusters: Map[Int, Array[Int]] = (0 until superpixels).map(i ⇒ i → model.predict(superpixelParameters(i))).groupBy(_._2).mapValues(_.map(_._1).toArray)
-        clusters.values.map((cluster: Array[Int]) ⇒ {
-          val superpixels = cluster.map((id: Int) ⇒ superpixelParameters.get(id).orElse({
-            System.out.println(s"Cluster not found: $id")
-            None
-          })).filter(_.isDefined).map(_.get)
-          summary(superpixels)
-        }).mkString("\n")
-      })
-    })
-
-    lazy val distances: Array[Array[Double]] = (0 until superpixels).par.map(x ⇒ {
-      val a = superpixelParameters(x)
-      (0 until superpixels).map(y ⇒ {
-        distance(a, superpixelParameters(y))
-      })
-    }.toArray).toArray
-    List(
-      new UPGMALinkage(distances),
-      new UPGMCLinkage(distances),
-      new WardLinkage(distances),
-      new WPGMALinkage(distances),
-      new WPGMCLinkage(distances),
-      new SingleLinkage(distances),
-      new CompleteLinkage(distances)
-    ).foreach(linkage ⇒ {
-      log.h3(linkage.getClass.getSimpleName)
-      log.code(() ⇒ {
-        val linkage = new UPGMALinkage(distances)
-        val clusteringResult = new smile.clustering.HierarchicalClustering(linkage).partition(30)
-        val clusters: Map[Int, Array[Int]] = (0 until superpixels).map(i ⇒ i → clusteringResult(i)).groupBy(_._2).mapValues(_.map(_._1).toArray)
-        clusters.values.map((cluster: Array[Int]) ⇒ {
-          val superpixels = cluster.map((id: Int) ⇒ superpixelParameters.get(id).orElse({
-            System.out.println(s"Cluster not found: $id")
-            None
-          })).filter(_.isDefined).map(_.get)
-          summary(superpixels)
-        }).mkString("\n")
-      })
-    })
-
-
   }
 
   private def distance(a: Array[Double], b: Array[Double]) = {
@@ -391,12 +288,12 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
       )
     }
 
-    log.p("To interpret these clusters and the various measures, we train a density tree:");
+    log.p("To help interpret the structure of this data set, we train a density tree:");
     val densityModel = log.code(() ⇒ {
       val tree = new DensityTree("hueMean", "hueStdDev", "lumMean", "lumStdDev", "chromaMean", "width", "length")
-      tree.setSplitSizeThreshold(50)
-      tree.setMinFitness(5)
-      tree.setMaxDepth(5)
+      tree.setSplitSizeThreshold(2)
+      tree.setMinFitness(2)
+      tree.setMaxDepth(3)
       new tree.Node((0 until superpixels).map(superpixelParameters(_)).toArray)
     })
     val fileOutputStream = new FileOutputStream(log.newFile(name + "_tree.txt"))
@@ -408,33 +305,12 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
 
   }
 
-  private def findSuperpixels_Binary(log: ScalaMarkdownPrintStream, hsv: Planar[GrayF32]) = {
-    log.p("Dectection of markings uses the luminosity")
-    val colorBand = log.code(() ⇒ {
-      val bandImg: GrayF32 = hsv.getBand(2)
-      val to = ConvertBufferedImage.convertTo(bandImg, null)
-      VisualizeImageData.standard(bandImg, to)
+  private def findSuperpixels_Binary(log: ScalaMarkdownPrintStream, hsv: Planar[GrayF32], rgb: Planar[GrayF32]) = {
+    val finalBinaryMask = threshold(log, hsv, rgb)
+    val thresholdImg = log.code(() ⇒ {
+      VisualizeBinaryData.renderBinary(finalBinaryMask, false, null)
     })
-    log.p("...by detecting local variations within a gaussian radius")
-    val localGaussian = log.code(() ⇒ {
-      val single = ConvertBufferedImage.convertFromSingle(colorBand, null, classOf[GrayF32])
-      val binary = new GrayU8(single.width, single.height)
-      val radius = 75
-      val scale = 1.0
-      //GThresholdImageOps.localGaussian(single, binary, radius, scale, true, null, null)
-      GThresholdImageOps.localSauvola(single, binary, radius, 0.1f, true)
-    })
-    log.code(() ⇒ {
-      VisualizeBinaryData.renderBinary(localGaussian, false, null)
-    })
-    log.p("This binarization is then refined by eroding and thinning operations")
-    val thresholdImg: BufferedImage = log.code(() ⇒ {
-      var binary = localGaussian
-      binary = BinaryImageOps.erode8(binary, 1, null)
-      binary = BinaryImageOps.thin(binary, 5, null)
-      binary = BinaryImageOps.dilate8(binary, 1, null)
-      VisualizeBinaryData.renderBinary(binary, false, null)
-    })
+
     log.p("We can now identify segments which may be markings:")
     val (superpixels, segmentation) = log.code(() ⇒ {
       val input = ConvertBufferedImage.convertFrom(thresholdImg, null: GrayF32)
@@ -450,11 +326,75 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
     (superpixels, segmentation)
   }
 
+  private def findSuperpixels_Hybrid(log: ScalaMarkdownPrintStream, hsv: Planar[GrayF32], rgb: Planar[GrayF32]) = {
+    val finalBinaryMask = threshold(log, hsv, rgb)
+    val thresholdImg = log.code(() ⇒ {
+      VisualizeBinaryData.renderBinary(finalBinaryMask, false, null)
+    })
+
+    log.p("Use threshold mask to clean white area on board")
+    val maskedRgb: Planar[GrayF32] = log.code(() ⇒ {
+      val maskedRgb: Planar[GrayF32] = rgb.clone()
+      (0 until maskedRgb.getWidth).foreach(x ⇒
+        (0 until maskedRgb.getHeight).foreach(y ⇒
+          (0 until maskedRgb.getNumBands).foreach(b ⇒
+            if(finalBinaryMask.get(x,y)==0) {
+              maskedRgb.getBand(b).set(x, y, 255.0f)
+            })))
+      maskedRgb
+    })
+    log.code(() ⇒ {
+      ConvertBufferedImage.convertTo(maskedRgb, null, false)
+    })
+
+    log.p("We can identify segments which may be markings using the masked color image:")
+    val (superpixels, segmentation) = log.code(() ⇒ {
+      val imageType = ImageType.pl(3, classOf[GrayF32])
+      val alg = FactoryImageSegmentation.fh04(new ConfigFh04(0.5f, 30), imageType)
+      val segmentation = new GrayS32(rgb.getWidth, rgb.getHeight)
+      alg.segment(maskedRgb, segmentation)
+      (alg.getTotalSuperpixels, segmentation)
+    })
+    log.code(() ⇒ {
+      VisualizeRegions.regions(segmentation, superpixels, null)
+    })
+    (superpixels, segmentation)
+  }
+
+  private def threshold(log: ScalaMarkdownPrintStream, hsv: Planar[GrayF32], rgb: Planar[GrayF32]) = {
+    log.p("Dectection of markings uses the luminosity")
+    val colorBand = log.code(() ⇒ {
+      val bandImg: GrayF32 = hsv.getBand(2)
+      val to = ConvertBufferedImage.convertTo(bandImg, null)
+      VisualizeImageData.standard(bandImg, to)
+    })
+    log.p("...by detecting local variations")
+    val binaryMask = log.code(() ⇒ {
+      val single = ConvertBufferedImage.convertFromSingle(colorBand, null, classOf[GrayF32])
+      val binary = new GrayU8(single.width, single.height)
+      GThresholdImageOps.localSauvola(single, binary, 50, 0.2f, true)
+    })
+    log.code(() ⇒ {
+      VisualizeBinaryData.renderBinary(binaryMask, false, null)
+    })
+    binaryMask
+//    log.p("This binarization is then refined by eroding and thinning operations")
+//    val finalBinaryMask: GrayU8 = log.code(() ⇒ {
+//      var temp = binaryMask
+//      temp = BinaryImageOps.thin(temp, 1, null)
+//      temp
+//    })
+//    finalBinaryMask
+  }
+
   private def findSuperpixels_Color(log: ScalaMarkdownPrintStream, rgb: Planar[GrayF32]) = {
     log.p("We can identify segments which may be markings using the full color image:")
     val (superpixels, segmentation) = log.code(() ⇒ {
       val imageType = ImageType.pl(3, classOf[GrayF32])
-      val alg = FactoryImageSegmentation.fh04(new ConfigFh04(100, 30), imageType)
+      val alg = FactoryImageSegmentation.fh04(new ConfigFh04(1.0f, 20), imageType)
+      //val alg = FactoryImageSegmentation.meanShift(new ConfigSegmentMeanShift(10,60.0F,30,true), imageType)
+      //val alg = FactoryImageSegmentation.watershed(new ConfigWatershed(ConnectRule.EIGHT, 20), imageType)
+      //val alg = FactoryImageSegmentation.slic(new ConfigSlic(100), imageType)
       val segmentation = new GrayS32(rgb.getWidth, rgb.getHeight)
       alg.segment(rgb, segmentation)
       (alg.getTotalSuperpixels, segmentation)
