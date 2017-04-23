@@ -1,4 +1,4 @@
-import java.awt.{Graphics, Graphics2D}
+import java.awt.{Graphics, Graphics2D, RenderingHints}
 import java.awt.image.BufferedImage
 import java.io.{File, FileNotFoundException}
 import java.util.function.Supplier
@@ -15,7 +15,9 @@ class ScalaMarkdownPrintStream(file : File, name : String) extends MarkdownPrint
     code(new Supplier[BufferedImage] {
       override def get(): BufferedImage = {
         val image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
-        fn(image.getGraphics.asInstanceOf[Graphics2D])
+        val graphics = image.getGraphics.asInstanceOf[Graphics2D]
+        graphics.asInstanceOf[Graphics2D].setRenderingHints(new RenderingHints(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC))
+        fn(graphics)
         image
       }
     }, 8*1024, 3)

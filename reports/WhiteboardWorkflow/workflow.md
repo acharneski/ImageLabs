@@ -1,6 +1,6 @@
 First, we load an photo of a whiteboard
 
-Code from [WhiteboardWorkflow.scala:70](../../src/test/scala/WhiteboardWorkflow.scala#L70) executed in 0.91 seconds: 
+Code from [WhiteboardWorkflow.scala:66](../../src/test/scala/WhiteboardWorkflow.scala#L66) executed in 0.91 seconds: 
 ```java
     ImageIO.read(getClass.getClassLoader.getResourceAsStream("Whiteboard1.jpg"))
 ```
@@ -13,7 +13,7 @@ Returns:
 ## Region Selection
 We start looking for long edges which can be used to find the board:
 
-Code from [WhiteboardWorkflow.scala:411](../../src/test/scala/WhiteboardWorkflow.scala#L411) executed in 0.12 seconds: 
+Code from [WhiteboardWorkflow.scala:407](../../src/test/scala/WhiteboardWorkflow.scala#L407) executed in 0.13 seconds: 
 ```java
     val localMaxRadius = 10
     val minCounts = 5
@@ -30,7 +30,7 @@ Returns:
 
 
 
-Code from [WhiteboardWorkflow.scala:410](../../src/test/scala/WhiteboardWorkflow.scala#L410) executed in 0.87 seconds: 
+Code from [WhiteboardWorkflow.scala:406](../../src/test/scala/WhiteboardWorkflow.scala#L406) executed in 0.90 seconds: 
 ```java
     val rulerDetector: DetectLine[GrayU8] = log.code(() ⇒ {
       val localMaxRadius = 10
@@ -50,7 +50,7 @@ Returns:
 
 
 
-Code from [WhiteboardWorkflow.scala:421](../../src/test/scala/WhiteboardWorkflow.scala#L421) executed in 0.05 seconds: 
+Code from [WhiteboardWorkflow.scala:417](../../src/test/scala/WhiteboardWorkflow.scala#L417) executed in 0.06 seconds: 
 ```java
     gfx.drawImage(sourceImage, 0, 0, null)
     gfx.setStroke(new BasicStroke(3))
@@ -84,7 +84,7 @@ Returns:
 
 This can then be searched for the largest, most upright, and rectangular shape
 
-Code from [WhiteboardWorkflow.scala:448](../../src/test/scala/WhiteboardWorkflow.scala#L448) executed in 0.10 seconds: 
+Code from [WhiteboardWorkflow.scala:444](../../src/test/scala/WhiteboardWorkflow.scala#L444) executed in 0.10 seconds: 
 ```java
     val horizontals = found.asScala.filter(line ⇒ Math.abs(line.slope.x) > Math.abs(line.slope.y)).toList
     val verticals = found.asScala.filter(line ⇒ Math.abs(line.slope.x) <= Math.abs(line.slope.y)).toList
@@ -121,7 +121,7 @@ Returns:
 
 
 
-Code from [WhiteboardWorkflow.scala:476](../../src/test/scala/WhiteboardWorkflow.scala#L476) executed in 0.04 seconds: 
+Code from [WhiteboardWorkflow.scala:472](../../src/test/scala/WhiteboardWorkflow.scala#L472) executed in 0.07 seconds: 
 ```java
     gfx.drawImage(sourceImage, 0, 0, null)
     gfx.setStroke(new BasicStroke(3))
@@ -136,7 +136,7 @@ Returns:
 
 We then distort the image using a homographic transform back into a rectangle. First we estimate the correct size of the image:
 
-Code from [WhiteboardWorkflow.scala:484](../../src/test/scala/WhiteboardWorkflow.scala#L484) executed in 0.00 seconds: 
+Code from [WhiteboardWorkflow.scala:480](../../src/test/scala/WhiteboardWorkflow.scala#L480) executed in 0.00 seconds: 
 ```java
     (
       (bestQuadrangle.getSideLength(0) + bestQuadrangle.getSideLength(2)).toInt / 2,
@@ -153,7 +153,7 @@ Returns:
 
 We derive the transform:
 
-Code from [WhiteboardWorkflow.scala:492](../../src/test/scala/WhiteboardWorkflow.scala#L492) executed in 0.08 seconds: 
+Code from [WhiteboardWorkflow.scala:488](../../src/test/scala/WhiteboardWorkflow.scala#L488) executed in 0.08 seconds: 
 ```java
     val transformModel: ModelMatcher[Homography2D_F64, AssociatedPair] = {
       val maxIterations = 100
@@ -180,7 +180,7 @@ Returns:
 
 And we transform the image:
 
-Code from [WhiteboardWorkflow.scala:510](../../src/test/scala/WhiteboardWorkflow.scala#L510) executed in 1.43 seconds: 
+Code from [WhiteboardWorkflow.scala:506](../../src/test/scala/WhiteboardWorkflow.scala#L506) executed in 1.38 seconds: 
 ```java
     val distortion: ImageDistort[Planar[GrayF32], Planar[GrayF32]] = {
       val interpolation = FactoryInterpolation.bilinearPixelS(classOf[GrayF32], BorderType.ZERO)
@@ -205,7 +205,7 @@ Returns:
 
 Now we refine our selection using some region selection, perhaps by manual selection
 
-Code from [WhiteboardWorkflow.scala:78](../../src/test/scala/WhiteboardWorkflow.scala#L78) executed in 0.00 seconds: 
+Code from [WhiteboardWorkflow.scala:74](../../src/test/scala/WhiteboardWorkflow.scala#L74) executed in 0.00 seconds: 
 ```java
     new Rectangle2D_F32(100, 40, 2700, 2100)
 ```
@@ -217,7 +217,7 @@ Returns:
 
 
 
-Code from [WhiteboardWorkflow.scala:81](../../src/test/scala/WhiteboardWorkflow.scala#L81) executed in 0.03 seconds: 
+Code from [WhiteboardWorkflow.scala:77](../../src/test/scala/WhiteboardWorkflow.scala#L77) executed in 0.03 seconds: 
 ```java
     gfx.drawImage(primaryImage, 0, 0, null)
     gfx.setStroke(new BasicStroke(3))
@@ -230,7 +230,7 @@ Returns:
 
 
 
-Code from [WhiteboardWorkflow.scala:87](../../src/test/scala/WhiteboardWorkflow.scala#L87) executed in 0.00 seconds: 
+Code from [WhiteboardWorkflow.scala:83](../../src/test/scala/WhiteboardWorkflow.scala#L83) executed in 0.00 seconds: 
 ```java
     primaryImage.getSubimage(tileBounds.p0.x.toInt, tileBounds.p0.y.toInt, tileBounds.getWidth.toInt, tileBounds.getHeight.toInt)
 ```
@@ -246,7 +246,7 @@ Our default method uses binarization and morphological operations:
 
 Dectection of markings uses the luminosity
 
-Code from [WhiteboardWorkflow.scala:366](../../src/test/scala/WhiteboardWorkflow.scala#L366) executed in 1.03 seconds: 
+Code from [WhiteboardWorkflow.scala:372](../../src/test/scala/WhiteboardWorkflow.scala#L372) executed in 1.03 seconds: 
 ```java
     val bandImg: GrayF32 = hsv.getBand(2)
     val to = ConvertBufferedImage.convertTo(bandImg, null)
@@ -260,7 +260,7 @@ Returns:
 
 ...by detecting local variations
 
-Code from [WhiteboardWorkflow.scala:372](../../src/test/scala/WhiteboardWorkflow.scala#L372) executed in 1.14 seconds: 
+Code from [WhiteboardWorkflow.scala:378](../../src/test/scala/WhiteboardWorkflow.scala#L378) executed in 0.97 seconds: 
 ```java
     val single = ConvertBufferedImage.convertFromSingle(colorBand, null, classOf[GrayF32])
     val binary = new GrayU8(single.width, single.height)
@@ -274,7 +274,7 @@ Returns:
 
 
 
-Code from [WhiteboardWorkflow.scala:377](../../src/test/scala/WhiteboardWorkflow.scala#L377) executed in 0.03 seconds: 
+Code from [WhiteboardWorkflow.scala:383](../../src/test/scala/WhiteboardWorkflow.scala#L383) executed in 0.03 seconds: 
 ```java
     VisualizeBinaryData.renderBinary(binaryMask, false, null)
 ```
@@ -284,7 +284,7 @@ Returns:
 
 
 
-Code from [WhiteboardWorkflow.scala:310](../../src/test/scala/WhiteboardWorkflow.scala#L310) executed in 0.01 seconds: 
+Code from [WhiteboardWorkflow.scala:316](../../src/test/scala/WhiteboardWorkflow.scala#L316) executed in 0.01 seconds: 
 ```java
     VisualizeBinaryData.renderBinary(finalBinaryMask, false, null)
 ```
@@ -296,7 +296,7 @@ Returns:
 
 We can now identify segments which may be markings:
 
-Code from [WhiteboardWorkflow.scala:315](../../src/test/scala/WhiteboardWorkflow.scala#L315) executed in 30.02 seconds: 
+Code from [WhiteboardWorkflow.scala:321](../../src/test/scala/WhiteboardWorkflow.scala#L321) executed in 20.13 seconds: 
 ```java
     val input = ConvertBufferedImage.convertFrom(thresholdImg, null: GrayF32)
     val imageType = ImageType.single(classOf[GrayF32])
@@ -313,7 +313,7 @@ Returns:
 
 
 
-Code from [WhiteboardWorkflow.scala:323](../../src/test/scala/WhiteboardWorkflow.scala#L323) executed in 0.04 seconds: 
+Code from [WhiteboardWorkflow.scala:329](../../src/test/scala/WhiteboardWorkflow.scala#L329) executed in 0.04 seconds: 
 ```java
     VisualizeRegions.regions(segmentation, superpixels, null)
 ```
@@ -325,7 +325,7 @@ Returns:
 
 For each segment, we categorize and colorize each using some logic
 
-Code from [WhiteboardWorkflow.scala:139](../../src/test/scala/WhiteboardWorkflow.scala#L139) executed in 21.01 seconds: 
+Code from [WhiteboardWorkflow.scala:133](../../src/test/scala/WhiteboardWorkflow.scala#L133) executed in 22.20 seconds: 
 ```java
     val regions = (0 until segmentation.getWidth).flatMap(x ⇒ (0 until segmentation.getHeight).map(y ⇒ {
       segmentation.get(x, y) → ((x, y) → rgb.bands.map(_.get(x, y)))
@@ -337,6 +337,43 @@ Code from [WhiteboardWorkflow.scala:139](../../src/test/scala/WhiteboardWorkflow
         ColorHsv.rgbToHsv(rgb(0), rgb(1), rgb(2), hsv)
         hsv
       })
+      def statsHsv(fn: Array[Float] ⇒ (Float, Float)): (Float, Float) = {
+        val stats = hsvValues.map((hsv: Array[Float]) ⇒ {
+          val (weight, value) = fn(hsv)
+          (weight, value * weight, value * value * weight)
+        }).reduce((xa, xb) ⇒ (xa._1 + xb._1, xa._2 + xb._2, xa._3 + xb._3))
+        val mean = stats._2 / stats._1
+        val stdDev = Math.sqrt(Math.abs((stats._3 / stats._1) - mean * mean)).toFloat
+        (mean, stdDev)
+      }
+      // Superpixel color statistics:
+      val (hueMean1, hueStdDev1) = statsHsv((hsv: Array[Float]) ⇒ {
+        (hsv(2) * hsv(1) * (1 - hsv(2)), hsv(0))
+      })
+      val (hueMean2, hueStdDev2) = statsHsv((hsv: Array[Float]) ⇒ {
+        (hsv(2) * hsv(1) * (1 - hsv(2)), ((Math.PI + hsv(0)) % (2 * Math.PI)).toFloat)
+      })
+      val (hueMean: Float, hueStdDev: Float) = if (hueStdDev1 < hueStdDev2) {
+        (hueMean1, hueStdDev1)
+      } else {
+        (((Math.PI + hueMean2) % (2 * Math.PI)).toFloat, hueStdDev2)
+      }
+      val (lumMean, lumStdDev) = statsHsv((hsv: Array[Float]) ⇒ {
+        (1, hsv(2))
+      })
+      val (chromaMean, chromaStdDev) = statsHsv((hsv: Array[Float]) ⇒ {
+        (1, hsv(2) * hsv(1))
+      })
+      // Superpixel geometry statistics:
+      val xMax = pixels.map(_._1._1).max
+      val xMin = pixels.map(_._1._1).min
+      val yMax = pixels.map(_._1._2).max
+      val yMin = pixels.map(_._1._2).min
+      val length = Math.max(xMax - xMin, yMax - yMin)
+      val area = pixels.size
+      val width = area / length
+      Array[Double](hueMean, hueStdDev, lumMean, lumStdDev, chromaMean, width, length)
+    }).toArray.toMap
 ```
 
 Returns: 
@@ -348,7 +385,7 @@ Returns:
 
 To help interpret the structure of this data set, we train a density tree:
 
-Code from [WhiteboardWorkflow.scala:292](../../src/test/scala/WhiteboardWorkflow.scala#L292) executed in 0.19 seconds: 
+Code from [WhiteboardWorkflow.scala:298](../../src/test/scala/WhiteboardWorkflow.scala#L298) executed in 0.19 seconds: 
 ```java
     val tree = new DensityTree("hueMean", "hueStdDev", "lumMean", "lumStdDev", "chromaMean", "width", "length")
     tree.setSplitSizeThreshold(2)
@@ -401,19 +438,80 @@ if(hueStdDev < 0.09631896764039993) { // Fitness 14.045226767822914
 
 Now, we recolor the image by classifying each superpixel as white, black, or color:
 
-Code from [WhiteboardWorkflow.scala:202](../../src/test/scala/WhiteboardWorkflow.scala#L202) executed in 0.76 seconds: 
+Code from [WhiteboardWorkflow.scala:194](../../src/test/scala/WhiteboardWorkflow.scala#L194) executed in 0.65 seconds: 
 ```java
     val segmentColors: ColorQueue_F32 = new ColorQueue_F32(3)
     segmentColors.resize(superpixels)
     (0 until superpixels).foreach(i ⇒ {
       segmentColors.getData()(i) = {
         val p = superpixelParameters(i)
-        val (hueMean: Float, hueStdDev: Float, lumMean: Float, lumStdDev: Float, chromaMean: Float, width: Int, length: Int) = (p(0).floatValue(), p(1).floatValue(), p(2).floatValue(), p(3).floatValue(), p(4).floatValue(), p(5).intValue(), p(6).intValue())
+        val (hueMean: Float, hueStdDev: Float, lumMean: Float, lumStdDev: Float, chromaMean: Float, width: Int, length: Int) =
+          (p(0).floatValue(), p(1).floatValue(), p(2).floatValue(), p(3).floatValue(), p(4).floatValue(), p(5).intValue(), p(6).intValue())
+        var isColored = false
+        var isBlack = false
+        var isWhite = false
+        if (lumStdDev < 1.5) {
+            isWhite = true
+        } else {
+          if (hueStdDev < 0.05) {
+            isColored = true
+          } else {
+            if (chromaMean < 5.0) {
+              isBlack = true
+            } else {
+              isColored = true
+            }
+          }
+        }
         val aspect = length.toDouble / width
+        val isMarkingShape = aspect > 2 && width < 35
+        val isMarking = isMarkingShape && !isWhite
+        if (isMarking) {
+          if (isBlack) {
+            Array(0.0f, 0.0f, 0.0f)
+          } else {
+            val rgb = new Array[Float](3)
+            ColorHsv.hsvToRgb(hueMean, 1.0f, 255.0f, rgb)
+            rgb
+          }
+        } else {
+          Array(255.0f, 255.0f, 255.0f)
+        }
+      }
+    })
+    VisualizeRegions.regionsColor(segmentation, segmentColors, null)
 ```
 
 Returns: 
 ![Result](workflow.11.png)
+
+
+
+Finally, we trim all the whitespace: 
+
+Code from [WhiteboardWorkflow.scala:238](../../src/test/scala/WhiteboardWorkflow.scala#L238) executed in 1.44 seconds: 
+```java
+    val pixels = (0 until colorizedImg.getWidth).flatMap(x ⇒
+      (0 until colorizedImg.getHeight).filterNot(y ⇒
+        util.Arrays.equals(colorizedImg.getRaster.getPixel(x, y, null: Array[Int]), Array(255, 255, 255))).map(y ⇒ x → y))
+    var (xmin,xmax) = (pixels.map(_._1).min, pixels.map(_._1).max)
+    var (ymin,ymax) = (pixels.map(_._2).min, pixels.map(_._2).max)
+    val regionAspect = (xmax - xmin).toDouble / (ymax - ymin)
+    val imageAspect = colorizedImg.getWidth.toDouble / colorizedImg.getHeight
+    if(regionAspect< imageAspect) {
+      val width = (colorizedImg.getWidth * (ymax-ymin))/colorizedImg.getHeight
+      xmin = Math.max(0, (xmax + xmin - width)/2)
+      xmax = xmin + width
+    } else {
+      val height = (colorizedImg.getHeight * (xmax-xmin))/colorizedImg.getWidth
+      ymin = Math.max(0, (ymax + ymin - height)/2)
+      ymax = ymin + height
+    }
+    gfx.drawImage(colorizedImg, 0, 0, colorizedImg.getWidth, colorizedImg.getHeight, xmin,ymin, xmax,ymax, null)
+```
+
+Returns: 
+![Result](workflow.12.png)
 
 
 
@@ -422,13 +520,10 @@ Here is an alternate method using direct-color segmentation:
 
 We can identify segments which may be markings using the full color image:
 
-Code from [WhiteboardWorkflow.scala:392](../../src/test/scala/WhiteboardWorkflow.scala#L392) executed in 26.61 seconds: 
+Code from [WhiteboardWorkflow.scala:391](../../src/test/scala/WhiteboardWorkflow.scala#L391) executed in 25.01 seconds: 
 ```java
     val imageType = ImageType.pl(3, classOf[GrayF32])
     val alg = FactoryImageSegmentation.fh04(new ConfigFh04(1.0f, 20), imageType)
-    //val alg = FactoryImageSegmentation.meanShift(new ConfigSegmentMeanShift(10,60.0F,30,true), imageType)
-    //val alg = FactoryImageSegmentation.watershed(new ConfigWatershed(ConnectRule.EIGHT, 20), imageType)
-    //val alg = FactoryImageSegmentation.slic(new ConfigSlic(100), imageType)
     val segmentation = new GrayS32(rgb.getWidth, rgb.getHeight)
     alg.segment(rgb, segmentation)
     (alg.getTotalSuperpixels, segmentation)
@@ -436,24 +531,24 @@ Code from [WhiteboardWorkflow.scala:392](../../src/test/scala/WhiteboardWorkflow
 
 Returns: 
 ```
-    (93343,boofcv.struct.image.GrayS32@1a6f5124)
+    (93343,boofcv.struct.image.GrayS32@41c07648)
 ```
 
 
 
-Code from [WhiteboardWorkflow.scala:402](../../src/test/scala/WhiteboardWorkflow.scala#L402) executed in 0.03 seconds: 
+Code from [WhiteboardWorkflow.scala:398](../../src/test/scala/WhiteboardWorkflow.scala#L398) executed in 0.02 seconds: 
 ```java
     VisualizeRegions.regions(segmentation, superpixels, null)
 ```
 
 Returns: 
-![Result](workflow.12.png)
+![Result](workflow.13.png)
 
 
 
 For each segment, we categorize and colorize each using some logic
 
-Code from [WhiteboardWorkflow.scala:139](../../src/test/scala/WhiteboardWorkflow.scala#L139) executed in 12.83 seconds: 
+Code from [WhiteboardWorkflow.scala:133](../../src/test/scala/WhiteboardWorkflow.scala#L133) executed in 11.95 seconds: 
 ```java
     val regions = (0 until segmentation.getWidth).flatMap(x ⇒ (0 until segmentation.getHeight).map(y ⇒ {
       segmentation.get(x, y) → ((x, y) → rgb.bands.map(_.get(x, y)))
@@ -465,18 +560,55 @@ Code from [WhiteboardWorkflow.scala:139](../../src/test/scala/WhiteboardWorkflow
         ColorHsv.rgbToHsv(rgb(0), rgb(1), rgb(2), hsv)
         hsv
       })
+      def statsHsv(fn: Array[Float] ⇒ (Float, Float)): (Float, Float) = {
+        val stats = hsvValues.map((hsv: Array[Float]) ⇒ {
+          val (weight, value) = fn(hsv)
+          (weight, value * weight, value * value * weight)
+        }).reduce((xa, xb) ⇒ (xa._1 + xb._1, xa._2 + xb._2, xa._3 + xb._3))
+        val mean = stats._2 / stats._1
+        val stdDev = Math.sqrt(Math.abs((stats._3 / stats._1) - mean * mean)).toFloat
+        (mean, stdDev)
+      }
+      // Superpixel color statistics:
+      val (hueMean1, hueStdDev1) = statsHsv((hsv: Array[Float]) ⇒ {
+        (hsv(2) * hsv(1) * (1 - hsv(2)), hsv(0))
+      })
+      val (hueMean2, hueStdDev2) = statsHsv((hsv: Array[Float]) ⇒ {
+        (hsv(2) * hsv(1) * (1 - hsv(2)), ((Math.PI + hsv(0)) % (2 * Math.PI)).toFloat)
+      })
+      val (hueMean: Float, hueStdDev: Float) = if (hueStdDev1 < hueStdDev2) {
+        (hueMean1, hueStdDev1)
+      } else {
+        (((Math.PI + hueMean2) % (2 * Math.PI)).toFloat, hueStdDev2)
+      }
+      val (lumMean, lumStdDev) = statsHsv((hsv: Array[Float]) ⇒ {
+        (1, hsv(2))
+      })
+      val (chromaMean, chromaStdDev) = statsHsv((hsv: Array[Float]) ⇒ {
+        (1, hsv(2) * hsv(1))
+      })
+      // Superpixel geometry statistics:
+      val xMax = pixels.map(_._1._1).max
+      val xMin = pixels.map(_._1._1).min
+      val yMax = pixels.map(_._1._2).max
+      val yMin = pixels.map(_._1._2).min
+      val length = Math.max(xMax - xMin, yMax - yMin)
+      val area = pixels.size
+      val width = area / length
+      Array[Double](hueMean, hueStdDev, lumMean, lumStdDev, chromaMean, width, length)
+    }).toArray.toMap
 ```
 
 Returns: 
 ```
-    Map(53767 -> [D@32f61a31, 32571 -> [D@f5c79a6, 88533 -> [D@669253b7, 77772 -> [D@5305c37d, 42890 -> [D@51a06cbe, 46805 -> [D@3dddbe65, 72033 -> [D@49a64d82, 88320 -> [D@344561e0, 92325 -> [D@66d23e4a, 37159 -> [D@36ac8a63, 29176 -> [D@4d9d1b69, 14221 -> [D@52c8295b, 2163 -> [D@251f7d26, 37041 -> [D@77b21474, 62232 -> [D@52d10fb8, 8607 -> [D@41c07648, 60426 -> [D@1fe8d51b, 25695 -> [D@781e7326, 645 -> [D@22680f52, 84726 -> [D@60d84f61, 13950 -> [D@39c11e6c, 31843 -> [D@324dcd31, 20873 -> [D@503d56b5, 86230 -> [D@72bca894, 23162 -> [D@433ffad1, 39241 -> [D@1fc793c2, 90638 -> [D@2575f671, 64790 -> [D@329a1243, 42900 -> [D@ecf9fb3, 69439 -> [D@2d35442b, 46827 -> [D@27f9e982, 16466 -> [D@4593ff34, 67614 -> [D@37d3d232, 55558 -> [D@30c0ccff, 53060 -> [D@581d969c, 28337 -> [D@22db8f4, 49828 -> [D@2b46a8c1, 50400 -> [D@1d572e62, 29862 -> [D@29caf222, 39049 -> [D@46cf05f7, 69397 -> [D@5851bd4f, 19887 -> [D@7cd1ac19, 81338 -> [D@2f40a43, 35178 -> [D@3caa4757, 84918 -> [D@69c43e48, 86139 -> [D@1804f60d, 41742 -> [D@3a80515c, 39858 -> [D@547e29a4, 54355 -> [D@1c807b1d, 18180 -> [D@238b521e, 69939 -> [D@1b39fd82, 70174 -> [D@3e2fc448, 70656 -> [D@21680803, 16383 -> [D@588ab592, 36308 -> [D@c8b96ec, 31885 -> [D@4cc61eb1, 892 -> [D@2d8f2f3a, 90410 -> [D@2024293c, 69 -> [D@7048f722, 50665 -> [D@c074c0c, 51261 -> [D@58a55449, 35370 -> [D@5949eba8, 80586 -> [D@6e0ff644, 74021 -> [D@58dea0a5, 53550 -> [D@2a2bb0eb, 45704 -> [D@3c291aad, 66152 -> [D@2d0566ba, 10822 -> [D@733037, 37830 -> [D@7728643a, 37753 -> [D@320e400, 79066 -> [D@5167268, 85145 -> [D@1cfd1875, 26129 -> [D@28c0b664, 16216 -> [D@2c444798, 23563 -> [D@1af7f54a, 81292 -> [D@6ebd78d1, 43261 -> [D@436390f4, 64943 -> [D@4d157787, 25953 -> [D@68ed96ca, 23764 -> [D@6d1310f6, 81608 -> [D@3228d990, 15874 -> [D@54e7391d, 35210 -> [D@50b8ae8d, 54422 -> [D@255990cc, 34630 -> [D@51c929ae, 5385 -> [D@3c8bdd5b, 84486 -> [D@29d2d081, 91071 -> [D@40e4ea87, 40422 -> [D@58783f6c, 68000 -> [D@3a7b503d, 5810 -> [D@512d92b, 49767 -> [D@62c5bbdc, 7375 -> [D@7bdf6bb7, 67223 -> [D@1bc53649, 31462 -> [D@88d6f9b, 81586 -> [D@47d93e0d, 66592 -> [D@475b7792, 81767 -> [D@751e664e, 41894 -> [D@160c3ec1, 77446 -> [D@182b435b, 62382 -> [D@4d0402b, 32287 -> [D@2fa7ae9, 33394 -> [D@7577b641, 5659 -> [D@3704122f, 67773 -> [D@3153ddfc, 55377 -> [D@60afd40d, 31720 -> [D@28a2a3e7, 61456 -> [D@3f2049b6, 19204 -> [D@10b3df93, 59593 -> [D@ea27e34, 64599 -> [D@33a2499c, 80316 -> [D@e72dba7, 42983 -> [D@33c2bd, 20194 -> [D@1dfd5f51, 74720 -> [D@3c321bdb, 69626 -> [D@24855019, 56771 -> [D@3abd581e, 50239 -> [D@4d4d8fcf, 34987 -> [D@610db97e, 33234 -> [D@6f0628de, 14977 -> [D@3fabf088, 33019 -> [D@1e392345, 9929 -> [D@12f3afb5, 11866 -> [D@4ced35ed, 24939 -> [D@2c22a348, 92584 -> [D@7bd69e82, 57415 -> [D@74d7184a, 68990 -> [D@51b01960, 86853 -> [D@6831d8fd, 12928 -> [D@27dc79f7, 45296 -> [D@6b85300e, 67543 -> [D@3aaf4f07, 74492 -> [D@5cbf9e9f, 60039 -> [D@18e8473e, 46897 -> [D@5a2f016d, 21605 -> [D@1a38ba58, 66993 -> [D@3ad394e6, 75299 -> [D@6058e535, 17671 -> [D@42deb43a, 36739 -> [D@1deb2c43, 49591 -> [D@3bb9efbc, 75883 -> [D@1cefc4b3, 2199 -> [D@2b27cc70, 64022 -> [D@6f6a7463, 59003 -> [D@1bdaa23d, 66341 -> [D@79f227a9, 72905 -> [D@6ca320ab, 8062 -> [D@50d68830, 39417 -> [D@1e53135d, 25109 -> [D@7674a051, 3021 -> [D@3a7704c, 38328 -> [D@6754ef00, 13650 -> [D@619bd14c, 8536 -> [D@323e8306, 5437 -> [D@a23a01d, 20200 -> [D@4acf72b6, 59913 -> [D@7561db12, 57225 -> [D@3301500b, 1322 -> [D@24b52d3e, 25521 -> [D@15deb1dc, 36905 -> [D@6e9c413e, 85910 -> [D@57a4d5ee, 49988 -> [D@5af5def9, 56093 -> [D@3a45c42a, 88990 -> [D@36dce7ed, 45621 -> [D@47a64f7d, 24338 -> [D@33d05366, 74470 -> [D@27a0a5a2, 43294 -> [D@7692cd34, 1665 -> [D@33aa93c, 15767 -> [D@32c0915e, 40432 -> [D@106faf11, 38002 -> [D@70f43b45, 62154 -> [D@26d10f2e, 54506 -> [D@10ad20cb, 91679 -> [D@7dd712e8, 59972 -> [D@2c282004, 45642 -> [D@22ee2d0, 79473 -> [D@7bfc3126, 57284 -> [D@3e792ce3, 79936 -> [D@53bc1328, 34178 -> [D@26f143ed, 21624 -> [D@3c1e3314, 61953 -> [D@4b770e40, 56912 -> [D@78e16155, 73329 -> [D@54a3ab8f, 78556 -> [D@1968a49c, 5509 -> [D@6a1ebcff, 40738 -> [D@19868320, 5686 -> [D@50b0bc4c, 26820 -> [D@c20be82, 1036 -> [D@13c612bd, 52015 -> [D@3ef41c66, 45875 -> [D@6b739528, 58090 -> [D@622ef26a, 9982 -> [D@41de5768, 52505 -> [D@5f577419, 69133 -> [D@28fa700e, 2822 -> [D@3d526ad9, 7304 -> [D@e041f0c, 16794 -> [D@6a175569, 14852 -> [D@11963225, 19370 -> [D@3f3c966c, 38939 -> [D@11ee02f8, 75324 -> [D@4102b1b1, 24213 -> [D@61a5b4ae, 10007 -> [D@3a71c100, 42603 -> [D@5b69fd74, 65367 -> [D@f325091, 9131 -> [D@437e951d, 54999 -> [D@77b325b3, 29375 -> [D@63a5e46c, 91636 -> [D@7e8e8651, 34665 -> [D@49ef32e0, 2630 -> [D@271f18d3, 21729 -> [D@6bd51ed8, 41049 -> [D@61e3a1fd, 13052 -> [D@51abf713, 66201 -> [D@eadb475, 39515 -> [D@4d4d48a6, 87345 -> [D@315df4bb, 15806 -> [D@3fc08eec, 50164 -> [D@5cad8b7d, 83028 -> [D@7b02e036, 57736 -> [D@25243bc1, 70698 -> [D@1e287667, 56798 -> [D@2e6ee0bc, 29564 -> [D@4201a617, 80948 -> [D@467f77a5, 23855 -> [D@1bb9aa43, 59383 -> [D@420bc288, 24878 -> [D@df5f5c0, 54403 -> [D@308a6984, 81915 -> [D@66b72664, 6085 -> [D@7a34b7b8, 26329 -> [D@58cd06cb, 29599 -> [D@3be8821f, 13266 -> [D@64b31700, 47949 -> [D@3b65e559, 76381 -> [D@bae47a0, 76233 -> [D@74a9c4b0, 62161 -> [D@85ec632, 47229 -> [D@1c05a54d, 27536 -> [D@65ef722a, 3873 -> [D@5fd9b663, 87419 -> [D@214894fc, 81756 -> [D@10567255, 68707 -> [D@e362c57, 64422 -> [D@1c4ee95c, 54447 -> [D@79c4715d, 73813 -> [D@5aa360ea, 75848 -> [D@6548bb7d, 28587 -> [D@e27ba81, 10917 -> [D@54336c81, 4188 -> [D@1556f2dd, 15643 -> [D@35e52059, 83720 -> [D@62577d6, 92603 -> [D@49bd54f7, 44266 -> [D@6b5f8707, 46590 -> [D@772485dd, 87875 -> [D@5a12c728, 70259 -> [D@79ab3a71, 20256 -> [D@6e5bfdfc, 79806 -> [D@3d829787, 1586 -> [D@71652c98, 40696 -> [D@51bde877, 85756 -> [D@60b85ba1, 25724 -> [D@492fc69e, 92385 -> [D@117632cf, 8618 -> [D@2fb68ec6, 26413 -> [D@d71adc2, 88303 -> [D@3add81c4, 36243 -> [D@1a1d3c1a, 29473 -> [D@1c65121, 23882 -> [D@159e366, 54280 -> [D@57dc9128, 83171 -> [D@24528a25, 75915 -> [D@17ae98d7, 53672 -> [D@59221b97, 85109 -> [D@6ac4944a, 26250 -> [D@5a772895, 16054 -> [D@39fc6b2c, 41557 -> [D@704b2127, 66135 -> [D@3ee39da0, 29163 -> [D@5d332969, 64773 -> [D@7cc9ce8, 1501 -> [D@2e27d72f, 39365 -> [D@c0b41d6, 35474 -> [D@4837595f, 19597 -> [D@2bffa76d, 92234 -> [D@3b718392, 30353 -> [D@6d2260db, 69484 -> [D@1f2d2181, 18768 -> [D@49bf29c6, 27510 -> [D@7ee55e70, 27052 -> [D@3fcdcf, 52737 -> [D@7668d560, 84540 -> [D@46292372, 61392 -> [D@126be319, 71968 -> [D@6c44052e, 4201 -> [D@5c371e13, 32604 -> [D@530a8454, 2452 -> [D@1e34c607, 35681 -> [D@5215cd9a, 21321 -> [D@36b6964d, 90821 -> [D@31198ceb, 88518 -> [D@9257031, 19904 -> [D@75201592, 91295 -> [D@7726e185, 53037 -> [D@aa5455e, 8960 -> [D@282308c3, 85839 -> [D@5dda14d0, 43615 -> [D@1db0ec27, 62868 -> [D@3d9fc57a, 15170 -> [D@d4ab71a, 40307 -> [D@3b4ef7, 9405 -> [D@1af05b03, 71858 -> [D@5987e932, 61794 -> [D@1ad777f, 809 -> [D@5bbbdd4b, 7373 -> [D@438bad7c, 25680 -> [D@25230246, 45783 -> [D@4fdf8f12, 48513 -> [D@4a8b5227, 60061 -> [D@54f5f647, 52690 -> [D@6979efad, 66167 -> [D@5a6d5a8f, 23428 -> [D@4a67318f, 16261 -> [D@315ba14a, 90622 -> [D@17f9344b, 18279 -> [D@27f0ad19, 16340 -> [D@54e81b21, 15467 -> [D@38d5b107, 45828 -> [D@6650813a, 39919 -> [D@44ea608c, 55663 -> [D@50cf5a23, 24146 -> [D@450794b4, 66854 -> [D@273c947f, 44442 -> [D@30457e14, 91652 -> [D@1af1347d, 28292 -> [D@632aa1a3, 63802 -> [D@20765ed5, 41429 -> [D@3b582111, 8930 -> [D@2899a8db, 24791 -> [D@1e8823d2, 17959 -> [D@c1a4620, 80503 -> [D@76b0ae1b, 57366 -> [D@130a0f66, 33902 -> [D@4c432866, 77856 -> [D@12365c88, 88156 -> [D@6105f8a3, 72880 -> [D@2237bada, 66719 -> [D@77e2a6e2, 82465 -> [D@5710768a, 44514 -> [D@199e4c2b, 71049 -> [D@6e0d4a8, 4560 -> [D@64d7b720, 17507 -> [D@30272916, 63148 -> [D@5bb3d42d, 50896 -> [D@5bf61e67, 7766 -> [D@2c1dc8e, 35606 -> [D@b273a59, 17759 -> [D@4e7095ac, 13024 -> [D@251ebf23, 68362 -> [D@29b732a2, 24914 -> [D@1b70203f, 64491 -> [D@51671b08, 76413 -> [D@15051a0, 4447 -> [D@1162410a, 38311 -> [D@b09fac1, 75070 -> [D@62df0ff3, 28419 -> [D@61019f59, 34352 -> [D@62e8f862, 47281 -> [D@26f3d90c, 55964 -> [D@3c49fab6, 67165 -> [D@515f4131, 90259 -> [D@7... and 2021792 more bytes
+    Map(53767 -> [D@324dcd31, 32571 -> [D@503d56b5, 88533 -> [D@72bca894, 77772 -> [D@433ffad1, 42890 -> [D@1fc793c2, 46805 -> [D@2575f671, 72033 -> [D@329a1243, 88320 -> [D@ecf9fb3, 92325 -> [D@2d35442b, 37159 -> [D@27f9e982, 29176 -> [D@4593ff34, 14221 -> [D@37d3d232, 2163 -> [D@30c0ccff, 37041 -> [D@581d969c, 62232 -> [D@22db8f4, 8607 -> [D@2b46a8c1, 60426 -> [D@1d572e62, 25695 -> [D@29caf222, 645 -> [D@46cf05f7, 84726 -> [D@5851bd4f, 13950 -> [D@7cd1ac19, 31843 -> [D@2f40a43, 20873 -> [D@3caa4757, 86230 -> [D@69c43e48, 23162 -> [D@1804f60d, 39241 -> [D@3a80515c, 90638 -> [D@547e29a4, 64790 -> [D@1c807b1d, 42900 -> [D@238b521e, 69439 -> [D@1b39fd82, 46827 -> [D@3e2fc448, 16466 -> [D@21680803, 67614 -> [D@588ab592, 55558 -> [D@c8b96ec, 53060 -> [D@4cc61eb1, 28337 -> [D@2d8f2f3a, 49828 -> [D@2024293c, 50400 -> [D@7048f722, 29862 -> [D@c074c0c, 39049 -> [D@58a55449, 69397 -> [D@5949eba8, 19887 -> [D@6e0ff644, 81338 -> [D@58dea0a5, 35178 -> [D@2a2bb0eb, 84918 -> [D@3c291aad, 86139 -> [D@2d0566ba, 41742 -> [D@733037, 39858 -> [D@7728643a, 54355 -> [D@320e400, 18180 -> [D@5167268, 69939 -> [D@1cfd1875, 70174 -> [D@28c0b664, 70656 -> [D@2c444798, 16383 -> [D@1af7f54a, 36308 -> [D@6ebd78d1, 31885 -> [D@436390f4, 892 -> [D@4d157787, 90410 -> [D@68ed96ca, 69 -> [D@6d1310f6, 50665 -> [D@3228d990, 51261 -> [D@54e7391d, 35370 -> [D@50b8ae8d, 80586 -> [D@255990cc, 74021 -> [D@51c929ae, 53550 -> [D@3c8bdd5b, 45704 -> [D@29d2d081, 66152 -> [D@40e4ea87, 10822 -> [D@58783f6c, 37830 -> [D@3a7b503d, 37753 -> [D@512d92b, 79066 -> [D@62c5bbdc, 85145 -> [D@7bdf6bb7, 26129 -> [D@1bc53649, 16216 -> [D@88d6f9b, 23563 -> [D@47d93e0d, 81292 -> [D@475b7792, 43261 -> [D@751e664e, 64943 -> [D@160c3ec1, 25953 -> [D@182b435b, 23764 -> [D@4d0402b, 81608 -> [D@2fa7ae9, 15874 -> [D@7577b641, 35210 -> [D@3704122f, 54422 -> [D@3153ddfc, 34630 -> [D@60afd40d, 5385 -> [D@28a2a3e7, 84486 -> [D@3f2049b6, 91071 -> [D@10b3df93, 40422 -> [D@ea27e34, 68000 -> [D@33a2499c, 5810 -> [D@e72dba7, 49767 -> [D@33c2bd, 7375 -> [D@1dfd5f51, 67223 -> [D@3c321bdb, 31462 -> [D@24855019, 81586 -> [D@3abd581e, 66592 -> [D@4d4d8fcf, 81767 -> [D@610db97e, 41894 -> [D@6f0628de, 77446 -> [D@3fabf088, 62382 -> [D@1e392345, 32287 -> [D@12f3afb5, 33394 -> [D@4ced35ed, 5659 -> [D@2c22a348, 67773 -> [D@7bd69e82, 55377 -> [D@74d7184a, 31720 -> [D@51b01960, 61456 -> [D@6831d8fd, 19204 -> [D@27dc79f7, 59593 -> [D@6b85300e, 64599 -> [D@3aaf4f07, 80316 -> [D@5cbf9e9f, 42983 -> [D@18e8473e, 20194 -> [D@5a2f016d, 74720 -> [D@1a38ba58, 69626 -> [D@3ad394e6, 56771 -> [D@6058e535, 50239 -> [D@42deb43a, 34987 -> [D@1deb2c43, 33234 -> [D@3bb9efbc, 14977 -> [D@1cefc4b3, 33019 -> [D@2b27cc70, 9929 -> [D@6f6a7463, 11866 -> [D@1bdaa23d, 24939 -> [D@79f227a9, 92584 -> [D@6ca320ab, 57415 -> [D@50d68830, 68990 -> [D@1e53135d, 86853 -> [D@7674a051, 12928 -> [D@3a7704c, 45296 -> [D@6754ef00, 67543 -> [D@619bd14c, 74492 -> [D@323e8306, 60039 -> [D@a23a01d, 46897 -> [D@4acf72b6, 21605 -> [D@7561db12, 66993 -> [D@3301500b, 75299 -> [D@24b52d3e, 17671 -> [D@15deb1dc, 36739 -> [D@6e9c413e, 49591 -> [D@57a4d5ee, 75883 -> [D@5af5def9, 2199 -> [D@3a45c42a, 64022 -> [D@36dce7ed, 59003 -> [D@47a64f7d, 66341 -> [D@33d05366, 72905 -> [D@27a0a5a2, 8062 -> [D@7692cd34, 39417 -> [D@33aa93c, 25109 -> [D@32c0915e, 3021 -> [D@106faf11, 38328 -> [D@70f43b45, 13650 -> [D@26d10f2e, 8536 -> [D@10ad20cb, 5437 -> [D@7dd712e8, 20200 -> [D@2c282004, 59913 -> [D@22ee2d0, 57225 -> [D@7bfc3126, 1322 -> [D@3e792ce3, 25521 -> [D@53bc1328, 36905 -> [D@26f143ed, 85910 -> [D@3c1e3314, 49988 -> [D@4b770e40, 56093 -> [D@78e16155, 88990 -> [D@54a3ab8f, 45621 -> [D@1968a49c, 24338 -> [D@6a1ebcff, 74470 -> [D@19868320, 43294 -> [D@50b0bc4c, 1665 -> [D@c20be82, 15767 -> [D@13c612bd, 40432 -> [D@3ef41c66, 38002 -> [D@6b739528, 62154 -> [D@622ef26a, 54506 -> [D@41de5768, 91679 -> [D@5f577419, 59972 -> [D@28fa700e, 45642 -> [D@3d526ad9, 79473 -> [D@e041f0c, 57284 -> [D@6a175569, 79936 -> [D@11963225, 34178 -> [D@3f3c966c, 21624 -> [D@11ee02f8, 61953 -> [D@4102b1b1, 56912 -> [D@61a5b4ae, 73329 -> [D@3a71c100, 78556 -> [D@5b69fd74, 5509 -> [D@f325091, 40738 -> [D@437e951d, 5686 -> [D@77b325b3, 26820 -> [D@63a5e46c, 1036 -> [D@7e8e8651, 52015 -> [D@49ef32e0, 45875 -> [D@271f18d3, 58090 -> [D@6bd51ed8, 9982 -> [D@61e3a1fd, 52505 -> [D@51abf713, 69133 -> [D@eadb475, 2822 -> [D@4d4d48a6, 7304 -> [D@315df4bb, 16794 -> [D@3fc08eec, 14852 -> [D@5cad8b7d, 19370 -> [D@7b02e036, 38939 -> [D@25243bc1, 75324 -> [D@1e287667, 24213 -> [D@2e6ee0bc, 10007 -> [D@4201a617, 42603 -> [D@467f77a5, 65367 -> [D@1bb9aa43, 9131 -> [D@420bc288, 54999 -> [D@df5f5c0, 29375 -> [D@308a6984, 91636 -> [D@66b72664, 34665 -> [D@7a34b7b8, 2630 -> [D@58cd06cb, 21729 -> [D@3be8821f, 41049 -> [D@64b31700, 13052 -> [D@3b65e559, 66201 -> [D@bae47a0, 39515 -> [D@74a9c4b0, 87345 -> [D@85ec632, 15806 -> [D@1c05a54d, 50164 -> [D@65ef722a, 83028 -> [D@5fd9b663, 57736 -> [D@214894fc, 70698 -> [D@10567255, 56798 -> [D@e362c57, 29564 -> [D@1c4ee95c, 80948 -> [D@79c4715d, 23855 -> [D@5aa360ea, 59383 -> [D@6548bb7d, 24878 -> [D@e27ba81, 54403 -> [D@54336c81, 81915 -> [D@1556f2dd, 6085 -> [D@35e52059, 26329 -> [D@62577d6, 29599 -> [D@49bd54f7, 13266 -> [D@6b5f8707, 47949 -> [D@772485dd, 76381 -> [D@5a12c728, 76233 -> [D@79ab3a71, 62161 -> [D@6e5bfdfc, 47229 -> [D@3d829787, 27536 -> [D@71652c98, 3873 -> [D@51bde877, 87419 -> [D@60b85ba1, 81756 -> [D@492fc69e, 68707 -> [D@117632cf, 64422 -> [D@2fb68ec6, 54447 -> [D@d71adc2, 73813 -> [D@3add81c4, 75848 -> [D@1a1d3c1a, 28587 -> [D@1c65121, 10917 -> [D@159e366, 4188 -> [D@57dc9128, 15643 -> [D@24528a25, 83720 -> [D@17ae98d7, 92603 -> [D@59221b97, 44266 -> [D@6ac4944a, 46590 -> [D@5a772895, 87875 -> [D@39fc6b2c, 70259 -> [D@704b2127, 20256 -> [D@3ee39da0, 79806 -> [D@5d332969, 1586 -> [D@7cc9ce8, 40696 -> [D@2e27d72f, 85756 -> [D@c0b41d6, 25724 -> [D@4837595f, 92385 -> [D@2bffa76d, 8618 -> [D@3b718392, 26413 -> [D@6d2260db, 88303 -> [D@1f2d2181, 36243 -> [D@49bf29c6, 29473 -> [D@7ee55e70, 23882 -> [D@3fcdcf, 54280 -> [D@7668d560, 83171 -> [D@46292372, 75915 -> [D@126be319, 53672 -> [D@6c44052e, 85109 -> [D@5c371e13, 26250 -> [D@530a8454, 16054 -> [D@1e34c607, 41557 -> [D@5215cd9a, 66135 -> [D@36b6964d, 29163 -> [D@31198ceb, 64773 -> [D@9257031, 1501 -> [D@75201592, 39365 -> [D@7726e185, 35474 -> [D@aa5455e, 19597 -> [D@282308c3, 92234 -> [D@5dda14d0, 30353 -> [D@1db0ec27, 69484 -> [D@3d9fc57a, 18768 -> [D@d4ab71a, 27510 -> [D@3b4ef7, 27052 -> [D@1af05b03, 52737 -> [D@5987e932, 84540 -> [D@1ad777f, 61392 -> [D@5bbbdd4b, 71968 -> [D@438bad7c, 4201 -> [D@25230246, 32604 -> [D@4fdf8f12, 2452 -> [D@4a8b5227, 35681 -> [D@54f5f647, 21321 -> [D@6979efad, 90821 -> [D@5a6d5a8f, 88518 -> [D@4a67318f, 19904 -> [D@315ba14a, 91295 -> [D@17f9344b, 53037 -> [D@27f0ad19, 8960 -> [D@54e81b21, 85839 -> [D@38d5b107, 43615 -> [D@6650813a, 62868 -> [D@44ea608c, 15170 -> [D@50cf5a23, 40307 -> [D@450794b4, 9405 -> [D@273c947f, 71858 -> [D@30457e14, 61794 -> [D@1af1347d, 809 -> [D@632aa1a3, 7373 -> [D@20765ed5, 25680 -> [D@3b582111, 45783 -> [D@2899a8db, 48513 -> [D@1e8823d2, 60061 -> [D@c1a4620, 52690 -> [D@76b0ae1b, 66167 -> [D@130a0f66, 23428 -> [D@4c432866, 16261 -> [D@12365c88, 90622 -> [D@6105f8a3, 18279 -> [D@2237bada, 16340 -> [D@77e2a6e2, 15467 -> [D@5710768a, 45828 -> [D@199e4c2b, 39919 -> [D@6e0d4a8, 55663 -> [D@64d7b720, 24146 -> [D@30272916, 66854 -> [D@5bb3d42d, 44442 -> [D@5bf61e67, 91652 -> [D@2c1dc8e, 28292 -> [D@b273a59, 63802 -> [D@4e7095ac, 41429 -> [D@251ebf23, 8930 -> [D@29b732a2, 24791 -> [D@1b70203f, 17959 -> [D@51671b08, 80503 -> [D@15051a0, 57366 -> [D@1162410a, 33902 -> [D@b09fac1, 77856 -> [D@62df0ff3, 88156 -> [D@61019f59, 72880 -> [D@62e8f862, 66719 -> [D@26f3d90c, 82465 -> [D@3c49fab6, 44514 -> [D@515f4131, 71049 -> [D@74518890, 4560 -> [D@4c5204af, 17507 -> [D@3f3ddbd9, 63148 -> [D@14c053c6, 50896 -> [D@6c2d4cc6, 7766 -> [D@30865a90, 35606 -> [D@6134ac4a, 17759 -> [D@777c9dc9, 13024 -> [D@71b1a49c, 68362 -> [D@73e132e0, 24914 -> [D@3773862a, 64491 -> [D@2472c7d8, 76413 -> [D@589b028e, 4447 -> [D@22175d4f, 38311 -> [D@9fecdf1, 75070 -> [D@3b809711, 28419 -> [D@3b0f7d9d, 34352 -> [D@236ab296, 47281 -> [D@5c84624f, 55964 -> [D@63034ed1, 67165 -> [D@232024b9, 90259 -> [D@5... and 2021792 more bytes
 ```
 
 
 
 To help interpret the structure of this data set, we train a density tree:
 
-Code from [WhiteboardWorkflow.scala:292](../../src/test/scala/WhiteboardWorkflow.scala#L292) executed in 12.09 seconds: 
+Code from [WhiteboardWorkflow.scala:298](../../src/test/scala/WhiteboardWorkflow.scala#L298) executed in 12.29 seconds: 
 ```java
     val tree = new DensityTree("hueMean", "hueStdDev", "lumMean", "lumStdDev", "chromaMean", "width", "length")
     tree.setSplitSizeThreshold(2)
@@ -529,19 +661,80 @@ if(chromaMean < 8.030442237854004) { // Fitness 6.473736585093095
 
 Now, we recolor the image by classifying each superpixel as white, black, or color:
 
-Code from [WhiteboardWorkflow.scala:202](../../src/test/scala/WhiteboardWorkflow.scala#L202) executed in 0.57 seconds: 
+Code from [WhiteboardWorkflow.scala:194](../../src/test/scala/WhiteboardWorkflow.scala#L194) executed in 0.58 seconds: 
 ```java
     val segmentColors: ColorQueue_F32 = new ColorQueue_F32(3)
     segmentColors.resize(superpixels)
     (0 until superpixels).foreach(i ⇒ {
       segmentColors.getData()(i) = {
         val p = superpixelParameters(i)
-        val (hueMean: Float, hueStdDev: Float, lumMean: Float, lumStdDev: Float, chromaMean: Float, width: Int, length: Int) = (p(0).floatValue(), p(1).floatValue(), p(2).floatValue(), p(3).floatValue(), p(4).floatValue(), p(5).intValue(), p(6).intValue())
+        val (hueMean: Float, hueStdDev: Float, lumMean: Float, lumStdDev: Float, chromaMean: Float, width: Int, length: Int) =
+          (p(0).floatValue(), p(1).floatValue(), p(2).floatValue(), p(3).floatValue(), p(4).floatValue(), p(5).intValue(), p(6).intValue())
+        var isColored = false
+        var isBlack = false
+        var isWhite = false
+        if (lumStdDev < 1.5) {
+            isWhite = true
+        } else {
+          if (hueStdDev < 0.05) {
+            isColored = true
+          } else {
+            if (chromaMean < 5.0) {
+              isBlack = true
+            } else {
+              isColored = true
+            }
+          }
+        }
         val aspect = length.toDouble / width
+        val isMarkingShape = aspect > 2 && width < 35
+        val isMarking = isMarkingShape && !isWhite
+        if (isMarking) {
+          if (isBlack) {
+            Array(0.0f, 0.0f, 0.0f)
+          } else {
+            val rgb = new Array[Float](3)
+            ColorHsv.hsvToRgb(hueMean, 1.0f, 255.0f, rgb)
+            rgb
+          }
+        } else {
+          Array(255.0f, 255.0f, 255.0f)
+        }
+      }
+    })
+    VisualizeRegions.regionsColor(segmentation, segmentColors, null)
 ```
 
 Returns: 
-![Result](workflow.13.png)
+![Result](workflow.14.png)
+
+
+
+Finally, we trim all the whitespace: 
+
+Code from [WhiteboardWorkflow.scala:238](../../src/test/scala/WhiteboardWorkflow.scala#L238) executed in 1.43 seconds: 
+```java
+    val pixels = (0 until colorizedImg.getWidth).flatMap(x ⇒
+      (0 until colorizedImg.getHeight).filterNot(y ⇒
+        util.Arrays.equals(colorizedImg.getRaster.getPixel(x, y, null: Array[Int]), Array(255, 255, 255))).map(y ⇒ x → y))
+    var (xmin,xmax) = (pixels.map(_._1).min, pixels.map(_._1).max)
+    var (ymin,ymax) = (pixels.map(_._2).min, pixels.map(_._2).max)
+    val regionAspect = (xmax - xmin).toDouble / (ymax - ymin)
+    val imageAspect = colorizedImg.getWidth.toDouble / colorizedImg.getHeight
+    if(regionAspect< imageAspect) {
+      val width = (colorizedImg.getWidth * (ymax-ymin))/colorizedImg.getHeight
+      xmin = Math.max(0, (xmax + xmin - width)/2)
+      xmax = xmin + width
+    } else {
+      val height = (colorizedImg.getHeight * (xmax-xmin))/colorizedImg.getWidth
+      ymin = Math.max(0, (ymax + ymin - height)/2)
+      ymax = ymin + height
+    }
+    gfx.drawImage(colorizedImg, 0, 0, colorizedImg.getWidth, colorizedImg.getHeight, xmin,ymin, xmax,ymax, null)
+```
+
+Returns: 
+![Result](workflow.15.png)
 
 
 
@@ -550,7 +743,7 @@ Here is an alternate method using direct-color segmentation:
 
 Dectection of markings uses the luminosity
 
-Code from [WhiteboardWorkflow.scala:366](../../src/test/scala/WhiteboardWorkflow.scala#L366) executed in 0.88 seconds: 
+Code from [WhiteboardWorkflow.scala:372](../../src/test/scala/WhiteboardWorkflow.scala#L372) executed in 0.87 seconds: 
 ```java
     val bandImg: GrayF32 = hsv.getBand(2)
     val to = ConvertBufferedImage.convertTo(bandImg, null)
@@ -558,13 +751,13 @@ Code from [WhiteboardWorkflow.scala:366](../../src/test/scala/WhiteboardWorkflow
 ```
 
 Returns: 
-![Result](workflow.14.png)
+![Result](workflow.16.png)
 
 
 
 ...by detecting local variations
 
-Code from [WhiteboardWorkflow.scala:372](../../src/test/scala/WhiteboardWorkflow.scala#L372) executed in 0.59 seconds: 
+Code from [WhiteboardWorkflow.scala:378](../../src/test/scala/WhiteboardWorkflow.scala#L378) executed in 0.57 seconds: 
 ```java
     val single = ConvertBufferedImage.convertFromSingle(colorBand, null, classOf[GrayF32])
     val binary = new GrayU8(single.width, single.height)
@@ -573,34 +766,34 @@ Code from [WhiteboardWorkflow.scala:372](../../src/test/scala/WhiteboardWorkflow
 
 Returns: 
 ```
-    boofcv.struct.image.GrayU8@1e94fe1d
+    boofcv.struct.image.GrayU8@6e08e591
 ```
 
 
 
-Code from [WhiteboardWorkflow.scala:377](../../src/test/scala/WhiteboardWorkflow.scala#L377) executed in 0.01 seconds: 
+Code from [WhiteboardWorkflow.scala:383](../../src/test/scala/WhiteboardWorkflow.scala#L383) executed in 0.01 seconds: 
 ```java
     VisualizeBinaryData.renderBinary(binaryMask, false, null)
 ```
 
 Returns: 
-![Result](workflow.15.png)
+![Result](workflow.17.png)
 
 
 
-Code from [WhiteboardWorkflow.scala:331](../../src/test/scala/WhiteboardWorkflow.scala#L331) executed in 0.01 seconds: 
+Code from [WhiteboardWorkflow.scala:337](../../src/test/scala/WhiteboardWorkflow.scala#L337) executed in 0.01 seconds: 
 ```java
     VisualizeBinaryData.renderBinary(finalBinaryMask, false, null)
 ```
 
 Returns: 
-![Result](workflow.16.png)
+![Result](workflow.18.png)
 
 
 
 Use threshold mask to clean white area on board
 
-Code from [WhiteboardWorkflow.scala:336](../../src/test/scala/WhiteboardWorkflow.scala#L336) executed in 0.86 seconds: 
+Code from [WhiteboardWorkflow.scala:342](../../src/test/scala/WhiteboardWorkflow.scala#L342) executed in 0.82 seconds: 
 ```java
     val maskedRgb: Planar[GrayF32] = rgb.clone()
     (0 until maskedRgb.getWidth).foreach(x ⇒
@@ -614,24 +807,24 @@ Code from [WhiteboardWorkflow.scala:336](../../src/test/scala/WhiteboardWorkflow
 
 Returns: 
 ```
-    boofcv.struct.image.Planar@2c188e57
+    boofcv.struct.image.Planar@3e16e225
 ```
 
 
 
-Code from [WhiteboardWorkflow.scala:346](../../src/test/scala/WhiteboardWorkflow.scala#L346) executed in 0.06 seconds: 
+Code from [WhiteboardWorkflow.scala:352](../../src/test/scala/WhiteboardWorkflow.scala#L352) executed in 0.06 seconds: 
 ```java
     ConvertBufferedImage.convertTo(maskedRgb, null, false)
 ```
 
 Returns: 
-![Result](workflow.17.png)
+![Result](workflow.19.png)
 
 
 
 We can identify segments which may be markings using the masked color image:
 
-Code from [WhiteboardWorkflow.scala:351](../../src/test/scala/WhiteboardWorkflow.scala#L351) executed in 8.19 seconds: 
+Code from [WhiteboardWorkflow.scala:357](../../src/test/scala/WhiteboardWorkflow.scala#L357) executed in 7.62 seconds: 
 ```java
     val imageType = ImageType.pl(3, classOf[GrayF32])
     val alg = FactoryImageSegmentation.fh04(new ConfigFh04(0.5f, 30), imageType)
@@ -642,24 +835,24 @@ Code from [WhiteboardWorkflow.scala:351](../../src/test/scala/WhiteboardWorkflow
 
 Returns: 
 ```
-    (642,boofcv.struct.image.GrayS32@615ae885)
+    (642,boofcv.struct.image.GrayS32@6ea6be34)
 ```
 
 
 
-Code from [WhiteboardWorkflow.scala:358](../../src/test/scala/WhiteboardWorkflow.scala#L358) executed in 0.02 seconds: 
+Code from [WhiteboardWorkflow.scala:364](../../src/test/scala/WhiteboardWorkflow.scala#L364) executed in 0.02 seconds: 
 ```java
     VisualizeRegions.regions(segmentation, superpixels, null)
 ```
 
 Returns: 
-![Result](workflow.18.png)
+![Result](workflow.20.png)
 
 
 
 For each segment, we categorize and colorize each using some logic
 
-Code from [WhiteboardWorkflow.scala:139](../../src/test/scala/WhiteboardWorkflow.scala#L139) executed in 17.12 seconds: 
+Code from [WhiteboardWorkflow.scala:133](../../src/test/scala/WhiteboardWorkflow.scala#L133) executed in 13.21 seconds: 
 ```java
     val regions = (0 until segmentation.getWidth).flatMap(x ⇒ (0 until segmentation.getHeight).map(y ⇒ {
       segmentation.get(x, y) → ((x, y) → rgb.bands.map(_.get(x, y)))
@@ -671,18 +864,55 @@ Code from [WhiteboardWorkflow.scala:139](../../src/test/scala/WhiteboardWorkflow
         ColorHsv.rgbToHsv(rgb(0), rgb(1), rgb(2), hsv)
         hsv
       })
+      def statsHsv(fn: Array[Float] ⇒ (Float, Float)): (Float, Float) = {
+        val stats = hsvValues.map((hsv: Array[Float]) ⇒ {
+          val (weight, value) = fn(hsv)
+          (weight, value * weight, value * value * weight)
+        }).reduce((xa, xb) ⇒ (xa._1 + xb._1, xa._2 + xb._2, xa._3 + xb._3))
+        val mean = stats._2 / stats._1
+        val stdDev = Math.sqrt(Math.abs((stats._3 / stats._1) - mean * mean)).toFloat
+        (mean, stdDev)
+      }
+      // Superpixel color statistics:
+      val (hueMean1, hueStdDev1) = statsHsv((hsv: Array[Float]) ⇒ {
+        (hsv(2) * hsv(1) * (1 - hsv(2)), hsv(0))
+      })
+      val (hueMean2, hueStdDev2) = statsHsv((hsv: Array[Float]) ⇒ {
+        (hsv(2) * hsv(1) * (1 - hsv(2)), ((Math.PI + hsv(0)) % (2 * Math.PI)).toFloat)
+      })
+      val (hueMean: Float, hueStdDev: Float) = if (hueStdDev1 < hueStdDev2) {
+        (hueMean1, hueStdDev1)
+      } else {
+        (((Math.PI + hueMean2) % (2 * Math.PI)).toFloat, hueStdDev2)
+      }
+      val (lumMean, lumStdDev) = statsHsv((hsv: Array[Float]) ⇒ {
+        (1, hsv(2))
+      })
+      val (chromaMean, chromaStdDev) = statsHsv((hsv: Array[Float]) ⇒ {
+        (1, hsv(2) * hsv(1))
+      })
+      // Superpixel geometry statistics:
+      val xMax = pixels.map(_._1._1).max
+      val xMin = pixels.map(_._1._1).min
+      val yMax = pixels.map(_._1._2).max
+      val yMin = pixels.map(_._1._2).min
+      val length = Math.max(xMax - xMin, yMax - yMin)
+      val area = pixels.size
+      val width = area / length
+      Array[Double](hueMean, hueStdDev, lumMean, lumStdDev, chromaMean, width, length)
+    }).toArray.toMap
 ```
 
 Returns: 
 ```
-    Map(69 -> [D@39677403, 629 -> [D@22fba5df, 365 -> [D@4980d7bb, 138 -> [D@55cb146f, 101 -> [D@578eb5b9, 479 -> [D@282427ca, 347 -> [D@67d6007a, 333 -> [D@6ab30883, 628 -> [D@48325b11, 249 -> [D@41a12faa, 518 -> [D@16a32234, 468 -> [D@64a6d773, 234 -> [D@3e16e225, 0 -> [D@76824632, 555 -> [D@79bf7854, 88 -> [D@2bf0355f, 481 -> [D@227eedce, 352 -> [D@46a98c65, 408 -> [D@44d6213c, 170 -> [D@6ea6be34, 523 -> [D@3b633eb3, 582 -> [D@31a3471e, 115 -> [D@44894fd7, 217 -> [D@1f850e6c, 276 -> [D@3db13d89, 308 -> [D@16810696, 5 -> [D@18780466, 449 -> [D@2fb99f6b, 120 -> [D@1bd0b260, 247 -> [D@57bb23a, 379 -> [D@5df8ddc7, 440 -> [D@3e5943d4, 511 -> [D@2084b5cd, 614 -> [D@78b62985, 269 -> [D@63bbd5b1, 202 -> [D@17087df1, 597 -> [D@12a79800, 10 -> [D@5b9461d0, 385 -> [D@663f314e, 384 -> [D@320c2f8d, 56 -> [D@1c45c654, 533 -> [D@64a7aeed, 550 -> [D@7b8d4676, 142 -> [D@282e7ecd, 500 -> [D@1aeb7afa, 472 -> [D@43e26f8c, 340 -> [D@524d3f70, 538 -> [D@94eebe2, 153 -> [D@48337c9b, 174 -> [D@187de41e, 404 -> [D@2370fede, 185 -> [D@5d1f10a9, 42 -> [D@e1b6835, 417 -> [D@793130fc, 24 -> [D@5d13a70a, 288 -> [D@782c6e59, 301 -> [D@2d23eba9, 320 -> [D@5de59821, 565 -> [D@1d0e5f60, 436 -> [D@6cba43e, 37 -> [D@340769ed, 25 -> [D@45d2dbdc, 257 -> [D@2a486959, 389 -> [D@7179c27a, 52 -> [D@7e3e85b9, 14 -> [D@2d61bd99, 570 -> [D@448a1bcd, 184 -> [D@7b5f7b34, 372 -> [D@71c62aab, 504 -> [D@516bcc7f, 110 -> [D@45abf1ec, 587 -> [D@45ada4b6, 619 -> [D@5fe5dda, 125 -> [D@a79612e, 344 -> [D@1047c51c, 357 -> [D@38674bb6, 196 -> [D@4f80d1ed, 542 -> [D@eb1a922, 460 -> [D@2070f2cd, 157 -> [D@2248378e, 559 -> [D@6b8e8593, 638 -> [D@6875d979, 189 -> [D@4f34b820, 20 -> [D@2ca3020f, 421 -> [D@339eb815, 46 -> [D@7566010e, 93 -> [D@1f79523a, 606 -> [D@2bfe98a0, 284 -> [D@6de6d3da, 416 -> [D@284dc119, 325 -> [D@7d70bea8, 152 -> [D@2294123e, 228 -> [D@79b77db5, 289 -> [D@3f342e93, 448 -> [D@47495223, 57 -> [D@454ead16, 316 -> [D@7563adf, 78 -> [D@1988dc10, 261 -> [D@14dd4d48, 29 -> [D@244b64d8, 216 -> [D@12fd224c, 475 -> [D@4dca145f, 492 -> [D@3303a7a3, 164 -> [D@4c1168bf, 179 -> [D@3705cc33, 591 -> [D@2a705e60, 443 -> [D@460ca32, 321 -> [D@43f31e91, 376 -> [D@5a0e2688, 623 -> [D@72a5e0f7, 211 -> [D@701695cb, 253 -> [D@2bca0ace, 485 -> [D@5b4359, 106 -> [D@5d24b9fd, 238 -> [D@1958d75f, 121 -> [D@623f32c0, 514 -> [D@38a4e455, 348 -> [D@40b759ed, 574 -> [D@1f8a8c8b, 84 -> [D@4381488, 353 -> [D@1ba1de16, 480 -> [D@61a394be, 602 -> [D@2a06a2d5, 147 -> [D@6e5e6f49, 397 -> [D@7b1a4dfa, 280 -> [D@6613043, 61 -> [D@196e3a50, 634 -> [D@4572a13, 221 -> [D@2d0bd2fe, 293 -> [D@22670c34, 453 -> [D@4a330e92, 132 -> [D@7709a275, 396 -> [D@4660248, 89 -> [D@1e7aa85c, 133 -> [D@4c6f729f, 411 -> [D@76cf6b6d, 116 -> [D@428f43be, 243 -> [D@97c2bfb, 428 -> [D@3eb05bc1, 1 -> [D@33a9cb79, 265 -> [D@b83fc01, 507 -> [D@63482d79, 527 -> [D@5f9a0c82, 312 -> [D@2295f60b, 74 -> [D@36e275ac, 206 -> [D@1463a5ec, 307 -> [D@1b1245fe, 292 -> [D@163add39, 233 -> [D@33d09547, 452 -> [D@3a951a14, 6 -> [D@33a1950d, 248 -> [D@73325555, 60 -> [D@44ff8cd9, 380 -> [D@56286be8, 117 -> [D@691e95dd, 512 -> [D@867fd56, 439 -> [D@30c631c7, 270 -> [D@25a47b1c, 529 -> [D@3889a208, 546 -> [D@fb36502, 85 -> [D@e7a353a, 201 -> [D@880d372, 381 -> [D@7d6cb988, 220 -> [D@69e34852, 366 -> [D@36ef63b1, 534 -> [D@387a3d5d, 102 -> [D@20427323, 334 -> [D@53100ea1, 302 -> [D@1eaf0d99, 260 -> [D@77565bc4, 349 -> [D@44bef566, 28 -> [D@17888e56, 38 -> [D@71ad9afb, 598 -> [D@34606771, 160 -> [D@746b15e, 561 -> [D@546f75de, 392 -> [D@490857ea, 297 -> [D@7e64fa55, 70 -> [D@4c9a6886, 424 -> [D@63f4354e, 192 -> [D@68c889dd, 407 -> [D@31a770c3, 630 -> [D@2e66f029, 429 -> [D@6cfaeeee, 275 -> [D@40d014cd, 21 -> [D@4afb557c, 137 -> [D@530503b2, 165 -> [D@68b31aa2, 33 -> [D@28051d05, 92 -> [D@38c5edcc, 467 -> [D@43a661f5, 229 -> [D@33300529, 566 -> [D@335dcb7f, 484 -> [D@24e1eb55, 252 -> [D@54388ff5, 197 -> [D@6712d116, 361 -> [D@3ac9e8b8, 65 -> [D@115907f7, 625 -> [D@18e750e, 435 -> [D@70e58e48, 97 -> [D@59c34c4, 329 -> [D@5ca3ed3f, 583 -> [D@2ef7c5a0, 522 -> [D@72bc99f8, 461 -> [D@1662a97f, 493 -> [D@55eb7499, 551 -> [D@45a16141, 456 -> [D@53c45354, 324 -> [D@50ee3102, 285 -> [D@5eafd83a, 224 -> [D@10ca01c7, 519 -> [D@6165ae79, 578 -> [D@40a2f576, 317 -> [D@606c9b50, 156 -> [D@20e87aa3, 615 -> [D@6c321ea1, 403 -> [D@3b6c5f14, 9 -> [D@3f5ef532, 188 -> [D@5c80bd18, 388 -> [D@20bb673f, 53 -> [D@797618c3, 356 -> [D@31c995ba, 169 -> [D@68f896e6, 593 -> [D@13019659, 141 -> [D@5af834fa, 610 -> [D@27610e5a, 420 -> [D@b02e3f6, 499 -> [D@142e0f91, 109 -> [D@f6aa60a, 328 -> [D@20567a63, 471 -> [D@3c5720cc, 256 -> [D@58e1e250, 488 -> [D@26145b0, 124 -> [D@11f7b2fd, 225 -> [D@14a3b14f, 339 -> [D@430732e9, 77 -> [D@4bc3a3fc, 554 -> [D@678f9023, 193 -> [D@6e2f7c54, 537 -> [D@14458b02, 476 -> [D@42cf1635, 526 -> [D@59da98c7, 637 -> [D@4c828274, 489 -> [D@74a71d7d, 590 -> [D@4ee3c362, 547 -> [D@437266d9, 212 -> [D@1b3bdde1, 96 -> [D@57bb770e, 622 -> [D@7935648, 393 -> [D@5707accd, 515 -> [D@1296a719, 457 -> [D@1e19a142, 173 -> [D@32585df, 13 -> [D@692e30b2, 129 -> [D@4e27ece1, 569 -> [D@1d6747d6, 41 -> [D@32c332d8, 371 -> [D@2af02f92, 503 -> [D@5bc18ec9, 605 -> [D@7cbf2b90, 134 -> [D@5741832d, 73 -> [D@7c66aae8, 128 -> [D@2b86d46b, 343 -> [D@2ee09920, 237 -> [D@75633f3a, 105 -> [D@3c1bea94, 244 -> [D@212344f0, 2 -> [D@ba0f06d, 266 -> [D@675694cc, 633 -> [D@4fa8df8, 360 -> [D@3fc54d53, 205 -> [D@336af15e, 508 -> [D@60c9e30b, 311 -> [D@308c27a7, 541 -> [D@25365b30, 398 -> [D@4132bec9, 558 -> [D@6e4ccc5f, 530 -> [D@3fac6f2e, 586 -> [D@28d45c30, 298 -> [D@7c447b15, 412 -> [D@74627ef6, 618 -> [D@28ebaa4b, 425 -> [D@22d456ba, 513 -> [D@7d970d26, 430 -> [D@1ae559ac, 166 -> [D@6fa90149, 32 -> [D@6fc8eb80, 34 -> [D@2af32562, 148 -> [D@1a6b21a9, 264 -> [D@3defc8e4, 45 -> [D@1553b032, 161 -> [D@26b85fcf, 279 -> [D@659d54d8, 64 -> [D@26761867, 573 -> [D@2e2ceebb, 180 -> [D@4a8e9a96, 296 -> [D@453a3c8b, 17 -> [D@5319b16b, 444 -> [D@1a89d485, 149 -> [D@24edb768, 375 -> [D@3027191a, 601 -> [D@2e2b749c, 584 -> [D@7ad2a020, 562 -> [D@334d1ee5, 176 -> [D@3b2a3e5f, 423 -> [D@4ed03232, 191 -> [D@216c5868, 402 -> [D@7a8dc096, 22 -> [D@10bfc15e, 44 -> [D@5fb120d9, 286 -> [D@1cdd9c5f, 577 -> [D@8c07622, 579 -> [D@669bf355, 291 -> [D@30fab0b7, 59 -> [D@40b5ed93, 118 -> [D@4bcff2c1, 281 -> [D@72f7a1b6, 204 -> [D@176dd857, 545 -> [D@785b665c, 259 -> [D@4c36ca6c, 27 -> [D@303284d, 413 -> [D@7a55f71a, 641 -> [D@599f178a, 71 -> [D@2300c37f, 391 -> [D@39dbc612, 12 -> [D@6ce31b14, 445 -> [D@4de17245, 382 -> [D@68df5bbd, 54 -> [D@f53ebe2, 572 -> [D@7b1c6aa7, 313 -> [D@3d294cdb, 611 -> [D@2fb9fa70, 144 -> [D@3f25189e, 498 -> [D@27f4048f, 49 -> [D@50cccb3e, 466 -> [D@30c6c12d, 335 -> [D@2730de43, 236 -> [D@20e76656, 181 -> [D@16c4dc4f, 350 -> [D@108db813, 540 -> [D@316eae87, 86 -> [D@2a20bb2a, 159 -> [D@1a363c85, 604 -> [D@678652f0, 187 -> [D@2358c211, 406 -> [D@c8ed4bb, 172 -> [D@27f713bb, 113 -> [D@7233c467, 219 -> [D@179ec87a, 274 -> [D@6dcffd3e, 419 -> [D@72ba41f7, 81 -> [D@1e46b33b, 377 -> [D@7ffa7591, 230 -> [D@6d4e515d, 362 -> [D@4ddb00fa, 451 -> [D@662fad11, 76 -> [D@4ad51ab8, 567 -> [D@558e6e06, 7 -> [D@4047789d, 245 -> [D@5b9b02a1, 318 -> [D@3979d3b0, 509 -> [D@1f2164c7, 39 -> [D@6459742e, 434 -> [D@6754ec0e, 98 -> [D@10c75707, 616 -> [D@4d40e84, 303 -> [D@2b03f234, 271 -> [D@6bf75fc6, 208 -> [D@41a252d0, 599 -> [D@65a6c44e, 477 -> [D@5100089c, 387 -> [D@586415, 494 -> [D@53bf821c, 631 -> [D@68a891, 345 -> [D@517d14e8, 367 -> [D@12c6ba1e, 552 -> [D@3d467538, 535 -> [D@78af7e21, 103 -> [D@414cef88, 609 -> [D@667dabf5, 323 -> [D@689cedb7, 594 -> [D@6b41d8f3, 140 -> [D@4dd74abc, 213 -> [D@46fe72f0, 621 -> [D@4900cecd, 91 -> [D@2ce3115e, 483 -> [D@5b162cd4, 520 -> [D@6e4aacb4, 66 -> [D@21f36116, 240 -> [D@152eed97, 251 -> [D@7f34036a, 626 -> [D@44a03f34, 155 -> [D@7ee11d67, 198 -> [D@1c411579, 108 -> [D@43316ac8, 330 -> [D@62da405, 462 -> [D@70d18b82, 521 -> [D@642fa23c, 130 -> [D@2c80f35b, 399 -> [D@47e67742, 636 -> [D@3b1769a7, 278 -> [D@22b012bb, 455 -> [D@981379d, 223 -> [D@7da91d88, 608 -> [D@7d7309cb, 394 -> [D@5f74e914, 306 -> [D@5fc900b8, 135 -> [D@6a390394, 563 -> [D@fe16249, 299 -> [D@772506e8, 226 -> [D@607e0474, 3 -> [D@42f99e4c, 267 -> [D@468e4f70, 505 -> [D@19c3030f, 438 -> [D@98ee9e7, 431 ... and 4472 more bytes
+    Map(69 -> [D@16810696, 629 -> [D@18780466, 365 -> [D@2fb99f6b, 138 -> [D@1bd0b260, 101 -> [D@57bb23a, 479 -> [D@5df8ddc7, 347 -> [D@3e5943d4, 333 -> [D@2084b5cd, 628 -> [D@78b62985, 249 -> [D@63bbd5b1, 518 -> [D@17087df1, 468 -> [D@12a79800, 234 -> [D@5b9461d0, 0 -> [D@663f314e, 555 -> [D@320c2f8d, 88 -> [D@1c45c654, 481 -> [D@64a7aeed, 352 -> [D@7b8d4676, 408 -> [D@282e7ecd, 170 -> [D@1aeb7afa, 523 -> [D@43e26f8c, 582 -> [D@524d3f70, 115 -> [D@94eebe2, 217 -> [D@48337c9b, 276 -> [D@187de41e, 308 -> [D@2370fede, 5 -> [D@5d1f10a9, 449 -> [D@e1b6835, 120 -> [D@793130fc, 247 -> [D@5d13a70a, 379 -> [D@782c6e59, 440 -> [D@2d23eba9, 511 -> [D@5de59821, 614 -> [D@1d0e5f60, 269 -> [D@6cba43e, 202 -> [D@340769ed, 597 -> [D@45d2dbdc, 10 -> [D@2a486959, 385 -> [D@7179c27a, 384 -> [D@7e3e85b9, 56 -> [D@2d61bd99, 533 -> [D@448a1bcd, 550 -> [D@7b5f7b34, 142 -> [D@71c62aab, 500 -> [D@516bcc7f, 472 -> [D@45abf1ec, 340 -> [D@45ada4b6, 538 -> [D@5fe5dda, 153 -> [D@a79612e, 174 -> [D@1047c51c, 404 -> [D@38674bb6, 185 -> [D@4f80d1ed, 42 -> [D@eb1a922, 417 -> [D@2070f2cd, 24 -> [D@2248378e, 288 -> [D@6b8e8593, 301 -> [D@6875d979, 320 -> [D@4f34b820, 565 -> [D@2ca3020f, 436 -> [D@339eb815, 37 -> [D@7566010e, 25 -> [D@1f79523a, 257 -> [D@2bfe98a0, 389 -> [D@6de6d3da, 52 -> [D@284dc119, 14 -> [D@7d70bea8, 570 -> [D@2294123e, 184 -> [D@79b77db5, 372 -> [D@3f342e93, 504 -> [D@47495223, 110 -> [D@454ead16, 587 -> [D@7563adf, 619 -> [D@1988dc10, 125 -> [D@14dd4d48, 344 -> [D@244b64d8, 357 -> [D@12fd224c, 196 -> [D@4dca145f, 542 -> [D@3303a7a3, 460 -> [D@4c1168bf, 157 -> [D@3705cc33, 559 -> [D@2a705e60, 638 -> [D@460ca32, 189 -> [D@43f31e91, 20 -> [D@5a0e2688, 421 -> [D@72a5e0f7, 46 -> [D@701695cb, 93 -> [D@2bca0ace, 606 -> [D@5b4359, 284 -> [D@5d24b9fd, 416 -> [D@1958d75f, 325 -> [D@623f32c0, 152 -> [D@38a4e455, 228 -> [D@40b759ed, 289 -> [D@1f8a8c8b, 448 -> [D@4381488, 57 -> [D@1ba1de16, 316 -> [D@61a394be, 78 -> [D@2a06a2d5, 261 -> [D@6e5e6f49, 29 -> [D@7b1a4dfa, 216 -> [D@6613043, 475 -> [D@196e3a50, 492 -> [D@4572a13, 164 -> [D@2d0bd2fe, 179 -> [D@22670c34, 591 -> [D@4a330e92, 443 -> [D@7709a275, 321 -> [D@4660248, 376 -> [D@1e7aa85c, 623 -> [D@4c6f729f, 211 -> [D@76cf6b6d, 253 -> [D@428f43be, 485 -> [D@97c2bfb, 106 -> [D@3eb05bc1, 238 -> [D@33a9cb79, 121 -> [D@b83fc01, 514 -> [D@63482d79, 348 -> [D@5f9a0c82, 574 -> [D@2295f60b, 84 -> [D@36e275ac, 353 -> [D@1463a5ec, 480 -> [D@1b1245fe, 602 -> [D@163add39, 147 -> [D@33d09547, 397 -> [D@3a951a14, 280 -> [D@33a1950d, 61 -> [D@73325555, 634 -> [D@44ff8cd9, 221 -> [D@56286be8, 293 -> [D@691e95dd, 453 -> [D@867fd56, 132 -> [D@30c631c7, 396 -> [D@25a47b1c, 89 -> [D@3889a208, 133 -> [D@fb36502, 411 -> [D@e7a353a, 116 -> [D@880d372, 243 -> [D@7d6cb988, 428 -> [D@69e34852, 1 -> [D@36ef63b1, 265 -> [D@387a3d5d, 507 -> [D@20427323, 527 -> [D@53100ea1, 312 -> [D@1eaf0d99, 74 -> [D@77565bc4, 206 -> [D@44bef566, 307 -> [D@17888e56, 292 -> [D@71ad9afb, 233 -> [D@34606771, 452 -> [D@746b15e, 6 -> [D@546f75de, 248 -> [D@490857ea, 60 -> [D@7e64fa55, 380 -> [D@4c9a6886, 117 -> [D@63f4354e, 512 -> [D@68c889dd, 439 -> [D@31a770c3, 270 -> [D@2e66f029, 529 -> [D@6cfaeeee, 546 -> [D@40d014cd, 85 -> [D@4afb557c, 201 -> [D@530503b2, 381 -> [D@68b31aa2, 220 -> [D@28051d05, 366 -> [D@38c5edcc, 534 -> [D@43a661f5, 102 -> [D@33300529, 334 -> [D@335dcb7f, 302 -> [D@24e1eb55, 260 -> [D@54388ff5, 349 -> [D@6712d116, 28 -> [D@3ac9e8b8, 38 -> [D@115907f7, 598 -> [D@18e750e, 160 -> [D@70e58e48, 561 -> [D@59c34c4, 392 -> [D@5ca3ed3f, 297 -> [D@2ef7c5a0, 70 -> [D@72bc99f8, 424 -> [D@1662a97f, 192 -> [D@55eb7499, 407 -> [D@45a16141, 630 -> [D@53c45354, 429 -> [D@50ee3102, 275 -> [D@5eafd83a, 21 -> [D@10ca01c7, 137 -> [D@6165ae79, 165 -> [D@40a2f576, 33 -> [D@606c9b50, 92 -> [D@20e87aa3, 467 -> [D@6c321ea1, 229 -> [D@3b6c5f14, 566 -> [D@3f5ef532, 484 -> [D@5c80bd18, 252 -> [D@20bb673f, 197 -> [D@797618c3, 361 -> [D@31c995ba, 65 -> [D@68f896e6, 625 -> [D@13019659, 435 -> [D@5af834fa, 97 -> [D@27610e5a, 329 -> [D@b02e3f6, 583 -> [D@142e0f91, 522 -> [D@f6aa60a, 461 -> [D@20567a63, 493 -> [D@3c5720cc, 551 -> [D@58e1e250, 456 -> [D@26145b0, 324 -> [D@11f7b2fd, 285 -> [D@14a3b14f, 224 -> [D@430732e9, 519 -> [D@4bc3a3fc, 578 -> [D@678f9023, 317 -> [D@6e2f7c54, 156 -> [D@14458b02, 615 -> [D@42cf1635, 403 -> [D@59da98c7, 9 -> [D@4c828274, 188 -> [D@74a71d7d, 388 -> [D@4ee3c362, 53 -> [D@437266d9, 356 -> [D@1b3bdde1, 169 -> [D@57bb770e, 593 -> [D@7935648, 141 -> [D@5707accd, 610 -> [D@1296a719, 420 -> [D@1e19a142, 499 -> [D@32585df, 109 -> [D@692e30b2, 328 -> [D@4e27ece1, 471 -> [D@1d6747d6, 256 -> [D@32c332d8, 488 -> [D@2af02f92, 124 -> [D@5bc18ec9, 225 -> [D@7cbf2b90, 339 -> [D@5741832d, 77 -> [D@7c66aae8, 554 -> [D@2b86d46b, 193 -> [D@2ee09920, 537 -> [D@75633f3a, 476 -> [D@3c1bea94, 526 -> [D@212344f0, 637 -> [D@ba0f06d, 489 -> [D@675694cc, 590 -> [D@4fa8df8, 547 -> [D@3fc54d53, 212 -> [D@336af15e, 96 -> [D@60c9e30b, 622 -> [D@308c27a7, 393 -> [D@25365b30, 515 -> [D@4132bec9, 457 -> [D@6e4ccc5f, 173 -> [D@3fac6f2e, 13 -> [D@28d45c30, 129 -> [D@7c447b15, 569 -> [D@74627ef6, 41 -> [D@28ebaa4b, 371 -> [D@22d456ba, 503 -> [D@7d970d26, 605 -> [D@1ae559ac, 134 -> [D@6fa90149, 73 -> [D@6fc8eb80, 128 -> [D@2af32562, 343 -> [D@1a6b21a9, 237 -> [D@3defc8e4, 105 -> [D@1553b032, 244 -> [D@26b85fcf, 2 -> [D@659d54d8, 266 -> [D@26761867, 633 -> [D@2e2ceebb, 360 -> [D@4a8e9a96, 205 -> [D@453a3c8b, 508 -> [D@5319b16b, 311 -> [D@1a89d485, 541 -> [D@24edb768, 398 -> [D@3027191a, 558 -> [D@2e2b749c, 530 -> [D@7ad2a020, 586 -> [D@334d1ee5, 298 -> [D@3b2a3e5f, 412 -> [D@4ed03232, 618 -> [D@216c5868, 425 -> [D@7a8dc096, 513 -> [D@10bfc15e, 430 -> [D@5fb120d9, 166 -> [D@1cdd9c5f, 32 -> [D@8c07622, 34 -> [D@669bf355, 148 -> [D@30fab0b7, 264 -> [D@40b5ed93, 45 -> [D@4bcff2c1, 161 -> [D@72f7a1b6, 279 -> [D@176dd857, 64 -> [D@785b665c, 573 -> [D@4c36ca6c, 180 -> [D@303284d, 296 -> [D@7a55f71a, 17 -> [D@599f178a, 444 -> [D@2300c37f, 149 -> [D@39dbc612, 375 -> [D@6ce31b14, 601 -> [D@4de17245, 584 -> [D@68df5bbd, 562 -> [D@f53ebe2, 176 -> [D@7b1c6aa7, 423 -> [D@3d294cdb, 191 -> [D@2fb9fa70, 402 -> [D@3f25189e, 22 -> [D@27f4048f, 44 -> [D@50cccb3e, 286 -> [D@30c6c12d, 577 -> [D@2730de43, 579 -> [D@20e76656, 291 -> [D@16c4dc4f, 59 -> [D@108db813, 118 -> [D@316eae87, 281 -> [D@2a20bb2a, 204 -> [D@1a363c85, 545 -> [D@678652f0, 259 -> [D@2358c211, 27 -> [D@c8ed4bb, 413 -> [D@27f713bb, 641 -> [D@7233c467, 71 -> [D@179ec87a, 391 -> [D@6dcffd3e, 12 -> [D@72ba41f7, 445 -> [D@1e46b33b, 382 -> [D@7ffa7591, 54 -> [D@6d4e515d, 572 -> [D@4ddb00fa, 313 -> [D@662fad11, 611 -> [D@4ad51ab8, 144 -> [D@558e6e06, 498 -> [D@4047789d, 49 -> [D@5b9b02a1, 466 -> [D@3979d3b0, 335 -> [D@1f2164c7, 236 -> [D@6459742e, 181 -> [D@6754ec0e, 350 -> [D@10c75707, 540 -> [D@4d40e84, 86 -> [D@2b03f234, 159 -> [D@6bf75fc6, 604 -> [D@41a252d0, 187 -> [D@65a6c44e, 406 -> [D@5100089c, 172 -> [D@586415, 113 -> [D@53bf821c, 219 -> [D@68a891, 274 -> [D@517d14e8, 419 -> [D@12c6ba1e, 81 -> [D@3d467538, 377 -> [D@78af7e21, 230 -> [D@414cef88, 362 -> [D@667dabf5, 451 -> [D@689cedb7, 76 -> [D@6b41d8f3, 567 -> [D@4dd74abc, 7 -> [D@46fe72f0, 245 -> [D@4900cecd, 318 -> [D@2ce3115e, 509 -> [D@5b162cd4, 39 -> [D@6e4aacb4, 434 -> [D@21f36116, 98 -> [D@152eed97, 616 -> [D@7f34036a, 303 -> [D@44a03f34, 271 -> [D@7ee11d67, 208 -> [D@1c411579, 599 -> [D@43316ac8, 477 -> [D@62da405, 387 -> [D@70d18b82, 494 -> [D@642fa23c, 631 -> [D@2c80f35b, 345 -> [D@47e67742, 367 -> [D@3b1769a7, 552 -> [D@22b012bb, 535 -> [D@981379d, 103 -> [D@7da91d88, 609 -> [D@7d7309cb, 323 -> [D@5f74e914, 594 -> [D@5fc900b8, 140 -> [D@6a390394, 213 -> [D@fe16249, 621 -> [D@772506e8, 91 -> [D@607e0474, 483 -> [D@42f99e4c, 520 -> [D@468e4f70, 66 -> [D@19c3030f, 240 -> [D@98ee9e7, 251 -> [D@70b0d64, 626 -> [D@334a373a, 155 -> [D@32108127, 198 -> [D@4c2f9753, 108 -> [D@1310c39f, 330 -> [D@7101c520, 462 -> [D@47ae6b9e, 521 -> [D@778be937, 130 -> [D@6292d062, 399 -> [D@1dc531d5, 636 -> [D@29835b68, 278 -> [D@169dd3e, 455 -> [D@758c1cb1, 223 -> [D@41f3c04c, 608 -> [D@72188b01, 394 -> [D@3d573851, 306 -> [D@282bc2de, 135 -> [D@77059637, 563 -> [D@41734b55, 299 -> [D@4562769a, 226 -> [D@332971da, 3 -> [D@6846eda6, 267 -> [D@33343a18, 505 -> [D@65b45c42, 438 -> [D@1d6b468f, 431 ->... and 4472 more bytes
 ```
 
 
 
 To help interpret the structure of this data set, we train a density tree:
 
-Code from [WhiteboardWorkflow.scala:292](../../src/test/scala/WhiteboardWorkflow.scala#L292) executed in 0.10 seconds: 
+Code from [WhiteboardWorkflow.scala:298](../../src/test/scala/WhiteboardWorkflow.scala#L298) executed in 0.10 seconds: 
 ```java
     val tree = new DensityTree("hueMean", "hueStdDev", "lumMean", "lumStdDev", "chromaMean", "width", "length")
     tree.setSplitSizeThreshold(2)
@@ -735,19 +965,80 @@ if(hueStdDev < 0.18930457532405853) { // Fitness 13.773256777525539
 
 Now, we recolor the image by classifying each superpixel as white, black, or color:
 
-Code from [WhiteboardWorkflow.scala:202](../../src/test/scala/WhiteboardWorkflow.scala#L202) executed in 0.42 seconds: 
+Code from [WhiteboardWorkflow.scala:194](../../src/test/scala/WhiteboardWorkflow.scala#L194) executed in 0.93 seconds: 
 ```java
     val segmentColors: ColorQueue_F32 = new ColorQueue_F32(3)
     segmentColors.resize(superpixels)
     (0 until superpixels).foreach(i ⇒ {
       segmentColors.getData()(i) = {
         val p = superpixelParameters(i)
-        val (hueMean: Float, hueStdDev: Float, lumMean: Float, lumStdDev: Float, chromaMean: Float, width: Int, length: Int) = (p(0).floatValue(), p(1).floatValue(), p(2).floatValue(), p(3).floatValue(), p(4).floatValue(), p(5).intValue(), p(6).intValue())
+        val (hueMean: Float, hueStdDev: Float, lumMean: Float, lumStdDev: Float, chromaMean: Float, width: Int, length: Int) =
+          (p(0).floatValue(), p(1).floatValue(), p(2).floatValue(), p(3).floatValue(), p(4).floatValue(), p(5).intValue(), p(6).intValue())
+        var isColored = false
+        var isBlack = false
+        var isWhite = false
+        if (lumStdDev < 1.5) {
+            isWhite = true
+        } else {
+          if (hueStdDev < 0.05) {
+            isColored = true
+          } else {
+            if (chromaMean < 5.0) {
+              isBlack = true
+            } else {
+              isColored = true
+            }
+          }
+        }
         val aspect = length.toDouble / width
+        val isMarkingShape = aspect > 2 && width < 35
+        val isMarking = isMarkingShape && !isWhite
+        if (isMarking) {
+          if (isBlack) {
+            Array(0.0f, 0.0f, 0.0f)
+          } else {
+            val rgb = new Array[Float](3)
+            ColorHsv.hsvToRgb(hueMean, 1.0f, 255.0f, rgb)
+            rgb
+          }
+        } else {
+          Array(255.0f, 255.0f, 255.0f)
+        }
+      }
+    })
+    VisualizeRegions.regionsColor(segmentation, segmentColors, null)
 ```
 
 Returns: 
-![Result](workflow.19.png)
+![Result](workflow.21.png)
+
+
+
+Finally, we trim all the whitespace: 
+
+Code from [WhiteboardWorkflow.scala:238](../../src/test/scala/WhiteboardWorkflow.scala#L238) executed in 1.37 seconds: 
+```java
+    val pixels = (0 until colorizedImg.getWidth).flatMap(x ⇒
+      (0 until colorizedImg.getHeight).filterNot(y ⇒
+        util.Arrays.equals(colorizedImg.getRaster.getPixel(x, y, null: Array[Int]), Array(255, 255, 255))).map(y ⇒ x → y))
+    var (xmin,xmax) = (pixels.map(_._1).min, pixels.map(_._1).max)
+    var (ymin,ymax) = (pixels.map(_._2).min, pixels.map(_._2).max)
+    val regionAspect = (xmax - xmin).toDouble / (ymax - ymin)
+    val imageAspect = colorizedImg.getWidth.toDouble / colorizedImg.getHeight
+    if(regionAspect< imageAspect) {
+      val width = (colorizedImg.getWidth * (ymax-ymin))/colorizedImg.getHeight
+      xmin = Math.max(0, (xmax + xmin - width)/2)
+      xmax = xmin + width
+    } else {
+      val height = (colorizedImg.getHeight * (xmax-xmin))/colorizedImg.getWidth
+      ymin = Math.max(0, (ymax + ymin - height)/2)
+      ymax = ymin + height
+    }
+    gfx.drawImage(colorizedImg, 0, 0, colorizedImg.getWidth, colorizedImg.getHeight, xmin,ymin, xmax,ymax, null)
+```
+
+Returns: 
+![Result](workflow.22.png)
 
 
 

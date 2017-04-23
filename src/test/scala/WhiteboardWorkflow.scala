@@ -28,9 +28,9 @@ import boofcv.abst.feature.detect.line.DetectLine
 import boofcv.alg.color.ColorHsv
 import boofcv.alg.distort.impl.DistortSupport
 import boofcv.alg.distort.{ImageDistort, PixelTransformHomography_F32}
-import boofcv.alg.filter.binary.{BinaryImageOps, GThresholdImageOps}
+import boofcv.alg.filter.binary.GThresholdImageOps
 import boofcv.alg.filter.blur.GBlurImageOps
-import boofcv.alg.misc.{GPixelMath, ImageStatistics}
+import boofcv.alg.misc.ImageStatistics
 import boofcv.core.image.border.BorderType
 import boofcv.factory.feature.detect.line.{ConfigHoughFoot, FactoryDetectLineAlgs}
 import boofcv.factory.geo.{ConfigHomography, ConfigRansac, FactoryMultiViewRobust}
@@ -40,7 +40,6 @@ import boofcv.gui.binary.VisualizeBinaryData
 import boofcv.gui.feature.VisualizeRegions
 import boofcv.gui.image.VisualizeImageData
 import boofcv.io.image.ConvertBufferedImage
-import boofcv.struct.ConnectRule
 import boofcv.struct.feature._
 import boofcv.struct.geo.AssociatedPair
 import boofcv.struct.image.{GrayF32, GrayS32, ImageType, Planar, _}
@@ -54,9 +53,6 @@ import georegression.struct.shapes.{Quadrilateral_F32, Rectangle2D_F32}
 import org.apache.commons.io.IOUtils
 import org.ddogleg.fitting.modelset.ModelMatcher
 import org.scalatest.{MustMatchers, WordSpec}
-import smile.clustering.linkage._
-import smile.clustering.{DENCLUE, KMeans}
-import smile.vq.NeuralGas
 
 import scala.collection.JavaConverters._
 
@@ -93,8 +89,6 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
         // Pre-filter image to improve segmentation results
         GBlurImageOps.median(rgb, rgb, 1)
         GBlurImageOps.gaussian(rgb, rgb, 0.5, -1, null)
-//        GBlurImageOps.median(rgb, rgb, 1)
-//        GBlurImageOps.gaussian(rgb, rgb, 0.3, -1, null)
         // Prepare HSV
         val hsv = rgb.createSameShape()
         ColorHsv.rgbToHsv_F32(rgb, hsv)
@@ -147,7 +141,6 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
           ColorHsv.rgbToHsv(rgb(0), rgb(1), rgb(2), hsv)
           hsv
         })
-
         def statsHsv(fn: Array[Float] ⇒ (Float, Float)): (Float, Float) = {
           val stats = hsvValues.map((hsv: Array[Float]) ⇒ {
             val (weight, value) = fn(hsv)
@@ -157,7 +150,6 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
           val stdDev = Math.sqrt(Math.abs((stats._3 / stats._1) - mean * mean)).toFloat
           (mean, stdDev)
         }
-
         // Superpixel color statistics:
         val (hueMean1, hueStdDev1) = statsHsv((hsv: Array[Float]) ⇒ {
           (hsv(2) * hsv(1) * (1 - hsv(2)), hsv(0))
@@ -199,19 +191,17 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
     clusterAnalysis_density(log, name)
 
     log.p("Now, we recolor the image by classifying each superpixel as white, black, or color:");
-    val segmentationImg: BufferedImage = log.code(() ⇒ {
+    val colorizedImg = log.code(() ⇒ {
       val segmentColors: ColorQueue_F32 = new ColorQueue_F32(3)
       segmentColors.resize(superpixels)
       (0 until superpixels).foreach(i ⇒ {
         segmentColors.getData()(i) = {
           val p = superpixelParameters(i)
-          val (hueMean: Float, hueStdDev: Float, lumMean: Float, lumStdDev: Float, chromaMean: Float, width: Int, length: Int) = (p(0).floatValue(), p(1).floatValue(), p(2).floatValue(), p(3).floatValue(), p(4).floatValue(), p(5).intValue(), p(6).intValue())
-          val aspect = length.toDouble / width
-
+          val (hueMean: Float, hueStdDev: Float, lumMean: Float, lumStdDev: Float, chromaMean: Float, width: Int, length: Int) =
+            (p(0).floatValue(), p(1).floatValue(), p(2).floatValue(), p(3).floatValue(), p(4).floatValue(), p(5).intValue(), p(6).intValue())
           var isColored = false
           var isBlack = false
           var isWhite = false
-
           if (lumStdDev < 1.5) {
               isWhite = true
           } else {
@@ -225,29 +215,45 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
               }
             }
           }
-
-          // Decision Logic
-          def WHITE = Array(255.0f, 255.0f, 255.0f)
-          def BLACK = Array(0.0f, 0.0f, 0.0f)
-
+          val aspect = length.toDouble / width
           val isMarkingShape = aspect > 2 && width < 35
           val isMarking = isMarkingShape && !isWhite
-          val (typeName, color) = if (isMarking) {
+          if (isMarking) {
             if (isBlack) {
-              "black" → BLACK
+              Array(0.0f, 0.0f, 0.0f)
             } else {
               val rgb = new Array[Float](3)
               ColorHsv.hsvToRgb(hueMean, 1.0f, 255.0f, rgb)
-              "color" → rgb
+              rgb
             }
           } else {
-            "white" → WHITE
+            Array(255.0f, 255.0f, 255.0f)
           }
-          color
         }
       })
       VisualizeRegions.regionsColor(segmentation, segmentColors, null)
     })
+
+    log.p("Finally, we trim all the whitespace: ");
+    log.draw(gfx ⇒ {
+      val pixels = (0 until colorizedImg.getWidth).flatMap(x ⇒
+        (0 until colorizedImg.getHeight).filterNot(y ⇒
+          util.Arrays.equals(colorizedImg.getRaster.getPixel(x, y, null: Array[Int]), Array(255, 255, 255))).map(y ⇒ x → y))
+      var (xmin,xmax) = (pixels.map(_._1).min, pixels.map(_._1).max)
+      var (ymin,ymax) = (pixels.map(_._2).min, pixels.map(_._2).max)
+      val regionAspect = (xmax - xmin).toDouble / (ymax - ymin)
+      val imageAspect = colorizedImg.getWidth.toDouble / colorizedImg.getHeight
+      if(regionAspect< imageAspect) {
+        val width = (colorizedImg.getWidth * (ymax-ymin))/colorizedImg.getHeight
+        xmin = Math.max(0, (xmax + xmin - width)/2)
+        xmax = xmin + width
+      } else {
+        val height = (colorizedImg.getHeight * (xmax-xmin))/colorizedImg.getWidth
+        ymin = Math.max(0, (ymax + ymin - height)/2)
+        ymax = ymin + height
+      }
+      gfx.drawImage(colorizedImg, 0, 0, colorizedImg.getWidth, colorizedImg.getHeight, xmin,ymin, xmax,ymax, null)
+    }, width = colorizedImg.getWidth, height = colorizedImg.getHeight)
   }
 
   private def distance(a: Array[Double], b: Array[Double]) = {
@@ -378,13 +384,6 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
       VisualizeBinaryData.renderBinary(binaryMask, false, null)
     })
     binaryMask
-//    log.p("This binarization is then refined by eroding and thinning operations")
-//    val finalBinaryMask: GrayU8 = log.code(() ⇒ {
-//      var temp = binaryMask
-//      temp = BinaryImageOps.thin(temp, 1, null)
-//      temp
-//    })
-//    finalBinaryMask
   }
 
   private def findSuperpixels_Color(log: ScalaMarkdownPrintStream, rgb: Planar[GrayF32]) = {
@@ -392,9 +391,6 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
     val (superpixels, segmentation) = log.code(() ⇒ {
       val imageType = ImageType.pl(3, classOf[GrayF32])
       val alg = FactoryImageSegmentation.fh04(new ConfigFh04(1.0f, 20), imageType)
-      //val alg = FactoryImageSegmentation.meanShift(new ConfigSegmentMeanShift(10,60.0F,30,true), imageType)
-      //val alg = FactoryImageSegmentation.watershed(new ConfigWatershed(ConnectRule.EIGHT, 20), imageType)
-      //val alg = FactoryImageSegmentation.slic(new ConfigSlic(100), imageType)
       val segmentation = new GrayS32(rgb.getWidth, rgb.getHeight)
       alg.segment(rgb, segmentation)
       (alg.getTotalSuperpixels, segmentation)
