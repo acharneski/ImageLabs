@@ -360,7 +360,7 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
     log.p("We can identify segments which may be markings using the masked color image:")
     val (superpixels, segmentation) = log.code(() ⇒ {
       val imageType = ImageType.pl(3, classOf[GrayF32])
-      val alg = FactoryImageSegmentation.fh04(new ConfigFh04(0.5f, 30), imageType)
+      val alg = FactoryImageSegmentation.fh04(new ConfigFh04(0.1f, 10), imageType)
       val segmentation = new GrayS32(rgb.getWidth, rgb.getHeight)
       alg.segment(maskedForground, segmentation)
       (alg.getTotalSuperpixels, segmentation)

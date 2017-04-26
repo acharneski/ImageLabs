@@ -47,8 +47,6 @@ import boofcv.io.image.ConvertBufferedImage
 import boofcv.struct.feature._
 import boofcv.struct.geo.AssociatedPair
 import boofcv.struct.image.{GrayF32, GrayS32, ImageType, Planar, _}
-import breeze.linalg.DenseVector
-import breeze.optimize.{ApproximateGradientFunction, LBFGS}
 import georegression.geometry.UtilPolygons2D_F32
 import georegression.metric.{Distance2D_F32, Intersection2D_F32}
 import georegression.struct.homography.Homography2D_F64
@@ -557,27 +555,30 @@ class WhiteboardDev extends WordSpec with MustMatchers with MarkdownReporter {
       VisualizeBinaryData.renderBinary(shapeThresholdImage, false, null)
     })
 
-    def fn(v: DenseVector[Double]): Double = {
-      val trialQuad: Quadrilateral_F32 = new Quadrilateral_F32(v(0).toFloat, v(1).toFloat, v(2).toFloat, v(3).toFloat, v(4).toFloat, v(5).toFloat, v(6).toFloat, v(7).toFloat)
-      val stepSize = 2
-      (0 until image.getWidth by stepSize).flatMap(x ⇒ {
-        (0 until image.getHeight by stepSize).map(y ⇒ {
-          val pt = new Point2D_F32(x, y)
-          val distance = Distance2D_F32.distance(trialQuad, pt)
-          val inside = if (Intersection2D_F32.contains(trialQuad, pt)) 1 else -1
-          val pixel = shapeThresholdImage.get(x, y)
-          (distance * inside * pixel)
-        })
-      }).sum
-    }
-
-    val startingPoint: DenseVector[Double] = DenseVector[Double](startQuad.a.x, startQuad.a.y, startQuad.b.x, startQuad.b.y,
-      startQuad.c.x, startQuad.c.y, startQuad.d.x, startQuad.d.y)
-    val gradientFunction = new ApproximateGradientFunction(fn _)
-    val lbfgs: LBFGS[DenseVector[Double]] = new LBFGS[DenseVector[Double]](maxIter = 100, m = 3)
-    val minimized: DenseVector[Double] = lbfgs.minimize(gradientFunction, startingPoint)
-    val optimizedQuad = new Quadrilateral_F32(minimized(0).toFloat, minimized(1).toFloat, minimized(2).toFloat, minimized(3).toFloat,
-      minimized(4).toFloat, minimized(5).toFloat, minimized(6).toFloat, minimized(7).toFloat)
+//
+//    import breeze.linalg.DenseVector
+//    import breeze.optimize.{ApproximateGradientFunction, LBFGS}
+//    def fn(v: DenseVector[Double]): Double = {
+//      val trialQuad: Quadrilateral_F32 = new Quadrilateral_F32(v(0).toFloat, v(1).toFloat, v(2).toFloat, v(3).toFloat, v(4).toFloat, v(5).toFloat, v(6).toFloat, v(7).toFloat)
+//      val stepSize = 2
+//      (0 until image.getWidth by stepSize).flatMap(x ⇒ {
+//        (0 until image.getHeight by stepSize).map(y ⇒ {
+//          val pt = new Point2D_F32(x, y)
+//          val distance = Distance2D_F32.distance(trialQuad, pt)
+//          val inside = if (Intersection2D_F32.contains(trialQuad, pt)) 1 else -1
+//          val pixel = shapeThresholdImage.get(x, y)
+//          (distance * inside * pixel)
+//        })
+//      }).sum
+//    }
+//    val startingPoint: DenseVector[Double] = DenseVector[Double](startQuad.a.x, startQuad.a.y, startQuad.b.x, startQuad.b.y,
+//      startQuad.c.x, startQuad.c.y, startQuad.d.x, startQuad.d.y)
+//    val gradientFunction = new ApproximateGradientFunction(fn _)
+//    val lbfgs: LBFGS[DenseVector[Double]] = new LBFGS[DenseVector[Double]](maxIter = 100, m = 3)
+//    val minimized: DenseVector[Double] = lbfgs.minimize(gradientFunction, startingPoint)
+//    val optimizedQuad = new Quadrilateral_F32(minimized(0).toFloat, minimized(1).toFloat, minimized(2).toFloat, minimized(3).toFloat,
+//      minimized(4).toFloat, minimized(5).toFloat, minimized(6).toFloat, minimized(7).toFloat)
+    val optimizedQuad = startQuad
     log.draw(gfx ⇒ {
       gfx.drawImage(image, 0, 0, null)
       gfx.setStroke(new BasicStroke(3))
