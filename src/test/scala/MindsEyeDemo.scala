@@ -35,6 +35,7 @@ import com.simiacryptus.util.text.TableOutput
 import org.scalatest.{MustMatchers, WordSpec}
 
 import scala.collection.JavaConverters._
+import scala.util.Random
 
 class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
@@ -67,36 +68,36 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         val inputSize = Array[Int](28, 28, 1)
         val outputSize = Array[Int](10)
 
-        var model: DAGNetwork = log.code(()⇒{
+        var model: DAGNetwork = log.code(() ⇒ {
           var model: DAGNetwork = new DAGNetwork
-          model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize:_*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.0
           }))
-          model = model.add(new BiasLayer(outputSize:_*))
+          model = model.add(new BiasLayer(outputSize: _*))
           // model = model.add(new MinMaxFilterLayer());
           model = model.add(new SoftmaxActivationLayer)
           model
         })
 
-        val data: Seq[Array[Tensor]] = log.code(()⇒{
+        val data: Seq[Array[Tensor]] = log.code(() ⇒ {
           MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
             Array(labeledObj.data, toOutNDArray(toOut(labeledObj.label), 10))
           })
         })
 
-        log.code(()⇒ {
+        log.code(() ⇒ {
           val previewTable = new TableOutput()
-          data.take(10).map(testObj⇒{
-            val row = new util.LinkedHashMap[String,AnyRef]()
-            row.put("Input1 (as Image)",log.image(testObj(0).toGrayImage(), testObj(0).toString))
-            row.put("Input2 (as String)",testObj(1).toString)
-            row.put("Input1 (as String)",testObj(0).toString)
+          data.take(10).map(testObj ⇒ {
+            val row = new util.LinkedHashMap[String, AnyRef]()
+            row.put("Input1 (as Image)", log.image(testObj(0).toGrayImage(), testObj(0).toString))
+            row.put("Input2 (as String)", testObj(1).toString)
+            row.put("Input1 (as String)", testObj(0).toString)
             row
           }).foreach(previewTable.putRow(_))
           previewTable
         })
 
-        val trainer = log.code(()⇒{
+        val trainer = log.code(() ⇒ {
           val trainingNetwork: DAGNetwork = new DAGNetwork
           trainingNetwork.add(model)
           trainingNetwork.addLossComponent(new EntropyLossLayer)
@@ -106,7 +107,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
           new DynamicRateTrainer(gradientTrainer)
         })
 
-        log.code(()⇒{
+        log.code(() ⇒ {
           val trainingContext = new TrainingContext
           trainingContext.terminalErr = 0.05
           trainer.step(trainingContext)
@@ -115,61 +116,62 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
           model
         })
 
-        log.code(()⇒ {
+        log.code(() ⇒ {
           val validationTable = new TableOutput()
-          MNIST.validationDataStream().iterator().asScala.toStream.take(10).map(testObj⇒{
-            val row = new util.LinkedHashMap[String,AnyRef]()
-            row.put("Input",log.image(testObj.data.toGrayImage(), testObj.label))
+          MNIST.validationDataStream().iterator().asScala.toStream.take(10).map(testObj ⇒ {
+            val row = new util.LinkedHashMap[String, AnyRef]()
+            row.put("Input", log.image(testObj.data.toGrayImage(), testObj.label))
             val result = model.eval(testObj.data).data.head
-            val prediction: Int = (0 to 9).maxBy(i⇒result.get(i))
+            val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
             row.put("Predicted Label", prediction.asInstanceOf[java.lang.Integer])
-            row.put("Actual Label",testObj.label)
-            row.put("Network Output",result)
+            row.put("Actual Label", testObj.label)
+            row.put("Network Output", result)
             row
           }).foreach(validationTable.putRow(_))
           validationTable
         })
 
 
-        val categorizationMatrix: Map[Int, Map[Int, Int]] = log.code(()⇒ {
-          MNIST.validationDataStream().iterator().asScala.toStream.map(testObj⇒{
+        val categorizationMatrix: Map[Int, Map[Int, Int]] = log.code(() ⇒ {
+          MNIST.validationDataStream().iterator().asScala.toStream.map(testObj ⇒ {
             val result = model.eval(testObj.data).data.head
-            val prediction: Int = (0 to 9).maxBy(i⇒result.get(i))
+            val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
             val actual: Int = toOut(testObj.label)
             actual → prediction
           }).groupBy(_._1).mapValues(_.groupBy(_._2).mapValues(_.size))
         })
-        log.out(" | Actual \\ Predicted | " + (0 to 9).mkString(" | "))
-        log.out((0 to 10).map(_⇒"---").mkString(" | "))
-        (0 to 9).foreach(actual⇒{
-          log.out(s" **$actual** | " + (0 to 9).map(prediction⇒{
-            categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(prediction,0)
+        log.out("Actual \\ Predicted | " + (0 to 9).mkString(" | "))
+        log.out((0 to 10).map(_ ⇒ "---").mkString(" | "))
+        (0 to 9).foreach(actual ⇒ {
+          log.out(s" **$actual** | " + (0 to 9).map(prediction ⇒ {
+            categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(prediction, 0)
           }).mkString(" | "))
         })
-        log.code(()⇒ {
-          (0 to 9).map(actual⇒{
+        log.out("")
+        log.code(() ⇒ {
+          (0 to 9).map(actual ⇒ {
             actual → (categorizationMatrix(actual)(actual) * 100.0 / categorizationMatrix(actual).values.sum)
           }).toMap
         })
-        log.code(()⇒ {
-          (0 to 9).map(actual⇒{
+        log.code(() ⇒ {
+          (0 to 9).map(actual ⇒ {
             categorizationMatrix(actual)(actual)
           }).sum.toDouble * 100.0 / categorizationMatrix.values.flatMap(_.values).sum
         })
 
 
-        log.code(()⇒ {
+        log.code(() ⇒ {
           val validationTable = new TableOutput()
-          MNIST.validationDataStream().iterator().asScala.toStream.filterNot(testObj⇒{
+          MNIST.validationDataStream().iterator().asScala.toStream.filterNot(testObj ⇒ {
             val result = model.eval(testObj.data).data.head
-            val prediction: Int = (0 to 9).maxBy(i⇒result.get(i))
+            val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
             val actual = toOut(testObj.label)
             prediction == actual
-          }).take(10).map(testObj⇒{
+          }).take(10).map(testObj ⇒ {
             val result = model.eval(testObj.data).data.head
-            val prediction: Int = (0 to 9).maxBy(i⇒result.get(i))
-            val row = new util.LinkedHashMap[String,AnyRef]()
-            row.put("Input",log.image(testObj.data.toGrayImage(), testObj.label))
+            val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
+            val row = new util.LinkedHashMap[String, AnyRef]()
+            row.put("Input", log.image(testObj.data.toGrayImage(), testObj.label))
             row.put("Predicted Label", prediction.asInstanceOf[java.lang.Integer])
             row.put("Actual Label", testObj.label)
             row.put("Network Output", result)
@@ -181,8 +183,120 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
       })
     }
 
+    "Learns Simple 2d Functions" in {
+      report("2d_simple", log ⇒ {
+        def runTest(function: (Double, Double) ⇒ Int) = {
+          val inputSize = Array[Int](2)
+          val outputSize = Array[Int](2)
+          val MAX: Int = 2
 
+          var model: DAGNetwork = log.code(() ⇒ {
+            var model: DAGNetwork = new DAGNetwork
+            model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+              override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.0
+            }))
+            model = model.add(new BiasLayer(outputSize: _*))
+            // model = model.add(new MinMaxFilterLayer());
+            model = model.add(new SoftmaxActivationLayer)
+            model
+          })
 
+          val trainingData: Seq[Array[Tensor]] = Stream.continually({
+            val x = Random.nextDouble() * 2.0 - 1.0
+            val y = Random.nextDouble() * 2.0 - 1.0
+            Array(new Tensor(Array(2), Array(x, y)), toOutNDArray(function(x, y), 2))
+          }).take(100)
+          val validationData: Seq[Array[Tensor]] = Stream.continually({
+            val x = Random.nextDouble() * 2.0 - 1.0
+            val y = Random.nextDouble() * 2.0 - 1.0
+            Array(new Tensor(Array(2), Array(x, y)), toOutNDArray(function(x, y), 2))
+          }).take(100)
+
+          val trainer = log.code(() ⇒ {
+            val trainingNetwork: DAGNetwork = new DAGNetwork
+            trainingNetwork.add(model)
+            trainingNetwork.addLossComponent(new EntropyLossLayer)
+            val gradientTrainer: GradientDescentTrainer = new GradientDescentTrainer
+            gradientTrainer.setNet(trainingNetwork)
+            gradientTrainer.setData(trainingData.toArray)
+            new DynamicRateTrainer(gradientTrainer)
+          })
+
+          log.code(() ⇒ {
+            val trainingContext = new TrainingContext
+            trainingContext.terminalErr = 0.05
+            trainer.step(trainingContext)
+            val finalError = trainer.step(trainingContext).finalError
+            System.out.println(s"Final Error = $finalError")
+            model
+          })
+
+          log.draw(gfx ⇒ {
+            (0 to 400).foreach(x ⇒ (0 to 400).foreach(y ⇒ {
+              function((x / 200.0) - 1.0, (y / 200.0) - 1.0) match {
+                case 0 ⇒ gfx.setColor(Color.RED)
+                case 1 ⇒ gfx.setColor(Color.GREEN)
+              }
+              gfx.drawRect(x, y, 1, 1)
+            }))
+            validationData.foreach(testObj ⇒ {
+              val row = new util.LinkedHashMap[String, AnyRef]()
+              val result = model.eval(testObj(0)).data.head
+              (0 until MAX).maxBy(i ⇒ result.get(i)) match {
+                case 0 ⇒ gfx.setColor(Color.PINK)
+                case 1 ⇒ gfx.setColor(Color.BLUE)
+              }
+              val xx = testObj(0).get(0) * 200.0 + 200.0
+              val yy = testObj(0).get(1) * 200.0 + 200.0
+              gfx.drawRect(xx.toInt - 1, yy.toInt - 1, 3, 3)
+            })
+          }, width = 400, height = 400)
+
+          val categorizationMatrix: Map[Int, Map[Int, Int]] = log.code(() ⇒ {
+            validationData.map(testObj ⇒ {
+              val result = model.eval(testObj(0)).data.head
+              val prediction: Int = (0 until MAX).maxBy(i ⇒ result.get(i))
+              val actual: Int = (0 until MAX).maxBy(i ⇒ testObj(1).get(i))
+              actual → prediction
+            }).groupBy(_._1).mapValues(_.groupBy(_._2).mapValues(_.size))
+          })
+          log.out("Actual \\ Predicted | " + (0 until MAX).mkString(" | "))
+          log.out((0 to MAX).map(_ ⇒ "---").mkString(" | "))
+          (0 until MAX).foreach(actual ⇒ {
+            log.out(s" **$actual** | " + (0 to 9).map(prediction ⇒ {
+              categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(prediction, 0)
+            }).mkString(" | "))
+          })
+          log.out("")
+          log.code(() ⇒ {
+            (0 until MAX).map(actual ⇒ {
+              actual → (categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0) * 100.0 / categorizationMatrix.getOrElse(actual, Map.empty).values.sum)
+            }).toMap
+          })
+          log.code(() ⇒ {
+            (0 until MAX).map(actual ⇒ {
+              categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0)
+            }).sum.toDouble * 100.0 / categorizationMatrix.values.flatMap(_.values).sum
+          })
+        }
+
+        log.h2("Linear")
+        runTest(log.code(() ⇒ {
+          (x: Double, y: Double) ⇒ if (x < y) 0 else 1
+        }))
+
+        log.h2("XOR")
+        runTest(log.code(() ⇒ {
+          (x: Double, y: Double) ⇒ if ((x < 0) ^ (y < 0)) 0 else 1
+        }))
+
+        log.h2("Circle")
+        runTest(log.code(() ⇒ {
+          (x: Double, y: Double) ⇒ if ((x * x) + (y * y) < 0.5) 0 else 1
+        }))
+
+      })
+    }
 
 
   }
@@ -195,7 +309,8 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
       if (label == "[" + i + "]") return i
 
       {
-        i += 1; i - 1
+        i += 1;
+        i - 1
       }
     }
     throw new RuntimeException
