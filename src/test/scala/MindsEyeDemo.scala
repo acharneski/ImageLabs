@@ -18,16 +18,25 @@
  */
 
 import java.awt.Color
+import java.awt.geom.AffineTransform
+import java.awt.image.{AffineTransformOp, BufferedImage}
 import java.util
-import java.util.function.ToDoubleFunction
+import java.util.{ArrayList, List}
+import java.util.function.{DoubleSupplier, ToDoubleFunction}
+import javax.imageio.ImageIO
 
+import com.aparapi.Kernel
 import com.simiacryptus.mindseye.Util
 import com.simiacryptus.mindseye.core.TrainingContext
-import com.simiacryptus.mindseye.net.DAGNetwork
-import com.simiacryptus.mindseye.net.activation.SoftmaxActivationLayer
+import com.simiacryptus.mindseye.core.delta.NNResult
+import com.simiacryptus.mindseye.net.{DAGNetwork, DAGNode}
+import com.simiacryptus.mindseye.net.activation.{AbsActivationLayer, L1NormalizationLayer, LinearActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.net.basic.BiasLayer
 import com.simiacryptus.mindseye.net.dev.DenseSynapseLayerJBLAS
-import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
+import com.simiacryptus.mindseye.net.loss.{EntropyLossLayer, SqLossLayer}
+import com.simiacryptus.mindseye.net.media.{ConvolutionSynapseLayer, EntropyLayer}
+import com.simiacryptus.mindseye.net.reducers.SumInputsLayer
+import com.simiacryptus.mindseye.net.util.VerboseWrapper
 import com.simiacryptus.mindseye.training.{DynamicRateTrainer, GradientDescentTrainer}
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
@@ -185,6 +194,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
     "Learns Simple 2d Functions" in {
       report("2d_simple", log ⇒ {
+
         def runTest(function: (Double, Double) ⇒ Int) = {
           val inputSize = Array[Int](2)
           val outputSize = Array[Int](2)
@@ -298,6 +308,95 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
       })
     }
 
+    "Reverse Blur Filter" in {
+      report("deconvolution", log ⇒ {
+
+        val blurFilter = log.code(()⇒{
+          def singleConvolution: ConvolutionSynapseLayer = {
+            val convolution = new ConvolutionSynapseLayer(Array[Int](3, 3), 9)
+            (0 until 3).foreach(ii⇒{
+              val i = ii + ii * 3
+              convolution.kernel.set(Array[Int](0, 2, i), 0.333)
+              convolution.kernel.set(Array[Int](1, 1, i), 0.333)
+              convolution.kernel.set(Array[Int](2, 0, i), 0.333)
+            })
+            convolution.freeze
+            convolution
+          }
+          val net = new DAGNetwork
+          net.add(singleConvolution)
+          net.add(singleConvolution)
+          net.add(singleConvolution)
+          net
+        })
+
+
+        val idealImage = log.code(()⇒{
+          val read = ImageIO.read(getClass.getResourceAsStream("/monkey1.jpg"))
+          def scale(img: BufferedImage, scale: Double) = {
+            val w = img.getWidth
+            val h = img.getHeight
+            val after = new BufferedImage((w * scale).toInt, (h * scale).toInt, BufferedImage.TYPE_INT_ARGB)
+            val at = new AffineTransform
+            at.scale(scale, scale)
+            new AffineTransformOp(at, AffineTransformOp.TYPE_BILINEAR).filter(img, after)
+          }
+          scale(read, 0.5)
+        })
+
+        val idealImageTensor: Tensor = Tensor.fromRGB(idealImage)
+        val blurredImage: Tensor = log.code(()⇒{
+          blurFilter.eval(Array(Array(idealImageTensor))).data.head
+        })
+        log.code(()⇒{
+          blurredImage.toRgbImage()
+        })
+
+        val inputSize: Array[Int] = idealImageTensor.getDims
+        val zeroInput = new Tensor(inputSize:_*)
+
+        val (bias, dagNetwork) = log.code(()⇒{
+          val dagNetwork = new DAGNetwork
+          val bias = new BiasLayer(inputSize: _*)
+          val modeledImageNode = dagNetwork.add(bias).getHead
+          dagNetwork.add(blurFilter)
+          dagNetwork.addLossComponent(new SqLossLayer)
+          val imageRMS: DAGNode = dagNetwork.add(new VerboseWrapper("rms", new BiasLayer().freeze)).getHead
+          dagNetwork.add(new AbsActivationLayer, modeledImageNode)
+          dagNetwork.add(new L1NormalizationLayer)
+          dagNetwork.add(new EntropyLayer)
+          dagNetwork.add(new SumInputsLayer)
+          val image_entropy: DAGNode = dagNetwork.add(new VerboseWrapper("entropy", new BiasLayer().freeze)).getHead
+          val scaledRms: DAGNode = dagNetwork.add(new LinearActivationLayer().setWeight(1.0).freeze, imageRMS).getHead
+          val scaledEntropy: DAGNode = dagNetwork.add(new LinearActivationLayer().setWeight(0.001).freeze, image_entropy).getHead
+          dagNetwork.add(new VerboseWrapper("product", new SumInputsLayer), scaledRms, scaledEntropy)
+          (bias, dagNetwork)
+        })
+
+        log.code(() ⇒ {
+          val trainer = {
+            val gradientTrainer: GradientDescentTrainer = new GradientDescentTrainer
+            gradientTrainer.setNet(dagNetwork)
+            gradientTrainer.setData(Seq(Array(zeroInput, blurredImage)).toArray)
+            new DynamicRateTrainer(gradientTrainer)
+          }
+          bias.addWeights(new DoubleSupplier {
+            override def getAsDouble: Double = Util.R.get.nextGaussian * 1e-5
+          })
+          val trainingContext = new TrainingContext
+          trainingContext.terminalErr = 0.05
+          trainer.step(trainingContext)
+          val finalError = trainer.step(trainingContext).finalError
+          System.out.println(s"Final Error = $finalError")
+          dagNetwork
+        })
+
+        log.code(()⇒{
+          dagNetwork.getChild(bias.getId).asInstanceOf[BiasLayer].eval(zeroInput).data(0).toRgbImage()
+        })
+
+      })
+    }
 
   }
 
