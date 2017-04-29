@@ -8,6 +8,12 @@ import com.simiacryptus.util.test.MarkdownPrintStream
 class ScalaMarkdownPrintStream(file : File, name : String) extends MarkdownPrintStream(file, name) {
 
 
+  def eval[T](fn: =>T):T = {
+    code(new Supplier[T] {
+      override def get(): T = fn
+    }, 8*1024, 3)
+  }
+
   def code[T](fn: ()=>T):T = {
     code(new Supplier[T] {
       override def get(): T = fn()

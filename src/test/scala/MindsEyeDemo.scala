@@ -27,7 +27,6 @@ import javax.imageio.ImageIO
 
 import com.aparapi.Kernel
 import com.simiacryptus.mindseye.Util
-import com.simiacryptus.mindseye.core.TrainingContext
 import com.simiacryptus.mindseye.core.delta.NNResult
 import com.simiacryptus.mindseye.net.{DAGNetwork, DAGNode}
 import com.simiacryptus.mindseye.net.activation.{AbsActivationLayer, L1NormalizationLayer, LinearActivationLayer, SoftmaxActivationLayer}
@@ -37,7 +36,7 @@ import com.simiacryptus.mindseye.net.loss.{EntropyLossLayer, SqLossLayer}
 import com.simiacryptus.mindseye.net.media.{ConvolutionSynapseLayer, EntropyLayer}
 import com.simiacryptus.mindseye.net.reducers.SumInputsLayer
 import com.simiacryptus.mindseye.net.util.VerboseWrapper
-import com.simiacryptus.mindseye.training.{DynamicRateTrainer, GradientDescentTrainer}
+import com.simiacryptus.mindseye.training.{DynamicRateTrainer, GradientDescentTrainer, TrainingContext}
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
 import com.simiacryptus.util.text.TableOutput
@@ -159,12 +158,12 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         log.out("")
         log.code(() ⇒ {
           (0 to 9).map(actual ⇒ {
-            actual → (categorizationMatrix(actual)(actual) * 100.0 / categorizationMatrix(actual).values.sum)
+            actual → (categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0) * 100.0 / categorizationMatrix.getOrElse(actual,Map.empty).values.sum)
           }).toMap
         })
         log.code(() ⇒ {
           (0 to 9).map(actual ⇒ {
-            categorizationMatrix(actual)(actual)
+            categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0)
           }).sum.toDouble * 100.0 / categorizationMatrix.values.flatMap(_.values).sum
         })
 
@@ -195,21 +194,11 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
     "Learns Simple 2d Functions" in {
       report("2d_simple", log ⇒ {
 
-        def runTest(function: (Double, Double) ⇒ Int) = {
-          val inputSize = Array[Int](2)
-          val outputSize = Array[Int](2)
-          val MAX: Int = 2
+        val inputSize = Array[Int](2)
+        val outputSize = Array[Int](2)
+        val MAX: Int = 2
 
-          var model: DAGNetwork = log.code(() ⇒ {
-            var model: DAGNetwork = new DAGNetwork
-            model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
-              override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.0
-            }))
-            model = model.add(new BiasLayer(outputSize: _*))
-            // model = model.add(new MinMaxFilterLayer());
-            model = model.add(new SoftmaxActivationLayer)
-            model
-          })
+        def runTest(function: (Double, Double) ⇒ Int, model: DAGNetwork) = {
 
           val trainingData: Seq[Array[Tensor]] = Stream.continually({
             val x = Random.nextDouble() * 2.0 - 1.0
@@ -222,7 +211,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
             Array(new Tensor(Array(2), Array(x, y)), toOutNDArray(function(x, y), 2))
           }).take(100)
 
-          val trainer = log.code(() ⇒ {
+          val trainer = {
             val trainingNetwork: DAGNetwork = new DAGNetwork
             trainingNetwork.add(model)
             trainingNetwork.addLossComponent(new EntropyLossLayer)
@@ -230,16 +219,16 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
             gradientTrainer.setNet(trainingNetwork)
             gradientTrainer.setData(trainingData.toArray)
             new DynamicRateTrainer(gradientTrainer)
-          })
+          }
 
-          log.code(() ⇒ {
+          {
             val trainingContext = new TrainingContext
             trainingContext.terminalErr = 0.05
             trainer.step(trainingContext)
             val finalError = trainer.step(trainingContext).finalError
             System.out.println(s"Final Error = $finalError")
             model
-          })
+          }
 
           log.draw(gfx ⇒ {
             (0 to 400).foreach(x ⇒ (0 to 400).foreach(y ⇒ {
@@ -262,14 +251,21 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
             })
           }, width = 400, height = 400)
 
-          val categorizationMatrix: Map[Int, Map[Int, Int]] = log.code(() ⇒ {
+          val categorizationMatrix: Map[Int, Map[Int, Int]] = log.eval {
             validationData.map(testObj ⇒ {
               val result = model.eval(testObj(0)).data.head
               val prediction: Int = (0 until MAX).maxBy(i ⇒ result.get(i))
               val actual: Int = (0 until MAX).maxBy(i ⇒ testObj(1).get(i))
               actual → prediction
             }).groupBy(_._1).mapValues(_.groupBy(_._2).mapValues(_.size))
-          })
+          }
+          val byCategory = (0 until MAX).map(actual ⇒ {
+            actual → (categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0) * 100.0 / categorizationMatrix.getOrElse(actual, Map.empty).values.sum)
+          }).toMap
+          val overall = (0 until MAX).map(actual ⇒ {
+            categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0)
+          }).sum.toDouble * 100.0 / categorizationMatrix.values.flatMap(_.values).sum
+
           log.out("Actual \\ Predicted | " + (0 until MAX).mkString(" | "))
           log.out((0 to MAX).map(_ ⇒ "---").mkString(" | "))
           (0 until MAX).foreach(actual ⇒ {
@@ -277,33 +273,81 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
               categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(prediction, 0)
             }).mkString(" | "))
           })
-          log.out("")
-          log.code(() ⇒ {
-            (0 until MAX).map(actual ⇒ {
-              actual → (categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0) * 100.0 / categorizationMatrix.getOrElse(actual, Map.empty).values.sum)
-            }).toMap
-          })
-          log.code(() ⇒ {
-            (0 until MAX).map(actual ⇒ {
-              categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0)
-            }).sum.toDouble * 100.0 / categorizationMatrix.values.flatMap(_.values).sum
-          })
+          log.eval {
+            overall → byCategory
+          }
         }
 
         log.h2("Linear")
-        runTest(log.code(() ⇒ {
+        runTest(log.eval {
           (x: Double, y: Double) ⇒ if (x < y) 0 else 1
-        }))
+        }, log.eval {
+          var model: DAGNetwork = new DAGNetwork
+          model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.1
+          }))
+          model = model.add(new BiasLayer(outputSize: _*))
+          model = model.add(new SoftmaxActivationLayer)
+          model
+        })
 
         log.h2("XOR")
-        runTest(log.code(() ⇒ {
+        val xor_fn = log.eval {
           (x: Double, y: Double) ⇒ if ((x < 0) ^ (y < 0)) 0 else 1
-        }))
+        }
+        runTest(xor_fn, log.eval {
+          var model: DAGNetwork = new DAGNetwork
+          model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.2
+          }))
+          model = model.add(new BiasLayer(outputSize: _*))
+          model = model.add(new SoftmaxActivationLayer)
+          model
+        })
+        runTest(xor_fn, log.eval {
+          var model: DAGNetwork = new DAGNetwork
+          val middleSize = Array[Int](15)
+          model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
+          }))
+          model = model.add(new BiasLayer(middleSize: _*))
+          model = model.add(new AbsActivationLayer())
+          model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(middleSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
+          }))
+          model = model.add(new BiasLayer(outputSize: _*))
+          model = model.add(new SoftmaxActivationLayer)
+          model
+        })
 
         log.h2("Circle")
-        runTest(log.code(() ⇒ {
+        val circle_fn = log.eval {
           (x: Double, y: Double) ⇒ if ((x * x) + (y * y) < 0.5) 0 else 1
-        }))
+        }
+        runTest(circle_fn, log.eval {
+          var model: DAGNetwork = new DAGNetwork
+          model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.2
+          }))
+          model = model.add(new BiasLayer(outputSize: _*))
+          model = model.add(new SoftmaxActivationLayer)
+          model
+        })
+        runTest(circle_fn, log.eval {
+          var model: DAGNetwork = new DAGNetwork
+          val middleSize = Array[Int](15)
+          model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
+          }))
+          model = model.add(new BiasLayer(middleSize: _*))
+          model = model.add(new AbsActivationLayer())
+          model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(middleSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
+          }))
+          model = model.add(new BiasLayer(outputSize: _*))
+          model = model.add(new SoftmaxActivationLayer)
+          model
+        })
 
       })
     }
