@@ -26,17 +26,17 @@ import java.util.function.{DoubleSupplier, ToDoubleFunction}
 import javax.imageio.ImageIO
 
 import com.aparapi.Kernel
-import com.simiacryptus.mindseye.Util
-import com.simiacryptus.mindseye.core.delta.NNResult
-import com.simiacryptus.mindseye.net.{DAGNetwork, DAGNode}
+import com.simiacryptus.mindseye.net.{DAGNode, NNResult}
 import com.simiacryptus.mindseye.net.activation.{AbsActivationLayer, L1NormalizationLayer, LinearActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.net.basic.BiasLayer
+import com.simiacryptus.mindseye.net.dag.{DAGNetwork, DAGNode}
 import com.simiacryptus.mindseye.net.dev.DenseSynapseLayerJBLAS
 import com.simiacryptus.mindseye.net.loss.{EntropyLossLayer, SqLossLayer}
 import com.simiacryptus.mindseye.net.media.{ConvolutionSynapseLayer, EntropyLayer}
 import com.simiacryptus.mindseye.net.reducers.SumInputsLayer
 import com.simiacryptus.mindseye.net.util.VerboseWrapper
 import com.simiacryptus.mindseye.training.{DynamicRateTrainer, GradientDescentTrainer, TrainingContext}
+import com.simiacryptus.util.Util
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
 import com.simiacryptus.util.text.TableOutput
