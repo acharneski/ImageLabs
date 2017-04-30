@@ -35,7 +35,7 @@ import com.simiacryptus.mindseye.net.loss.{EntropyLossLayer, SqLossLayer}
 import com.simiacryptus.mindseye.net.media.{ConvolutionSynapseLayer, EntropyLayer}
 import com.simiacryptus.mindseye.net.reducers.SumInputsLayer
 import com.simiacryptus.mindseye.net.util.VerboseWrapper
-import com.simiacryptus.mindseye.training.{IterativeTrainer, LineSearchTrainer, TrainingContext}
+import com.simiacryptus.mindseye.training.{IterativeTrainer, LbfgsTrainer, TrainingContext}
 import com.simiacryptus.util.Util
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
@@ -109,7 +109,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
           val trainingNetwork: DAGNetwork = new DAGNetwork
           trainingNetwork.add(model)
           trainingNetwork.addLossComponent(new EntropyLossLayer)
-          val gradientTrainer: LineSearchTrainer = new LineSearchTrainer
+          val gradientTrainer: LbfgsTrainer = new LbfgsTrainer
           gradientTrainer.setNet(trainingNetwork)
           gradientTrainer.setData(data.toArray)
           new IterativeTrainer(gradientTrainer)
@@ -215,7 +215,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
             val trainingNetwork: DAGNetwork = new DAGNetwork
             trainingNetwork.add(model)
             trainingNetwork.addLossComponent(new EntropyLossLayer)
-            val gradientTrainer: LineSearchTrainer = new LineSearchTrainer
+            val gradientTrainer: LbfgsTrainer = new LbfgsTrainer
             gradientTrainer.setNet(trainingNetwork)
             gradientTrainer.setData(trainingData.toArray)
             new IterativeTrainer(gradientTrainer)
@@ -419,7 +419,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
         log.code(() ⇒ {
           val trainer = {
-            val gradientTrainer: LineSearchTrainer = new LineSearchTrainer
+            val gradientTrainer: LbfgsTrainer = new LbfgsTrainer
             gradientTrainer.setNet(dagNetwork)
             gradientTrainer.setData(Seq(Array(zeroInput, blurredImage)).toArray)
             new IterativeTrainer(gradientTrainer)
