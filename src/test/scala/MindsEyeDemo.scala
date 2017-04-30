@@ -26,7 +26,7 @@ import java.util.function.{DoubleSupplier, ToDoubleFunction}
 import javax.imageio.ImageIO
 
 import com.aparapi.Kernel
-import com.simiacryptus.mindseye.net.{DAGNode, NNResult}
+import com.simiacryptus.mindseye.net.{NNResult}
 import com.simiacryptus.mindseye.net.activation.{AbsActivationLayer, L1NormalizationLayer, LinearActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.net.basic.BiasLayer
 import com.simiacryptus.mindseye.net.dag.{DAGNetwork, DAGNode}
@@ -35,7 +35,7 @@ import com.simiacryptus.mindseye.net.loss.{EntropyLossLayer, SqLossLayer}
 import com.simiacryptus.mindseye.net.media.{ConvolutionSynapseLayer, EntropyLayer}
 import com.simiacryptus.mindseye.net.reducers.SumInputsLayer
 import com.simiacryptus.mindseye.net.util.VerboseWrapper
-import com.simiacryptus.mindseye.training.{DynamicRateTrainer, GradientDescentTrainer, TrainingContext}
+import com.simiacryptus.mindseye.training.{IterativeTrainer, LineSearchTrainer, TrainingContext}
 import com.simiacryptus.util.Util
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
@@ -109,10 +109,10 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
           val trainingNetwork: DAGNetwork = new DAGNetwork
           trainingNetwork.add(model)
           trainingNetwork.addLossComponent(new EntropyLossLayer)
-          val gradientTrainer: GradientDescentTrainer = new GradientDescentTrainer
+          val gradientTrainer: LineSearchTrainer = new LineSearchTrainer
           gradientTrainer.setNet(trainingNetwork)
           gradientTrainer.setData(data.toArray)
-          new DynamicRateTrainer(gradientTrainer)
+          new IterativeTrainer(gradientTrainer)
         })
 
         log.code(() ⇒ {
@@ -215,10 +215,10 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
             val trainingNetwork: DAGNetwork = new DAGNetwork
             trainingNetwork.add(model)
             trainingNetwork.addLossComponent(new EntropyLossLayer)
-            val gradientTrainer: GradientDescentTrainer = new GradientDescentTrainer
+            val gradientTrainer: LineSearchTrainer = new LineSearchTrainer
             gradientTrainer.setNet(trainingNetwork)
             gradientTrainer.setData(trainingData.toArray)
-            new DynamicRateTrainer(gradientTrainer)
+            new IterativeTrainer(gradientTrainer)
           }
 
           {
@@ -419,10 +419,10 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
         log.code(() ⇒ {
           val trainer = {
-            val gradientTrainer: GradientDescentTrainer = new GradientDescentTrainer
+            val gradientTrainer: LineSearchTrainer = new LineSearchTrainer
             gradientTrainer.setNet(dagNetwork)
             gradientTrainer.setData(Seq(Array(zeroInput, blurredImage)).toArray)
-            new DynamicRateTrainer(gradientTrainer)
+            new IterativeTrainer(gradientTrainer)
           }
           bias.addWeights(new DoubleSupplier {
             override def getAsDouble: Double = Util.R.get.nextGaussian * 1e-5
