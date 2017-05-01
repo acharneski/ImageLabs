@@ -17,10 +17,11 @@
  * under the License.
  */
 
-import java.awt.Color
+import java.awt.{Color, Graphics2D}
 import java.awt.geom.AffineTransform
 import java.awt.image.{AffineTransformOp, BufferedImage}
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 import java.util.function.{DoubleSupplier, ToDoubleFunction}
 import java.{lang, util}
 import javax.imageio.ImageIO
@@ -52,103 +53,107 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
   "MindsEye Demo" should {
 
-    "Access MNIST dataset" in {
-      report("mnist_data", log ⇒ {
-        val rows = 100
-        val cols = 50
-        val size = 28
-        log.draw(gfx ⇒ {
-          var n = 0
-          MNIST.trainingDataStream().iterator().asScala.toStream.take(rows * cols).foreach(item ⇒ {
-            val (x, y) = ((n % cols) * size, (n / cols) * size)
-            (0 until size).foreach(xx ⇒
-              (0 until size).foreach(yy ⇒ {
-                val value: Double = item.data.get(xx, yy)
-                gfx.setColor(new Color(value.toInt, value.toInt, value.toInt))
-                gfx.drawRect(x + xx, y + yy, 1, 1)
-              }))
-            n = n + 1
-          })
-        }, width = size * cols, height = size * rows)
-      })
-    }
-
     "Train Simple Digit Recognizer" in {
       report("mnist_simple", log ⇒ {
         val inputSize = Array[Int](28, 28, 1)
         val outputSize = Array[Int](10)
+        log.p("In this demo we train a simple neural network against the MNIST handwritten digit dataset")
 
+        log.h2("Data")
+        log.p("First, we load the training dataset: ")
+        val data: Seq[Array[Tensor]] = log.code(() ⇒ {
+          MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
+            Array(labeledObj.data, toOutNDArray(toOut(labeledObj.label), 10))
+          })
+        })
+        log.p("And preview a few rows: ")
+        log.eval {
+          TableOutput.create(data.take(10).map(testObj ⇒ Map[String,AnyRef](
+            "Input1 (as Image)" → log.image(testObj(0).toGrayImage(), testObj(0).toString),
+            "Input2 (as String)" → testObj(1).toString,
+            "Input1 (as String)" → testObj(0).toString
+          ).asJava):_*)
+        }
+
+        log.h2("Model")
+        log.p("Here we define the logic network that we are about to train: ")
         var model: DAGNetwork = log.eval {
           var model: DAGNetwork = new DAGNetwork
           model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.0
           }))
           model = model.add(new BiasLayer(outputSize: _*))
-          // model = model.add(new MinMaxFilterLayer());
           model = model.add(new SoftmaxActivationLayer)
           model
         }
-        networkGraph(log, model)
-
-        val data: Seq[Array[Tensor]] = log.code(() ⇒ {
-          MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
-            Array(labeledObj.data, toOutNDArray(toOut(labeledObj.label), 10))
-          })
-        })
-
-        log.eval {
-          val previewTable = new TableOutput()
-          data.take(10).map(testObj ⇒ {
-            val row = new util.LinkedHashMap[String, AnyRef]()
-            row.put("Input1 (as Image)", log.image(testObj(0).toGrayImage(), testObj(0).toString))
-            row.put("Input2 (as String)", testObj(1).toString)
-            row.put("Input1 (as String)", testObj(0).toString)
-            row
-          }).foreach(previewTable.putRow(_))
-          previewTable
-        }
-
+        log.p("We can visualize this network as a graph: ")
+        networkGraph(log, model, 800)
+        log.p("We encapsulate our model network within a supervisory network that applies a loss function: ")
         val trainingNetwork: DAGNetwork = log.eval {
           val trainingNetwork: DAGNetwork = new DAGNetwork
           trainingNetwork.add(model)
           trainingNetwork.addLossComponent(new EntropyLossLayer)
           trainingNetwork
         }
-        networkGraph(log, trainingNetwork)
+        log.p("With a the following component graph: ")
+        networkGraph(log, trainingNetwork, 600)
+        log.p("Note that this visualization does not expand DAGNetworks recursively")
 
+        log.h2("Training")
+        log.p("We train using a standard iterative L-BFGS strategy: ")
         val trainer = log.eval {
           val gradientTrainer: LbfgsTrainer = new LbfgsTrainer
           gradientTrainer.setNet(trainingNetwork)
           gradientTrainer.setData(data.toArray)
           new IterativeTrainer(gradientTrainer)
         }
-
         log.eval {
           val trainingContext = new TrainingContext
-          trainingContext.terminalErr = 0.005
+          trainingContext.terminalErr = 0.0
+          trainingContext.setTimeout(5, TimeUnit.SECONDS)
           trainer.step(trainingContext)
           val finalError = trainer.step(trainingContext).finalError
           System.out.println(s"Final Error = $finalError")
-          model
         }
+        log.p("After training, we have the following parameterized model: ")
+        log.eval {
+          model.toString
+        }
+        log.p("A summary of the training timeline: ")
         summarizeHistory(log, trainer.history)
 
+        log.h2("Validation")
+        log.p("Here we examine a sample of validation rows, randomly selected: ")
         log.eval {
-          val validationTable = new TableOutput()
-          MNIST.validationDataStream().iterator().asScala.toStream.take(10).map(testObj ⇒ {
-            val row = new util.LinkedHashMap[String, AnyRef]()
-            row.put("Input", log.image(testObj.data.toGrayImage(), testObj.label))
+          TableOutput.create(MNIST.validationDataStream().iterator().asScala.toStream.take(10).map(testObj ⇒ {
+            val result = model.eval(testObj.data).data.head
+            Map[String, AnyRef](
+              "Input" → log.image(testObj.data.toGrayImage(), testObj.label),
+              "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[java.lang.Integer],
+              "Actual Label" → testObj.label,
+              "Network Output" → result
+            ).asJava
+          }): _*)
+        }
+        log.p("Validation rows that are mispredicted are also sampled: ")
+        log.eval {
+          TableOutput.create(MNIST.validationDataStream().iterator().asScala.toStream.filterNot(testObj ⇒ {
             val result = model.eval(testObj.data).data.head
             val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
-            row.put("Predicted Label", prediction.asInstanceOf[java.lang.Integer])
-            row.put("Actual Label", testObj.label)
-            row.put("Network Output", result)
-            row
-          }).foreach(validationTable.putRow(_))
-          validationTable
+            val actual = toOut(testObj.label)
+            prediction == actual
+          }).take(10).map(testObj ⇒ {
+            val result = model.eval(testObj.data).data.head
+            Map[String, AnyRef](
+              "Input" → log.image(testObj.data.toGrayImage(), testObj.label),
+              "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[java.lang.Integer],
+              "Actual Label" → testObj.label,
+              "Network Output" → result
+            ).asJava
+          }): _*)
         }
-
-
+        log.p("To summarize the accuracy of the model, we calculate several summaries: ")
+        log.p("The (mis)categorization matrix displays a count matrix for every actual/predicted category: ")
         val categorizationMatrix: Map[Int, Map[Int, Int]] = log.eval {
           MNIST.validationDataStream().iterator().asScala.toStream.map(testObj ⇒ {
             val result = model.eval(testObj.data).data.head
@@ -165,36 +170,17 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
           }).mkString(" | "))
         })
         log.out("")
+        log.p("The accuracy, summarized per category: ")
         log.eval {
           (0 to 9).map(actual ⇒ {
             actual → (categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0) * 100.0 / categorizationMatrix.getOrElse(actual,Map.empty).values.sum)
           }).toMap
         }
+        log.p("The accuracy, summarized over the entire validation set: ")
         log.eval {
           (0 to 9).map(actual ⇒ {
             categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0)
           }).sum.toDouble * 100.0 / categorizationMatrix.values.flatMap(_.values).sum
-        }
-
-
-        log.eval {
-          val validationTable = new TableOutput()
-          MNIST.validationDataStream().iterator().asScala.toStream.filterNot(testObj ⇒ {
-            val result = model.eval(testObj.data).data.head
-            val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
-            val actual = toOut(testObj.label)
-            prediction == actual
-          }).take(10).map(testObj ⇒ {
-            val result = model.eval(testObj.data).data.head
-            val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
-            val row = new util.LinkedHashMap[String, AnyRef]()
-            row.put("Input", log.image(testObj.data.toGrayImage(), testObj.label))
-            row.put("Predicted Label", prediction.asInstanceOf[java.lang.Integer])
-            row.put("Actual Label", testObj.label)
-            row.put("Network Output", result)
-            row
-          }).foreach(validationTable.putRow(_))
-          validationTable
         }
 
       })
@@ -208,7 +194,6 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         val MAX: Int = 2
 
         def runTest(function: (Double, Double) ⇒ Int, model: DAGNetwork) = {
-          networkGraph(log, model)
 
           val trainingData: Seq[Array[Tensor]] = Stream.continually({
             val x = Random.nextDouble() * 2.0 - 1.0
@@ -239,9 +224,8 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
             System.out.println(s"Final Error = $finalError")
             model
           }
-          summarizeHistory(log, trainer.history)
 
-          log.draw(gfx ⇒ {
+          def plotXY(gfx : Graphics2D) = {
             (0 to 400).foreach(x ⇒ (0 to 400).foreach(y ⇒ {
               function((x / 200.0) - 1.0, (y / 200.0) - 1.0) match {
                 case 0 ⇒ gfx.setColor(Color.RED)
@@ -260,9 +244,11 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
               val yy = testObj(0).get(1) * 200.0 + 200.0
               gfx.drawRect(xx.toInt - 1, yy.toInt - 1, 3, 3)
             })
-          }, width = 400, height = 400)
-
-          val categorizationMatrix: Map[Int, Map[Int, Int]] = log.eval {
+          }
+          log.draw(gfx ⇒ {
+            plotXY(gfx)
+          }, width = 600, height = 600)
+          val categorizationMatrix: Map[Int, Map[Int, Int]] = {
             validationData.map(testObj ⇒ {
               val result = model.eval(testObj(0)).data.head
               val prediction: Int = (0 until MAX).maxBy(i ⇒ result.get(i))
@@ -276,17 +262,10 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
           val overall = (0 until MAX).map(actual ⇒ {
             categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0)
           }).sum.toDouble * 100.0 / categorizationMatrix.values.flatMap(_.values).sum
-
-          log.out("Actual \\ Predicted | " + (0 until MAX).mkString(" | "))
-          log.out((0 to MAX).map(_ ⇒ "---").mkString(" | "))
-          (0 until MAX).foreach(actual ⇒ {
-            log.out(s" **$actual** | " + (0 to 9).map(prediction ⇒ {
-              categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(prediction, 0)
-            }).mkString(" | "))
-          })
           log.eval {
             overall → byCategory
           }
+          //summarizeHistory(log, trainer.history)
         }
 
         log.h2("Linear")
@@ -366,6 +345,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
     "Reverse Blur Filter" in {
       report("deconvolution", log ⇒ {
 
+        log.p("First we define a forward filter, in this case a simple convolution filter emulating motion blur")
         val blurFilter = log.eval {
           def singleConvolution: ConvolutionSynapseLayer = {
             val convolution = new ConvolutionSynapseLayer(Array[Int](3, 3), 9)
@@ -385,7 +365,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
           net
         }
 
-
+        log.p("We load an ideal training image, which we will try to reconstruct: ")
         val idealImage = log.eval {
           val read = ImageIO.read(getClass.getResourceAsStream("/monkey1.jpg"))
           def scale(img: BufferedImage, scale: Double) = {
@@ -399,6 +379,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
           scale(read, 0.5)
         }
 
+        log.p("Next we run this ideal image through our constructed filter to create a blurred image: ")
         val idealImageTensor: Tensor = Tensor.fromRGB(idealImage)
         val blurredImage: Tensor = log.eval {
           blurFilter.eval(Array(Array(idealImageTensor))).data.head
@@ -410,25 +391,28 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         val inputSize: Array[Int] = idealImageTensor.getDims
         val zeroInput = new Tensor(inputSize:_*)
 
+        log.p("Now we define a reconstruction network, which adapts a bias layer to find the source image" +
+          " given a post-filter image while also considering normalization factors including image entropy: ")
         val (bias, dagNetwork) = log.eval {
-          val dagNetwork = new DAGNetwork
+          val net = new DAGNetwork
           val bias = new BiasLayer(inputSize: _*)
-          val modeledImageNode = dagNetwork.add(bias).getHead
-          dagNetwork.add(blurFilter)
-          dagNetwork.addLossComponent(new SqLossLayer)
-          val imageRMS: DAGNode = dagNetwork.add(new VerboseWrapper("rms", new BiasLayer().freeze)).getHead
-          dagNetwork.add(new AbsActivationLayer, modeledImageNode)
-          dagNetwork.add(new L1NormalizationLayer)
-          dagNetwork.add(new EntropyLayer)
-          dagNetwork.add(new SumInputsLayer)
-          val image_entropy: DAGNode = dagNetwork.add(new VerboseWrapper("entropy", new BiasLayer().freeze)).getHead
-          val scaledRms: DAGNode = dagNetwork.add(new LinearActivationLayer().setWeight(1.0).freeze, imageRMS).getHead
-          val scaledEntropy: DAGNode = dagNetwork.add(new LinearActivationLayer().setWeight(0.001).freeze, image_entropy).getHead
-          dagNetwork.add(new VerboseWrapper("composite", new SumInputsLayer), scaledRms, scaledEntropy)
-          (bias, dagNetwork)
+          val modeledImageNode = net.add(bias).getHead
+          net.add(blurFilter)
+          net.addLossComponent(new SqLossLayer)
+          val imageRMS: DAGNode = net.add(new VerboseWrapper("rms", new BiasLayer().freeze)).getHead
+          net.add(new AbsActivationLayer, modeledImageNode)
+          net.add(new L1NormalizationLayer)
+          net.add(new EntropyLayer)
+          net.add(new SumInputsLayer)
+          val image_entropy: DAGNode = net.add(new VerboseWrapper("entropy", new BiasLayer().freeze)).getHead
+          val scaledRms: DAGNode = net.add(new LinearActivationLayer().setWeight(1.0).freeze, imageRMS).getHead
+          val scaledEntropy: DAGNode = net.add(new LinearActivationLayer().setWeight(0.001).freeze, image_entropy).getHead
+          net.add(new VerboseWrapper("composite", new SumInputsLayer), scaledRms, scaledEntropy)
+          (bias, net)
         }
         networkGraph(log, dagNetwork)
 
+        log.p("Now we define a standard L-BFGS trainer to optimize the reconstruction")
         val trainer = log.eval {
           val gradientTrainer: LbfgsTrainer = new LbfgsTrainer
           gradientTrainer.setNet(dagNetwork)
@@ -445,8 +429,10 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
           val finalError = trainer.step(trainingContext).finalError
           System.out.println(s"Final Error = $finalError")
         }
+        log.p("Which results in the convergence timeline: ")
         summarizeHistory(log, trainer.history)
 
+        log.p("Now we query the reconstruction model for the source image: ")
         log.eval {
           dagNetwork.getChild(bias.getId).asInstanceOf[BiasLayer].eval(zeroInput).data(0).toRgbImage()
         }
@@ -458,7 +444,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
   private def summarizeHistory(log: ScalaMarkdownPrintStream, history: util.ArrayList[IterativeTrainer.StepState]) = {
     log.eval {
-      val step = Math.pow(10,Math.ceil(Math.log(history.size()) / Math.log(10))-1)
+      val step = Math.max(Math.pow(10,Math.ceil(Math.log(history.size()) / Math.log(10))-2), 1).toInt
       TableOutput.create(history.asScala.filter(0==_.getIteration%step).map(state ⇒
         Map[String, AnyRef](
           "iteration" → state.getIteration.toInt.asInstanceOf[Integer],
@@ -478,7 +464,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
     }
   }
 
-  private def networkGraph(log: ScalaMarkdownPrintStream, dagNetwork: DAGNetwork) = {
+  private def networkGraph(log: ScalaMarkdownPrintStream, dagNetwork: DAGNetwork, width: Int = 1200) = {
     log.eval {
       val nodes: List[DAGNode] = dagNetwork.getNodes.asScala.toList
       val graphNodes: Map[UUID, MutableNode] = nodes.map(node ⇒ {
@@ -504,7 +490,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
       val nodeArray = graphNodes.values.map(_.asInstanceOf[LinkSource]).toArray
       val graph = guru.nidi.graphviz.model.Factory.graph().`with`(nodeArray: _*)
         .generalAttr.`with`(RankDir.TOP_TO_BOTTOM).directed()
-      Graphviz.fromGraph(graph).width(1200).render(Format.PNG).toImage
+      Graphviz.fromGraph(graph).width(width).render(Format.PNG).toImage
     }
   }
 

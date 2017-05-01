@@ -1,50 +1,9 @@
-Code from [MindsEyeDemo.scala:79](../../src/test/scala/MindsEyeDemo.scala#L79) executed in 0.64 seconds: 
-```java
-    var model: DAGNetwork = new DAGNetwork
-    model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
-      override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.0
-    }))
-    model = model.add(new BiasLayer(outputSize: _*))
-    // model = model.add(new MinMaxFilterLayer());
-    model = model.add(new SoftmaxActivationLayer)
-    model
-```
+In this demo we train a simple neural network against the MNIST handwritten digit dataset
 
-Returns: 
+## Data
+First, we load the training dataset: 
 
-```
-    {
-      "class": "DAGNetwork",
-      "id": "a2ddb6b4-68f2-426a-905a-758d00000001",
-      "root": {
-        "layer": {
-          "class": "SoftmaxActivationLayer",
-          "id": "a2ddb6b4-68f2-426a-905a-758d00000004"
-        },
-        "prev0": {
-          "layer": {
-            "class": "BiasLayer",
-            "id": "a2ddb6b4-68f2-426a-905a-758d00000003",
-            "bias": "[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]"
-          },
-          "prev0": {
-            "layer": {
-              "class": "DenseSynapseLayerJBLAS",
-              "id": "a2ddb6b4-68f2-426a-905a-758d00000002",
-              "weights": "[ [ -0.0,0.0,-0.0,0.0,0.0,-0.0,-0.0,0.0,0.0,0.0 ],[ 0.0,0.0,-0.0,-0.0,0.0,-0.0,0.0,-0.0,-0.0,-0.0 ],[ -0.0,0.0,-0.0,0.0,-0.0,-0.0,-0.0,0.0,0.0,0.0 ],[ 0.0,-0.0,0.0,0.0,-0.0,-0.0,0.0,-0.0,-0.0,0.0 ],[ 0.0,0.0,-0.0,-0.0,-0.0,-0.0,-0.0,0.0,0.0,0.0 ],[ 0.0,0.0,0.0,0.0,-0.0,-0.0,-0.0,0.0,0.0,0.0 ],[ 0.0,-0.0,-0.0,-0.0,-0.0,-0.0,0.0,-0.0,0.0,0.0 ],[ 0.0,-0.0,-0.0,0.0,-0.0,0.0,-0.0,-0.0,0.0,-0.0 ],... ]"
-            },
-            "prev0": {
-              "target": "[cae787d8-6358-4117-8c86-236ca75c817f, f86d89df-2f7e-42a1-8d14-2bb0b28a625b]"
-            }
-          }
-        }
-      }
-    }
-```
-
-
-
-Code from [MindsEyeDemo.scala:90](../../src/test/scala/MindsEyeDemo.scala#L90) executed in 0.53 seconds: 
+Code from [MindsEyeDemo.scala:64](../../src/test/scala/MindsEyeDemo.scala#L64) executed in 0.95 seconds: 
 ```java
     MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
       Array(labeledObj.data, toOutNDArray(toOut(labeledObj.label), 10))
@@ -54,22 +13,20 @@ Code from [MindsEyeDemo.scala:90](../../src/test/scala/MindsEyeDemo.scala#L90) e
 Returns: 
 
 ```
-    Stream([Lcom.simiacryptus.util.ml.Tensor;@2baa8d82, ?)
+    Stream([Lcom.simiacryptus.util.ml.Tensor;@74eb909f, ?)
 ```
 
 
 
-Code from [MindsEyeDemo.scala:96](../../src/test/scala/MindsEyeDemo.scala#L96) executed in 0.26 seconds: 
+And preview a few rows: 
+
+Code from [MindsEyeDemo.scala:70](../../src/test/scala/MindsEyeDemo.scala#L70) executed in 1.05 seconds: 
 ```java
-    val previewTable = new TableOutput()
-    data.take(10).map(testObj ⇒ {
-      val row = new util.LinkedHashMap[String, AnyRef]()
-      row.put("Input1 (as Image)", log.image(testObj(0).toGrayImage(), testObj(0).toString))
-      row.put("Input2 (as String)", testObj(1).toString)
-      row.put("Input1 (as String)", testObj(0).toString)
-      row
-    }).foreach(previewTable.putRow(_))
-    previewTable
+    TableOutput.create(data.take(10).map(testObj ⇒ Map[String,AnyRef](
+      "Input1 (as Image)" → log.image(testObj(0).toGrayImage(), testObj(0).toString),
+      "Input2 (as String)" → testObj(1).toString,
+      "Input1 (as String)" → testObj(0).toString
+    ).asJava):_*)
 ```
 
 Returns: 
@@ -90,38 +47,18 @@ Input1 (as Image) | Input2 (as String) | Input1 (as String)
 
 
 
-Code from [MindsEyeDemo.scala:108](../../src/test/scala/MindsEyeDemo.scala#L108) executed in 2.29 seconds: 
+## Model
+Here we define the logic network that we are about to train: 
+
+Code from [MindsEyeDemo.scala:80](../../src/test/scala/MindsEyeDemo.scala#L80) executed in 1.15 seconds: 
 ```java
-    val trainingNetwork: DAGNetwork = new DAGNetwork
-    trainingNetwork.add(model)
-    trainingNetwork.addLossComponent(new EntropyLossLayer)
-    val gradientTrainer: LbfgsTrainer = new LbfgsTrainer
-    gradientTrainer.setNet(trainingNetwork)
-    gradientTrainer.setData(data.toArray)
-    new IterativeTrainer(gradientTrainer)
-```
-
-Returns: 
-
-```
-    com.simiacryptus.mindseye.training.IterativeTrainer@782a4fff
-```
-
-
-
-Code from [MindsEyeDemo.scala:118](../../src/test/scala/MindsEyeDemo.scala#L118) executed in 76.08 seconds: 
-```java
-    val trainingContext = new TrainingContext
-    trainingContext.terminalErr = 0.05
-    trainer.step(trainingContext)
-    val finalError = trainer.step(trainingContext).finalError
-    System.out.println(s"Final Error = $finalError")
+    var model: DAGNetwork = new DAGNetwork
+    model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+      override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.0
+    }))
+    model = model.add(new BiasLayer(outputSize: _*))
+    model = model.add(new SoftmaxActivationLayer)
     model
-```
-Logging: 
-```
-    Final Error = 0.9158475779019051
-    
 ```
 
 Returns: 
@@ -129,26 +66,26 @@ Returns:
 ```
     {
       "class": "DAGNetwork",
-      "id": "a2ddb6b4-68f2-426a-905a-758d00000001",
+      "id": "bda0cb2d-e331-453b-937e-ddad00000001",
       "root": {
         "layer": {
           "class": "SoftmaxActivationLayer",
-          "id": "a2ddb6b4-68f2-426a-905a-758d00000004"
+          "id": "bda0cb2d-e331-453b-937e-ddad00000004"
         },
         "prev0": {
           "layer": {
             "class": "BiasLayer",
-            "id": "a2ddb6b4-68f2-426a-905a-758d00000003",
-            "bias": "[-3.239720865014269E-6, 2.2114855917483314E-6, 3.0707913632743886E-7, -5.63370264442497E-7, 1.3237206338997664E-6, 1.4283898648556704E-6, 1.0443589435342707E-7, 1.1459410537207108E-6, -2.980647532369229E-6, 2.626864869190934E-7]"
+            "id": "bda0cb2d-e331-453b-937e-ddad00000003",
+            "bias": "[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]"
           },
           "prev0": {
             "layer": {
               "class": "DenseSynapseLayerJBLAS",
-              "id": "a2ddb6b4-68f2-426a-905a-758d00000002",
-              "weights": "[ [ 0.0,-2.752970865955546E-6,3.832348002299393E-4,-1.82513540805517E-4,-6.814993712580269E-5,-3.101707522185992E-8,-5.9973081067517855E-5,-3.612017813289206E-4,-7.643057148993075E-5,-5.040128201903209E-6 ],[ 0.0,-2.5839013340584575E-6,-8.40352508026744E-4,-3.551912302352803E-4,2.931556538963544E-4,-2.104795687294076E-8,-7.382815413590276E-5,8.562760002074339E-5,6.337374945439495E-4,2.790555815836829E-5 ],[ 0.0,3.06685998213377E-5,3.84857596066636E-4,-8.277621812297658E-5,-3.2122173998995295E-5,-2.1059226778286327E-8,4.368477813858458E-4,1.0212813589649745E-4,-6.741285050374463E-4,-9.52403655049801E-6 ],[ 0.0,-3.2624902042363533E-6,1.5779408698390348E-4,2.8080689921321613E-4,5.36632910573695E-5,-5.9111567863738645E-8,-2.0115338996167488E-4,-9.887946536471653E-4,6.197393674529151E-4,8.279486395360274E-6 ],[ 0.0,-3.3874499247902803E-6,6.546579223640514E-4,-1.059219126328872E-4,8.220691857202491E-5,-2.1053930228837272E-8,-2.1409243407846621E-4,2.969725084198943E-4,-6.608780680109329E-4,-2.0356695678009414E-5 ],[ 0.0,-3.217043671469955E-6,2.617870779134492E-4,7.714722148492734E-4,-2.2364712129388417E-4,2.4170474264891575E-7,-2.526223073609499E-4,3.2206497019649205E-4,-1.4286588417038144E-4,-1.4805816822852833E-5 ],[ 0.0,-1.508046437284299E-6,-4.8795448309703614E-4,1.1864055740173446E-4,-1.4027717344384927E-4,-2.13666858560024E-8,4.010268052898762E-4,-4.0556527821764997E-5,2.69215452976232E-4,-1.5877386376282474E-5 ],[ 0.0,-9.744328009123986E-7,1.2198303745122492E-4,5.180082562149923E-4,-1.9076333420609473E-4,-2.1067242048078983E-8,-1.518143409835137E-4,2.139889527769554E-4,-5.839333097957855E-4,5.784598670932458E-6 ],... ]"
+              "id": "bda0cb2d-e331-453b-937e-ddad00000002",
+              "weights": "[ [ 0.0,-0.0,0.0,-0.0,0.0,-0.0,-0.0,0.0,0.0,-0.0 ],[ 0.0,0.0,-0.0,-0.0,0.0,0.0,0.0,0.0,-0.0,0.0 ],[ -0.0,-0.0,-0.0,-0.0,-0.0,-0.0,-0.0,0.0,-0.0,0.0 ],[ -0.0,-0.0,-0.0,-0.0,0.0,0.0,0.0,-0.0,-0.0,-0.0 ],[ 0.0,0.0,-0.0,0.0,-0.0,-0.0,0.0,-0.0,-0.0,-0.0 ],[ 0.0,-0.0,0.0,0.0,0.0,0.0,-0.0,-0.0,0.0,-0.0 ],[ 0.0,0.0,-0.0,0.0,-0.0,0.0,-0.0,-0.0,0.0,-0.0 ],[ -0.0,0.0,-0.0,-0.0,-0.0,-0.0,-0.0,0.0,-0.0,-0.0 ],... ]"
             },
             "prev0": {
-              "target": "[cae787d8-6358-4117-8c86-236ca75c817f, f86d89df-2f7e-42a1-8d14-2bb0b28a625b]"
+              "target": "[1c71246b-1261-44de-9682-2c1f97d18445, ca459095-bf0a-468e-ae74-0ebb79d6db92]"
             }
           }
         }
@@ -158,41 +95,342 @@ Returns:
 
 
 
-Code from [MindsEyeDemo.scala:127](../../src/test/scala/MindsEyeDemo.scala#L127) executed in 0.18 seconds: 
+We can visualize this network as a graph: 
+
+Code from [MindsEyeDemo.scala:468](../../src/test/scala/MindsEyeDemo.scala#L468) executed in 7.39 seconds: 
 ```java
-    val validationTable = new TableOutput()
-    MNIST.validationDataStream().iterator().asScala.toStream.take(10).map(testObj ⇒ {
-      val row = new util.LinkedHashMap[String, AnyRef]()
-      row.put("Input", log.image(testObj.data.toGrayImage(), testObj.label))
+    val nodes: List[DAGNode] = dagNetwork.getNodes.asScala.toList
+    val graphNodes: Map[UUID, MutableNode] = nodes.map(node ⇒ {
+      node.getId() → guru.nidi.graphviz.model.Factory.mutNode((node match {
+        case n : InnerNode ⇒
+          n.nnlayer match {
+            case _ if(n.nnlayer.isInstanceOf[VerboseWrapper]) ⇒ n.nnlayer.asInstanceOf[VerboseWrapper].inner.getClass.getSimpleName
+            case _ ⇒ n.nnlayer.getClass.getSimpleName
+          }
+        case _ ⇒ node.getClass.getSimpleName
+      }) + "\n" + node.getId.toString)
+    }).toMap
+    val idMap: Map[UUID, List[UUID]] = nodes.flatMap((to: DAGNode) ⇒ {
+      to.getInputs.map((from: DAGNode) ⇒ {
+        from.getId → to.getId
+      })
+    }).groupBy(_._1).mapValues(_.map(_._2))
+    nodes.foreach((to: DAGNode) ⇒ {
+      graphNodes(to.getId).addLink(idMap.getOrElse(to.getId, List.empty).map(from ⇒ {
+        Link.to(graphNodes(from))
+      }): _*)
+    })
+    val nodeArray = graphNodes.values.map(_.asInstanceOf[LinkSource]).toArray
+    val graph = guru.nidi.graphviz.model.Factory.graph().`with`(nodeArray: _*)
+      .generalAttr.`with`(RankDir.TOP_TO_BOTTOM).directed()
+    Graphviz.fromGraph(graph).width(width).render(Format.PNG).toImage
+```
+
+Returns: 
+
+![Result](mnist_simple.11.png)
+
+
+
+We encapsulate our model network within a supervisory network that applies a loss function: 
+
+Code from [MindsEyeDemo.scala:92](../../src/test/scala/MindsEyeDemo.scala#L92) executed in 0.00 seconds: 
+```java
+    val trainingNetwork: DAGNetwork = new DAGNetwork
+    trainingNetwork.add(model)
+    trainingNetwork.addLossComponent(new EntropyLossLayer)
+    trainingNetwork
+```
+
+Returns: 
+
+```
+    {
+      "class": "DAGNetwork",
+      "id": "bda0cb2d-e331-453b-937e-ddad00000005",
+      "root": {
+        "layer": {
+          "class": "EntropyLossLayer",
+          "id": "bda0cb2d-e331-453b-937e-ddad00000006"
+        },
+        "prev0": {
+          "layer": {
+            "class": "DAGNetwork",
+            "id": "bda0cb2d-e331-453b-937e-ddad00000001",
+            "root": {
+              "layer": {
+                "class": "SoftmaxActivationLayer",
+                "id": "bda0cb2d-e331-453b-937e-ddad00000004"
+              },
+              "prev0": {
+                "layer": {
+                  "class": "BiasLayer",
+                  "id": "bda0cb2d-e331-453b-937e-ddad00000003",
+                  "bias": "[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]"
+                },
+                "prev0": {
+                  "layer": {
+                    "class": "DenseSynapseLayerJBLAS",
+                    "id": "bda0cb2d-e331-453b-937e-ddad00000002",
+                    "weights": "[ [ 0.0,-0.0,0.0,-0.0,0.0,-0.0,-0.0,0.0,0.0,-0.0 ],[ 0.0,0.0,-0.0,-0.0,0.0,0.0,0.0,0.0,-0.0,0.0 ],[ -0.0,-0.0,-0.0,-0.0,-0.0,-0.0,-0.0,0.0,-0.0,0.0 ],[ -0.0,-0.0,-0.0,-0.0,0.0,0.0,0.0,-0.0,-0.0,-0.0 ],[ 0.0,0.0,-0.0,0.0,-0.0,-0.0,0.0,-0.0,-0.0,-0.0 ],[ 0.0,-0.0,0.0,0.0,0.0,0.0,-0.0,-0.0,0.0,-0.0 ],[ 0.0,0.0,-0.0,0.0,-0.0,0.0,-0.0,-0.0,0.0,-0.0 ],[ -0.0,0.0,-0.0,-0.0,-0.0,-0.0,-0.0,0.0,-0.0,-0.0 ],... ]"
+                  },
+                  "prev0": {
+                    "target": "[1c71246b-1261-44de-9682-2c1f97d18445, ca459095-bf0a-468e-ae74-0ebb79d6db92]"
+                  }
+                }
+              }
+            }
+          },
+          "prev0": {
+            "target": "[6641a278-51d0-4d28-856a-585c5a143c69, 8855aca6-6b64-4416-b514-f0635c6368eb]"
+          }
+        }
+      }
+    }
+```
+
+
+
+With a the following component graph: 
+
+Code from [MindsEyeDemo.scala:468](../../src/test/scala/MindsEyeDemo.scala#L468) executed in 0.38 seconds: 
+```java
+    val nodes: List[DAGNode] = dagNetwork.getNodes.asScala.toList
+    val graphNodes: Map[UUID, MutableNode] = nodes.map(node ⇒ {
+      node.getId() → guru.nidi.graphviz.model.Factory.mutNode((node match {
+        case n : InnerNode ⇒
+          n.nnlayer match {
+            case _ if(n.nnlayer.isInstanceOf[VerboseWrapper]) ⇒ n.nnlayer.asInstanceOf[VerboseWrapper].inner.getClass.getSimpleName
+            case _ ⇒ n.nnlayer.getClass.getSimpleName
+          }
+        case _ ⇒ node.getClass.getSimpleName
+      }) + "\n" + node.getId.toString)
+    }).toMap
+    val idMap: Map[UUID, List[UUID]] = nodes.flatMap((to: DAGNode) ⇒ {
+      to.getInputs.map((from: DAGNode) ⇒ {
+        from.getId → to.getId
+      })
+    }).groupBy(_._1).mapValues(_.map(_._2))
+    nodes.foreach((to: DAGNode) ⇒ {
+      graphNodes(to.getId).addLink(idMap.getOrElse(to.getId, List.empty).map(from ⇒ {
+        Link.to(graphNodes(from))
+      }): _*)
+    })
+    val nodeArray = graphNodes.values.map(_.asInstanceOf[LinkSource]).toArray
+    val graph = guru.nidi.graphviz.model.Factory.graph().`with`(nodeArray: _*)
+      .generalAttr.`with`(RankDir.TOP_TO_BOTTOM).directed()
+    Graphviz.fromGraph(graph).width(width).render(Format.PNG).toImage
+```
+
+Returns: 
+
+![Result](mnist_simple.12.png)
+
+
+
+Note that this visualization does not expand DAGNetworks recursively
+
+## Training
+We train using a standard iterative L-BFGS strategy: 
+
+Code from [MindsEyeDemo.scala:104](../../src/test/scala/MindsEyeDemo.scala#L104) executed in 2.62 seconds: 
+```java
+    val gradientTrainer: LbfgsTrainer = new LbfgsTrainer
+    gradientTrainer.setNet(trainingNetwork)
+    gradientTrainer.setData(data.toArray)
+    new IterativeTrainer(gradientTrainer)
+```
+
+Returns: 
+
+```
+    com.simiacryptus.mindseye.training.IterativeTrainer@aa4d8cc
+```
+
+
+
+Code from [MindsEyeDemo.scala:110](../../src/test/scala/MindsEyeDemo.scala#L110) executed in 69.47 seconds: 
+```java
+    val trainingContext = new TrainingContext
+    trainingContext.terminalErr = 0.0
+    trainingContext.setTimeout(5, TimeUnit.SECONDS)
+    trainer.step(trainingContext)
+    val finalError = trainer.step(trainingContext).finalError
+    System.out.println(s"Final Error = $finalError")
+```
+Logging: 
+```
+    Final Error = 0.8926656967094514
+    
+```
+
+Returns: 
+
+```
+    ()
+```
+
+
+
+After training, we have the following parameterized model: 
+
+Code from [MindsEyeDemo.scala:119](../../src/test/scala/MindsEyeDemo.scala#L119) executed in 0.06 seconds: 
+```java
+    model.toString
+```
+
+Returns: 
+
+```
+    {
+      "class": "DAGNetwork",
+      "id": "bda0cb2d-e331-453b-937e-ddad00000001",
+      "root": {
+        "layer": {
+          "class": "SoftmaxActivationLayer",
+          "id": "bda0cb2d-e331-453b-937e-ddad00000004"
+        },
+        "prev0": {
+          "layer": {
+            "class": "BiasLayer",
+            "id": "bda0cb2d-e331-453b-937e-ddad00000003",
+            "bias": "[-3.2014977224654575E-6, 2.2235792948693064E-6, 3.034280093583796E-7, -5.56933792809547E-7, 1.333120240509486E-6, 1.4278630384988697E-6, 7.549252796766813E-8, 1.1114807736862732E-6, -2.9684032549198595E-6, 2.518708853035783E-7]"
+          },
+          "prev0": {
+            "layer": {
+              "class": "DenseSynapseLayerJBLAS",
+              "id": "bda0cb2d-e331-453b-937e-ddad00000002",
+              "weights": "[ [ 0.0,-2.683551180483063E-6,3.823423035868503E-4,-1.862201763569097E-4,-6.618500601862478E-5,-3.0976660051983945E-8,-6.153265584290484E-5,-3.3677511831252697E-4,-7.483122671246755E-5,-4.9678212959251564E-6 ],[ 0.0,-2.533313850867503E-6,-8.3205473741509E-4,-3.491557936203866E-4,2.8531213473625825E-4,-2.1047972984344617E-8,-6.970502472338393E-5,8.213452464401586E-5,6.009460530450007E-4,2.9113892587203027E-5 ],[ 0.0,2.974913664958327E-5,4.0256024706255113E-4,-9.752060098454398E-5,-3.133620067977349E-5,-2.1061010450699983E-8,4.3204275648932945E-4,1.1730620850726594E-4,-6.526505530708053E-4,-9.415931340447492E-6 ],[ 0.0,-3.2394296331511713E-6,1.5266010369802428E-4,2.6983224532085696E-4,5.459558761898829E-5,-5.886448591427549E-8,-1.9894276829002933E-4,-9.893817075199614E-4,5.927326081644463E-4,7.565592676611638E-6 ],[ 0.0,-3.36479903245874E-6,6.338933667757536E-4,-9.696562340680879E-5,8.073873172710511E-5,-2.1055160791578296E-8,-2.1248867934324956E-4,2.9365709257915914E-4,-6.426166916114926E-4,-2.0138376829668983E-5 ],[ 0.0,-3.1709622120410844E-6,2.527116707834005E-4,7.701105899472112E-4,-2.2113417081485936E-4,2.4167932619645703E-7,-2.516610417001719E-4,3.205335827545971E-4,-1.3878828928709367E-4,-1.4915203424707494E-5 ],[ 0.0,-1.419570909301596E-6,-4.7828303654246494E-4,1.304774706064938E-4,-1.35174601320262E-4,-2.1410465971060697E-8,3.9551938126901814E-4,-4.017099890119341E-5,2.718742527954345E-4,-1.5647274048317172E-5 ],[ 0.0,-8.625147856283342E-7,1.204804998754276E-4,4.962712192264213E-4,-1.839533323537479E-4,-2.1071255815116973E-8,-1.467811325573143E-4,2.0189297839998116E-4,-5.557028397629648E-4,4.727612505302306E-6 ],... ]"
+            },
+            "prev0": {
+              "target": "[1c71246b-1261-44de-9682-2c1f97d18445, ca459095-bf0a-468e-ae74-0ebb79d6db92]"
+            }
+          }
+        }
+      }
+    }
+```
+
+
+
+A summary of the training timeline: 
+
+Code from [MindsEyeDemo.scala:446](../../src/test/scala/MindsEyeDemo.scala#L446) executed in 0.00 seconds: 
+```java
+    val step = Math.max(Math.pow(10,Math.ceil(Math.log(history.size()) / Math.log(10))-2), 1).toInt
+    TableOutput.create(history.asScala.filter(0==_.getIteration%step).map(state ⇒
+      Map[String, AnyRef](
+        "iteration" → state.getIteration.toInt.asInstanceOf[Integer],
+        "time" → state.getEvaluationTime.toDouble.asInstanceOf[lang.Double],
+        "fitness" → state.getFitness.toDouble.asInstanceOf[lang.Double]
+      ).asJava
+    ): _*)
+```
+
+Returns: 
+
+iteration | time | fitness
+--------- | ---- | -------
+     0 | 61.2919 | 1.4678
+     1 | 8.1488 | 0.8927
+
+
+
+
+Code from [MindsEyeDemo.scala:456](../../src/test/scala/MindsEyeDemo.scala#L456) executed in 0.30 seconds: 
+```java
+    val plot: PlotCanvas = ScatterPlot.plot(history.asScala.map(item ⇒ Array[Double](
+      item.getIteration, Math.log(item.getFitness)
+    )).toArray: _*)
+    plot.setTitle("Convergence Plot")
+    plot.setAxisLabels("Iteration", "log(Fitness)")
+    plot.setSize(600, 400)
+    plot
+```
+
+Returns: 
+
+![Result](mnist_simple.13.png)
+
+
+
+## Validation
+Here we examine a sample of validation rows, randomly selected: 
+
+Code from [MindsEyeDemo.scala:127](../../src/test/scala/MindsEyeDemo.scala#L127) executed in 0.13 seconds: 
+```java
+    TableOutput.create(MNIST.validationDataStream().iterator().asScala.toStream.take(10).map(testObj ⇒ {
       val result = model.eval(testObj.data).data.head
-      val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
-      row.put("Predicted Label", prediction.asInstanceOf[java.lang.Integer])
-      row.put("Actual Label", testObj.label)
-      row.put("Network Output", result)
-      row
-    }).foreach(validationTable.putRow(_))
-    validationTable
+      Map[String, AnyRef](
+        "Input" → log.image(testObj.data.toGrayImage(), testObj.label),
+        "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[java.lang.Integer],
+        "Actual Label" → testObj.label,
+        "Network Output" → result
+      ).asJava
+    }): _*)
 ```
 
 Returns: 
 
 Input | Predicted Label | Actual Label | Network Output
 ----- | --------------- | ------------ | --------------
-![[7]](mnist_simple.11.png) |      7 | [7] | [ 4.81933394099042E-7,2.1528238887786904E-8,1.104529164080841E-5,8.282315711133143E-6,1.0827888629752685E-4,1.2891830939647365E-5,7.110602101041973E-7,0.9985811879070521,1.1714057835023965E-6,0.0012759278407320346 ]
-![[2]](mnist_simple.12.png) |      2 | [2] | [ 1.3502835432898438E-4,7.16943083934834E-5,0.841683045465518,0.04119037094686194,9.084741168637936E-7,0.01871166697602992,0.09795518603218319,1.590455030306422E-7,2.5047371266530706E-4,1.4666843992347102E-6 ]
-![[1]](mnist_simple.13.png) |      1 | [1] | [ 1.9454663815714937E-6,0.9967013014439149,0.0019642317441496636,5.400248509950677E-4,3.1826471105369515E-5,1.985438540231354E-4,2.192127622795172E-4,9.644762288693068E-5,1.5755739986360892E-4,8.890838440016698E-5 ]
-![[0]](mnist_simple.14.png) |      0 | [0] | [ 0.7341812660832453,2.0567339400118494E-10,0.00540602560605222,1.9668582836925575E-4,8.072426089562666E-5,0.026672434428224704,0.23280542118146363,4.647852776576149E-4,2.2469817598257668E-6,1.9041014665852535E-4 ]
-![[4]](mnist_simple.15.png) |      4 | [4] | [ 3.551130358580792E-5,7.749402162816855E-9,0.0072166691305799256,3.545705732957531E-5,0.97689924528805,2.0453214174770464E-4,0.0022353123179890766,0.0023378654943395313,8.436332912802962E-5,0.010951036187848288 ]
-![[1]](mnist_simple.16.png) |      1 | [1] | [ 2.862284675531543E-8,0.9993530351037271,3.7642583651780723E-4,1.4934021163866645E-4,4.771472367489089E-6,2.9555781022904917E-5,5.914746898957611E-6,2.890669154312081E-5,2.563772556861625E-5,2.6383807868355486E-5 ]
-![[4]](mnist_simple.17.png) |      4 | [4] | [ 1.1739326933585065E-6,1.0766446110576454E-6,4.219176152134733E-4,0.0035120083050575873,0.8745097413520246,0.01169079848769582,2.1526495526958235E-4,0.04142814723673322,7.541010800356076E-4,0.06746577039066574 ]
-![[9]](mnist_simple.18.png) |      9 | [9] | [ 1.8744713032333722E-6,9.253775095484961E-5,0.002293383005547514,0.0034815837234093527,0.4171112113582907,0.045630521978263956,0.03183255953067861,0.00439590761011502,7.24572613233113E-4,0.4944358479582036 ]
-![[5]](mnist_simple.19.png) |      2 | [5] | [ 6.755406061466396E-4,1.8359235125398225E-5,0.6529874419453174,4.705743646675217E-5,0.11094796878102042,0.020524248819081832,0.20885347680438968,1.351729712765289E-4,1.894697511467489E-4,0.005621263650028445 ]
-![[9]](mnist_simple.20.png) |      7 | [9] | [ 5.750748149838611E-7,3.510747283099792E-7,5.3601586439013714E-5,4.169925747539188E-6,0.19157739935291038,9.748012305894724E-4,2.0364195360692263E-4,0.4390102217286997,6.6383730710979035E-6,0.36816859969939253 ]
+![[7]](mnist_simple.14.png) |      7 | [7] | [ 6.674588497115715E-7,2.81218049967563E-8,1.2727165719138677E-5,9.897544744817497E-6,1.2739666863194918E-4,1.4110048846913807E-5,8.821492239690132E-7,0.998432305743204,1.537351112924299E-6,0.00140044774786153 ]
+![[2]](mnist_simple.15.png) |      2 | [2] | [ 1.666258531022536E-4,8.092287584034039E-5,0.8392734074604636,0.043239006370963236,1.1281978997958156E-6,0.018119575814458458,0.09881971901347071,2.0250265126063908E-7,2.9763122502998165E-4,1.7806861202899171E-6 ]
+![[1]](mnist_simple.16.png) |      1 | [1] | [ 2.5614768013685813E-6,0.9962072566379488,0.0022405300199515653,6.241960538280477E-4,3.786466470140717E-5,2.234948059227746E-4,2.528387613321576E-4,1.1129630894560944E-4,1.9495315913160198E-4,1.0500811143668172E-4 ]
+![[0]](mnist_simple.17.png) |      0 | [0] | [ 0.7676441844633871,2.66860462551853E-10,0.005177518102405311,1.947235316704878E-4,8.585151346261759E-5,0.021678462062788235,0.20455242921080066,4.646805424655001E-4,2.7961892290456697E-6,1.99354116930499E-4 ]
+![[4]](mnist_simple.18.png) |      4 | [4] | [ 4.431134892983958E-5,1.0448652169122673E-8,0.007470457175729438,3.953201140432035E-5,0.9754783275138853,2.1567719067691556E-4,0.002363801640587477,0.0025903056461550737,1.030508925442128E-4,0.011694526131435115 ]
+![[1]](mnist_simple.19.png) |      1 | [1] | [ 4.1606832333438135E-8,0.9992375585850933,4.396015883517825E-4,1.7643459535479517E-4,5.825904854541303E-6,3.3703007928460865E-5,7.298392035710554E-6,3.435113472605006E-5,3.333553744736889E-5,3.18496473759414E-5 ]
+![[4]](mnist_simple.20.png) |      4 | [4] | [ 1.5991857540905248E-6,1.3141901068858107E-6,4.6235611096126516E-4,0.0038258286221880865,0.8725856190384191,0.011201966222992202,2.3808747390686216E-4,0.04373315354136167,8.922977919723415E-4,0.0670577778223375 ]
+![[9]](mnist_simple.21.png) |      9 | [9] | [ 2.5345772789248086E-6,1.0049167770197743E-4,0.0024623418433880957,0.003738172351091998,0.40552475254546777,0.04312446793813019,0.03341512269681281,0.0046540258170554615,8.576313125203521E-4,0.5061204592405524 ]
+![[5]](mnist_simple.22.png) |      2 | [5] | [ 9.004134132557527E-4,2.278387410674933E-5,0.6510009096117138,5.602824498597256E-5,0.113540481028935,0.020113478398956632,0.20775753954498363,1.535099667477264E-4,2.437489232662407E-4,0.006211106993048595 ]
+![[9]](mnist_simple.23.png) |      7 | [9] | [ 8.426342295631888E-7,4.428749729381277E-7,6.0307799729398464E-5,5.129831542488043E-6,0.1961807329834494,9.38913179073832E-4,2.265627683852291E-4,0.4369462046995237,8.94142253632182E-6,0.365631921806557 ]
 
 
 
 
-Code from [MindsEyeDemo.scala:143](../../src/test/scala/MindsEyeDemo.scala#L143) executed in 0.93 seconds: 
+Validation rows that are mispredicted are also sampled: 
+
+Code from [MindsEyeDemo.scala:139](../../src/test/scala/MindsEyeDemo.scala#L139) executed in 0.72 seconds: 
+```java
+    TableOutput.create(MNIST.validationDataStream().iterator().asScala.toStream.filterNot(testObj ⇒ {
+      val result = model.eval(testObj.data).data.head
+      val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
+      val actual = toOut(testObj.label)
+      prediction == actual
+    }).take(10).map(testObj ⇒ {
+      val result = model.eval(testObj.data).data.head
+      Map[String, AnyRef](
+        "Input" → log.image(testObj.data.toGrayImage(), testObj.label),
+        "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[java.lang.Integer],
+        "Actual Label" → testObj.label,
+        "Network Output" → result
+      ).asJava
+    }): _*)
+```
+
+Returns: 
+
+Input | Predicted Label | Actual Label | Network Output
+----- | --------------- | ------------ | --------------
+![[5]](mnist_simple.24.png) |      2 | [5] | [ 9.004134132557527E-4,2.278387410674933E-5,0.6510009096117138,5.602824498597256E-5,0.113540481028935,0.020113478398956632,0.20775753954498363,1.535099667477264E-4,2.437489232662407E-4,0.006211106993048595 ]
+![[9]](mnist_simple.25.png) |      7 | [9] | [ 8.426342295631888E-7,4.428749729381277E-7,6.0307799729398464E-5,5.129831542488043E-6,0.1961807329834494,9.38913179073832E-4,2.265627683852291E-4,0.4369462046995237,8.94142253632182E-6,0.365631921806557 ]
+![[6]](mnist_simple.26.png) |      2 | [6] | [ 0.03133399209898158,7.640873489066455E-5,0.5804549117506119,0.01237330648744712,0.044776374317668004,0.007315284287925449,0.3200240383586057,1.7031363277842193E-4,0.002146979572978989,0.0013283907581120612 ]
+![[5]](mnist_simple.27.png) |      3 | [5] | [ 0.012240395860657,1.830392116603707E-5,0.019187004811633754,0.6953945309899062,0.001099853121340475,0.26107191696152277,0.0028436906667723594,3.102265198261343E-4,0.0075247079804948,3.093691666802497E-4 ]
+![[9]](mnist_simple.28.png) |      4 | [9] | [ 8.981974882671247E-6,8.987214855125766E-9,0.0034402309213139755,6.28317215205854E-5,0.6885069286557383,2.2786172492094217E-4,0.001005624379330782,0.02520409013058997,1.1724550438487658E-4,0.2814261960001031 ]
+![[9]](mnist_simple.29.png) |      7 | [9] | [ 3.4871488435672923E-7,1.9385016051016166E-5,4.611595245306026E-5,9.34764654899219E-4,0.03021343887582785,0.010826403532415122,2.3247808644700554E-5,0.6237248946106001,4.9620101933501275E-5,0.33416178073229097 ]
+![[4]](mnist_simple.30.png) |      6 | [4] | [ 0.29800923466735874,7.290824533014056E-8,0.03973907803325199,2.5912098876693634E-6,0.02870069134279064,0.002043105121697124,0.6311189288850075,2.592822499282796E-5,6.653502489942151E-5,2.938345818686045E-4 ]
+![[2]](mnist_simple.31.png) |      3 | [2] | [ 0.0035012983314718867,0.003455162738337824,0.43776755661571204,0.4680701668221953,4.8288414876601695E-6,0.037051725266749526,0.043943612471618314,1.8665134487965444E-5,0.00615524814151584,3.173563642368805E-5 ]
+![[1]](mnist_simple.32.png) |      3 | [1] | [ 6.300692524548805E-6,0.009686347211224864,0.11765719737167768,0.3762895314680599,0.03439781474430193,0.26471288055914227,0.08788116965512173,0.018788133344219905,0.00811262599962526,0.08246799895410198 ]
+![[5]](mnist_simple.33.png) |      3 | [5] | [ 0.016867284714295213,6.474546786992594E-5,0.01179608153335241,0.6572441212482953,0.011929806003715009,0.2707266550531586,0.011118825824083323,8.487857184973225E-4,0.016063641820453424,0.003340052616279185 ]
+
+
+
+
+To summarize the accuracy of the model, we calculate several summaries: 
+
+The (mis)categorization matrix displays a count matrix for every actual/predicted category: 
+
+Code from [MindsEyeDemo.scala:157](../../src/test/scala/MindsEyeDemo.scala#L157) executed in 0.53 seconds: 
 ```java
     MNIST.validationDataStream().iterator().asScala.toStream.map(testObj ⇒ {
       val result = model.eval(testObj.data).data.head
@@ -205,25 +443,27 @@ Code from [MindsEyeDemo.scala:143](../../src/test/scala/MindsEyeDemo.scala#L143)
 Returns: 
 
 ```
-    Map(0 -> Map(0 -> 771, 5 -> 92, 6 -> 85, 2 -> 27, 7 -> 1, 3 -> 2, 4 -> 2), 5 -> Map(0 -> 4, 5 -> 645, 1 -> 8, 6 -> 39, 9 -> 9, 2 -> 52, 7 -> 9, 3 -> 88, 4 -> 38), 1 -> Map(5 -> 19, 1 -> 1034, 6 -> 9, 2 -> 65, 3 -> 7, 4 -> 1), 6 -> Map(0 -> 6, 5 -> 21, 1 -> 6, 6 -> 872, 2 -> 37, 3 -> 2, 4 -> 14), 9 -> Map(0 -> 2, 5 -> 24, 1 -> 10, 6 -> 7, 9 -> 613, 2 -> 23, 7 -> 47, 3 -> 13, 4 -> 270), 2 -> Map(0 -> 4, 5 -> 3, 1 -> 6, 6 -> 30, 9 -> 1, 2 -> 933, 7 -> 12, 3 -> 21, 8 -> 2, 4 -> 20), 7 -> Map(0 -> 3, 1 -> 28, 6 -> 4, 9 -> 34, 2 -> 62, 7 -> 877, 4 -> 20), 3 -> Map(0 -> 1, 5 -> 56, 1 -> 1, 6 -> 13, 9 -> 17, 2 -> 82, 7 -> 13, 3 -> 824, 4 -> 3), 8 -> Map(0 -> 2, 5 -> 332, 1 -> 21, 6 -> 31, 9 -> 68, 2 -> 280, 7 -> 20, 3 -> 139, 8 -> 37, 4 -> 44), 4 -> Map(5 -> 2, 1 -> 7, 6 -> 28, 9 -> 33, 2 -> 10, 7 -> 1, 4 -> 901))
+    Map(0 -> Map(0 -> 785, 5 -> 78, 6 -> 85, 2 -> 27, 7 -> 1, 3 -> 3, 4 -> 1), 5 -> Map(0 -> 5, 5 -> 633, 1 -> 8, 6 -> 39, 9 -> 9, 2 -> 54, 7 -> 9, 3 -> 97, 4 -> 38), 1 -> Map(5 -> 19, 1 -> 1032, 6 -> 9, 2 -> 65, 3 -> 9, 4 -> 1), 6 -> Map(0 -> 7, 5 -> 20, 1 -> 6, 6 -> 871, 2 -> 38, 3 -> 2, 4 -> 14), 9 -> Map(0 -> 2, 5 -> 24, 1 -> 10, 6 -> 7, 9 -> 615, 2 -> 22, 7 -> 47, 3 -> 14, 4 -> 268), 2 -> Map(0 -> 5, 5 -> 2, 1 -> 6, 6 -> 30, 9 -> 1, 2 -> 932, 7 -> 12, 3 -> 22, 8 -> 2, 4 -> 20), 7 -> Map(0 -> 3, 1 -> 28, 6 -> 4, 9 -> 34, 2 -> 62, 7 -> 877, 4 -> 20), 3 -> Map(0 -> 2, 5 -> 53, 1 -> 1, 6 -> 12, 9 -> 17, 2 -> 81, 7 -> 13, 3 -> 828, 4 -> 3), 8 -> Map(0 -> 2, 5 -> 299, 1 -> 22, 6 -> 31, 9 -> 72, 2 -> 284, 7 -> 20, 3 -> 149, 8 -> 51, 4 -> 44), 4 -> Map(5 -> 2, 1 -> 7, 6 -> 28, 9 -> 34, 2 -> 10, 7 -> 1, 4 -> 900))
 ```
 
 
 
 Actual \ Predicted | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---
- **0** | 771 | 0 | 27 | 2 | 2 | 92 | 85 | 1 | 0 | 0
- **1** | 0 | 1034 | 65 | 7 | 1 | 19 | 9 | 0 | 0 | 0
- **2** | 4 | 6 | 933 | 21 | 20 | 3 | 30 | 12 | 2 | 1
- **3** | 1 | 1 | 82 | 824 | 3 | 56 | 13 | 13 | 0 | 17
- **4** | 0 | 7 | 10 | 0 | 901 | 2 | 28 | 1 | 0 | 33
- **5** | 4 | 8 | 52 | 88 | 38 | 645 | 39 | 9 | 0 | 9
- **6** | 6 | 6 | 37 | 2 | 14 | 21 | 872 | 0 | 0 | 0
+ **0** | 785 | 0 | 27 | 3 | 1 | 78 | 85 | 1 | 0 | 0
+ **1** | 0 | 1032 | 65 | 9 | 1 | 19 | 9 | 0 | 0 | 0
+ **2** | 5 | 6 | 932 | 22 | 20 | 2 | 30 | 12 | 2 | 1
+ **3** | 2 | 1 | 81 | 828 | 3 | 53 | 12 | 13 | 0 | 17
+ **4** | 0 | 7 | 10 | 0 | 900 | 2 | 28 | 1 | 0 | 34
+ **5** | 5 | 8 | 54 | 97 | 38 | 633 | 39 | 9 | 0 | 9
+ **6** | 7 | 6 | 38 | 2 | 14 | 20 | 871 | 0 | 0 | 0
  **7** | 3 | 28 | 62 | 0 | 20 | 0 | 4 | 877 | 0 | 34
- **8** | 2 | 21 | 280 | 139 | 44 | 332 | 31 | 20 | 37 | 68
- **9** | 2 | 10 | 23 | 13 | 270 | 24 | 7 | 47 | 0 | 613
+ **8** | 2 | 22 | 284 | 149 | 44 | 299 | 31 | 20 | 51 | 72
+ **9** | 2 | 10 | 22 | 14 | 268 | 24 | 7 | 47 | 0 | 615
 
-Code from [MindsEyeDemo.scala:159](../../src/test/scala/MindsEyeDemo.scala#L159) executed in 0.03 seconds: 
+The accuracy, summarized per category: 
+
+Code from [MindsEyeDemo.scala:174](../../src/test/scala/MindsEyeDemo.scala#L174) executed in 0.03 seconds: 
 ```java
     (0 to 9).map(actual ⇒ {
       actual → (categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0) * 100.0 / categorizationMatrix.getOrElse(actual,Map.empty).values.sum)
@@ -233,12 +473,14 @@ Code from [MindsEyeDemo.scala:159](../../src/test/scala/MindsEyeDemo.scala#L159)
 Returns: 
 
 ```
-    Map(0 -> 78.6734693877551, 5 -> 72.30941704035874, 1 -> 91.10132158590308, 6 -> 91.02296450939457, 9 -> 60.75322101090188, 2 -> 90.40697674418605, 7 -> 85.3112840466926, 3 -> 81.58415841584159, 8 -> 3.7987679671457903, 4 -> 91.75152749490834)
+    Map(0 -> 80.10204081632654, 5 -> 70.96412556053812, 1 -> 90.9251101321586, 6 -> 90.91858037578288, 9 -> 60.95143706640238, 2 -> 90.31007751937985, 7 -> 85.3112840466926, 3 -> 81.98019801980197, 8 -> 5.236139630390143, 4 -> 91.64969450101833)
 ```
 
 
 
-Code from [MindsEyeDemo.scala:164](../../src/test/scala/MindsEyeDemo.scala#L164) executed in 0.02 seconds: 
+The accuracy, summarized over the entire validation set: 
+
+Code from [MindsEyeDemo.scala:180](../../src/test/scala/MindsEyeDemo.scala#L180) executed in 0.03 seconds: 
 ```java
     (0 to 9).map(actual ⇒ {
       categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0)
@@ -248,47 +490,8 @@ Code from [MindsEyeDemo.scala:164](../../src/test/scala/MindsEyeDemo.scala#L164)
 Returns: 
 
 ```
-    75.07
+    75.24
 ```
-
-
-
-Code from [MindsEyeDemo.scala:171](../../src/test/scala/MindsEyeDemo.scala#L171) executed in 0.59 seconds: 
-```java
-    val validationTable = new TableOutput()
-    MNIST.validationDataStream().iterator().asScala.toStream.filterNot(testObj ⇒ {
-      val result = model.eval(testObj.data).data.head
-      val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
-      val actual = toOut(testObj.label)
-      prediction == actual
-    }).take(10).map(testObj ⇒ {
-      val result = model.eval(testObj.data).data.head
-      val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
-      val row = new util.LinkedHashMap[String, AnyRef]()
-      row.put("Input", log.image(testObj.data.toGrayImage(), testObj.label))
-      row.put("Predicted Label", prediction.asInstanceOf[java.lang.Integer])
-      row.put("Actual Label", testObj.label)
-      row.put("Network Output", result)
-      row
-    }).foreach(validationTable.putRow(_))
-    validationTable
-```
-
-Returns: 
-
-Input | Predicted Label | Actual Label | Network Output
------ | --------------- | ------------ | --------------
-![[5]](mnist_simple.21.png) |      2 | [5] | [ 6.755406061466396E-4,1.8359235125398225E-5,0.6529874419453174,4.705743646675217E-5,0.11094796878102042,0.020524248819081832,0.20885347680438968,1.351729712765289E-4,1.894697511467489E-4,0.005621263650028445 ]
-![[9]](mnist_simple.22.png) |      7 | [9] | [ 5.750748149838611E-7,3.510747283099792E-7,5.3601586439013714E-5,4.169925747539188E-6,0.19157739935291038,9.748012305894724E-4,2.0364195360692263E-4,0.4390102217286997,6.6383730710979035E-6,0.36816859969939253 ]
-![[6]](mnist_simple.23.png) |      2 | [6] | [ 0.027085968053959082,6.5928803482891E-5,0.5837419260203475,0.011920924582657783,0.04190832916727819,0.007379682083284743,0.3247190048289087,1.460560391984058E-4,0.0018395133746975725,0.0011926670461851374 ]
-![[5]](mnist_simple.24.png) |      3 | [5] | [ 0.010733023144003512,1.5591225785021044E-5,0.01731527999769337,0.6848269928501803,9.57674187231898E-4,0.2762530011883938,0.0025030209482430456,2.6953468238893354E-4,0.006859670942304156,2.6621083377599623E-4 ]
-![[9]](mnist_simple.25.png) |      4 | [9] | [ 6.657642966959242E-6,6.704705899327166E-9,0.0032124743350464544,5.33804824139986E-5,0.6949334159308382,2.156759237979769E-4,9.227375833015338E-4,0.023426849532739172,9.282559998585063E-5,0.27713597626420394 ]
-![[9]](mnist_simple.26.png) |      7 | [9] | [ 2.385728023267715E-7,1.6428299518552002E-5,4.027764117676745E-5,8.561761670691707E-4,0.028307681521511592,0.011419205384379412,2.0301891344000905E-5,0.6245514652233127,3.844011793757832E-5,0.3347497851809479 ]
-![[4]](mnist_simple.27.png) |      6 | [4] | [ 0.2703836145541597,5.6682917185389256E-8,0.03982505595920326,2.2124622047207366E-6,0.02881815253119469,0.00206583510892861,0.6585617516764246,2.287941220095094E-5,5.547589083791935E-5,2.649657219282642E-4 ]
-![[2]](mnist_simple.28.png) |      3 | [2] | [ 0.002962867126081471,0.003255039092056147,0.4414180272109411,0.4648124361365983,3.9996859571602915E-6,0.04015599216345546,0.04188844884993126,1.6018900869628856E-5,0.00545987395162826,2.729688248116325E-5 ]
-![[1]](mnist_simple.29.png) |      3 | [1] | [ 4.573566304229212E-6,0.009102751916776763,0.1133731575703719,0.36933172722477714,0.031865412762936196,0.28791590996183813,0.08465222660995539,0.01743662247406532,0.006738341061913315,0.07957927685106145 ]
-![[5]](mnist_simple.30.png) |      3 | [5] | [ 0.014969104533329369,5.530764331981107E-5,0.010856259945029244,0.6577667129417119,0.010783180501252005,0.27679690156637565,0.010103629802533605,7.633220033969794E-4,0.014858656653924864,0.0030469244091265862 ]
-
 
 
 

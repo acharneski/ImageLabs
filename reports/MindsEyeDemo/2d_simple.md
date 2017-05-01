@@ -1,5 +1,5 @@
 ## Linear
-Code from [MindsEyeDemo.scala:282](../../src/test/scala/MindsEyeDemo.scala#L282) executed in 0.00 seconds: 
+Code from [MindsEyeDemo.scala:272](../../src/test/scala/MindsEyeDemo.scala#L272) executed in 0.00 seconds: 
 ```java
     (x: Double, y: Double) ⇒ if (x < y) 0 else 1
 ```
@@ -12,7 +12,7 @@ Returns:
 
 
 
-Code from [MindsEyeDemo.scala:284](../../src/test/scala/MindsEyeDemo.scala#L284) executed in 0.00 seconds: 
+Code from [MindsEyeDemo.scala:274](../../src/test/scala/MindsEyeDemo.scala#L274) executed in 0.00 seconds: 
 ```java
     var model: DAGNetwork = new DAGNetwork
     model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
@@ -28,26 +28,26 @@ Returns:
 ```
     {
       "class": "DAGNetwork",
-      "id": "a2ddb6b4-68f2-426a-905a-758d00000007",
+      "id": "bda0cb2d-e331-453b-937e-ddad00000007",
       "root": {
         "layer": {
           "class": "SoftmaxActivationLayer",
-          "id": "a2ddb6b4-68f2-426a-905a-758d0000000a"
+          "id": "bda0cb2d-e331-453b-937e-ddad0000000a"
         },
         "prev0": {
           "layer": {
             "class": "BiasLayer",
-            "id": "a2ddb6b4-68f2-426a-905a-758d00000009",
+            "id": "bda0cb2d-e331-453b-937e-ddad00000009",
             "bias": "[0.0, 0.0]"
           },
           "prev0": {
             "layer": {
               "class": "DenseSynapseLayerJBLAS",
-              "id": "a2ddb6b4-68f2-426a-905a-758d00000008",
-              "weights": "[ [ 0.0011755490773915813,-0.0657843020557711 ],[ 0.013288835673933231,0.04898844305812058 ] ]"
+              "id": "bda0cb2d-e331-453b-937e-ddad00000008",
+              "weights": "[ [ 0.06448892747039674,0.004231648714995081 ],[ -0.09592902742583825,-0.08202095096615354 ] ]"
             },
             "prev0": {
-              "target": "[ded615c9-0c20-4d95-ba22-6fc16b5243b9, 2c1c1973-e5e4-44a8-a8ed-77ad705f55a3]"
+              "target": "[8377ca1f-7c6f-46ff-872b-125737c6c0fb, c7d833c5-0e26-4864-97fb-592fa5352c02]"
             }
           }
         }
@@ -57,26 +57,9 @@ Returns:
 
 
 
-Code from [MindsEyeDemo.scala:233](../../src/test/scala/MindsEyeDemo.scala#L233) executed in 0.13 seconds: 
+Code from [MindsEyeDemo.scala:248](../../src/test/scala/MindsEyeDemo.scala#L248) executed in 0.11 seconds: 
 ```java
-    (0 to 400).foreach(x ⇒ (0 to 400).foreach(y ⇒ {
-      function((x / 200.0) - 1.0, (y / 200.0) - 1.0) match {
-        case 0 ⇒ gfx.setColor(Color.RED)
-        case 1 ⇒ gfx.setColor(Color.GREEN)
-      }
-      gfx.drawRect(x, y, 1, 1)
-    }))
-    validationData.foreach(testObj ⇒ {
-      val row = new util.LinkedHashMap[String, AnyRef]()
-      val result = model.eval(testObj(0)).data.head
-      (0 until MAX).maxBy(i ⇒ result.get(i)) match {
-        case 0 ⇒ gfx.setColor(Color.PINK)
-        case 1 ⇒ gfx.setColor(Color.BLUE)
-      }
-      val xx = testObj(0).get(0) * 200.0 + 200.0
-      val yy = testObj(0).get(1) * 200.0 + 200.0
-      gfx.drawRect(xx.toInt - 1, yy.toInt - 1, 3, 3)
-    })
+    plotXY(gfx)
 ```
 
 Returns: 
@@ -85,29 +68,7 @@ Returns:
 
 
 
-Code from [MindsEyeDemo.scala:254](../../src/test/scala/MindsEyeDemo.scala#L254) executed in 0.01 seconds: 
-```java
-    validationData.map(testObj ⇒ {
-      val result = model.eval(testObj(0)).data.head
-      val prediction: Int = (0 until MAX).maxBy(i ⇒ result.get(i))
-      val actual: Int = (0 until MAX).maxBy(i ⇒ testObj(1).get(i))
-      actual → prediction
-    }).groupBy(_._1).mapValues(_.groupBy(_._2).mapValues(_.size))
-```
-
-Returns: 
-
-```
-    Map(1 -> Map(1 -> 55, 0 -> 1), 0 -> Map(0 -> 44))
-```
-
-
-
-Actual \ Predicted | 0 | 1
---- | --- | ---
- **0** | 44 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0
- **1** | 1 | 55 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0
-Code from [MindsEyeDemo.scala:276](../../src/test/scala/MindsEyeDemo.scala#L276) executed in 0.00 seconds: 
+Code from [MindsEyeDemo.scala:265](../../src/test/scala/MindsEyeDemo.scala#L265) executed in 0.00 seconds: 
 ```java
     overall → byCategory
 ```
@@ -115,13 +76,13 @@ Code from [MindsEyeDemo.scala:276](../../src/test/scala/MindsEyeDemo.scala#L276)
 Returns: 
 
 ```
-    (99.0,Map(0 -> 100.0, 1 -> 98.21428571428571))
+    (100.0,Map(0 -> 100.0, 1 -> 100.0))
 ```
 
 
 
 ## XOR
-Code from [MindsEyeDemo.scala:295](../../src/test/scala/MindsEyeDemo.scala#L295) executed in 0.00 seconds: 
+Code from [MindsEyeDemo.scala:285](../../src/test/scala/MindsEyeDemo.scala#L285) executed in 0.00 seconds: 
 ```java
     (x: Double, y: Double) ⇒ if ((x < 0) ^ (y < 0)) 0 else 1
 ```
@@ -134,7 +95,7 @@ Returns:
 
 
 
-Code from [MindsEyeDemo.scala:298](../../src/test/scala/MindsEyeDemo.scala#L298) executed in 0.00 seconds: 
+Code from [MindsEyeDemo.scala:288](../../src/test/scala/MindsEyeDemo.scala#L288) executed in 0.00 seconds: 
 ```java
     var model: DAGNetwork = new DAGNetwork
     model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
@@ -150,26 +111,26 @@ Returns:
 ```
     {
       "class": "DAGNetwork",
-      "id": "a2ddb6b4-68f2-426a-905a-758d0000000d",
+      "id": "bda0cb2d-e331-453b-937e-ddad0000000d",
       "root": {
         "layer": {
           "class": "SoftmaxActivationLayer",
-          "id": "a2ddb6b4-68f2-426a-905a-758d00000010"
+          "id": "bda0cb2d-e331-453b-937e-ddad00000010"
         },
         "prev0": {
           "layer": {
             "class": "BiasLayer",
-            "id": "a2ddb6b4-68f2-426a-905a-758d0000000f",
+            "id": "bda0cb2d-e331-453b-937e-ddad0000000f",
             "bias": "[0.0, 0.0]"
           },
           "prev0": {
             "layer": {
               "class": "DenseSynapseLayerJBLAS",
-              "id": "a2ddb6b4-68f2-426a-905a-758d0000000e",
-              "weights": "[ [ -0.24524846870193218,0.11813670817258758 ],[ -0.18745512882537124,-0.197714839372946 ] ]"
+              "id": "bda0cb2d-e331-453b-937e-ddad0000000e",
+              "weights": "[ [ 0.04230207839032445,0.28834874694510737 ],[ 0.0320390778532303,0.039546252345962915 ] ]"
             },
             "prev0": {
-              "target": "[933d89f5-e4b9-450a-ae25-48271e34e67b, 4213cda2-1ad4-4925-b1b5-7c4caeb7c670]"
+              "target": "[c607503c-2832-498e-9212-0c44f4ba4a61, 2585e083-aea7-4cf1-b04c-ce8b84348dd3]"
             }
           }
         }
@@ -179,26 +140,9 @@ Returns:
 
 
 
-Code from [MindsEyeDemo.scala:233](../../src/test/scala/MindsEyeDemo.scala#L233) executed in 0.10 seconds: 
+Code from [MindsEyeDemo.scala:248](../../src/test/scala/MindsEyeDemo.scala#L248) executed in 0.08 seconds: 
 ```java
-    (0 to 400).foreach(x ⇒ (0 to 400).foreach(y ⇒ {
-      function((x / 200.0) - 1.0, (y / 200.0) - 1.0) match {
-        case 0 ⇒ gfx.setColor(Color.RED)
-        case 1 ⇒ gfx.setColor(Color.GREEN)
-      }
-      gfx.drawRect(x, y, 1, 1)
-    }))
-    validationData.foreach(testObj ⇒ {
-      val row = new util.LinkedHashMap[String, AnyRef]()
-      val result = model.eval(testObj(0)).data.head
-      (0 until MAX).maxBy(i ⇒ result.get(i)) match {
-        case 0 ⇒ gfx.setColor(Color.PINK)
-        case 1 ⇒ gfx.setColor(Color.BLUE)
-      }
-      val xx = testObj(0).get(0) * 200.0 + 200.0
-      val yy = testObj(0).get(1) * 200.0 + 200.0
-      gfx.drawRect(xx.toInt - 1, yy.toInt - 1, 3, 3)
-    })
+    plotXY(gfx)
 ```
 
 Returns: 
@@ -207,29 +151,7 @@ Returns:
 
 
 
-Code from [MindsEyeDemo.scala:254](../../src/test/scala/MindsEyeDemo.scala#L254) executed in 0.00 seconds: 
-```java
-    validationData.map(testObj ⇒ {
-      val result = model.eval(testObj(0)).data.head
-      val prediction: Int = (0 until MAX).maxBy(i ⇒ result.get(i))
-      val actual: Int = (0 until MAX).maxBy(i ⇒ testObj(1).get(i))
-      actual → prediction
-    }).groupBy(_._1).mapValues(_.groupBy(_._2).mapValues(_.size))
-```
-
-Returns: 
-
-```
-    Map(1 -> Map(0 -> 61), 0 -> Map(0 -> 39))
-```
-
-
-
-Actual \ Predicted | 0 | 1
---- | --- | ---
- **0** | 39 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0
- **1** | 61 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0
-Code from [MindsEyeDemo.scala:276](../../src/test/scala/MindsEyeDemo.scala#L276) executed in 0.00 seconds: 
+Code from [MindsEyeDemo.scala:265](../../src/test/scala/MindsEyeDemo.scala#L265) executed in 0.00 seconds: 
 ```java
     overall → byCategory
 ```
@@ -237,12 +159,12 @@ Code from [MindsEyeDemo.scala:276](../../src/test/scala/MindsEyeDemo.scala#L276)
 Returns: 
 
 ```
-    (39.0,Map(0 -> 100.0, 1 -> 0.0))
+    (49.0,Map(0 -> 100.0, 1 -> 0.0))
 ```
 
 
 
-Code from [MindsEyeDemo.scala:307](../../src/test/scala/MindsEyeDemo.scala#L307) executed in 0.01 seconds: 
+Code from [MindsEyeDemo.scala:297](../../src/test/scala/MindsEyeDemo.scala#L297) executed in 0.01 seconds: 
 ```java
     var model: DAGNetwork = new DAGNetwork
     val middleSize = Array[Int](15)
@@ -264,43 +186,43 @@ Returns:
 ```
     {
       "class": "DAGNetwork",
-      "id": "a2ddb6b4-68f2-426a-905a-758d00000013",
+      "id": "bda0cb2d-e331-453b-937e-ddad00000013",
       "root": {
         "layer": {
           "class": "SoftmaxActivationLayer",
-          "id": "a2ddb6b4-68f2-426a-905a-758d00000019"
+          "id": "bda0cb2d-e331-453b-937e-ddad00000019"
         },
         "prev0": {
           "layer": {
             "class": "BiasLayer",
-            "id": "a2ddb6b4-68f2-426a-905a-758d00000018",
+            "id": "bda0cb2d-e331-453b-937e-ddad00000018",
             "bias": "[0.0, 0.0]"
           },
           "prev0": {
             "layer": {
               "class": "DenseSynapseLayerJBLAS",
-              "id": "a2ddb6b4-68f2-426a-905a-758d00000017",
-              "weights": "[ [ -0.6630447404977792,-0.6125370986211313 ],[ 0.313388224085457,-1.1851917740937317 ],[ -1.662436407286282,-0.3156677486376192 ],[ 0.6377594612296221,-0.4943623588378066 ],[ 1.5541691218535625,-2.963485398252958 ],[ 1.2990513432950725,1.4292021558032366 ],[ -0.9551661380673003,0.6806615016262993 ],[ -0.7510003244913536,-0.02140555681639731 ],... ]"
+              "id": "bda0cb2d-e331-453b-937e-ddad00000017",
+              "weights": "[ [ 1.1504511872345788,0.268322812306804 ],[ 0.10153809925131507,-1.5645151601276412 ],[ 0.22832810035500323,0.2944140154786153 ],[ 0.891432915988393,1.3819968037382682 ],[ 0.2280388445363336,0.1502648712995983 ],[ 0.15680070179126593,-0.2937928828855539 ],[ -1.800957527697971,-0.8245570354145833 ],[ 1.128877613374575,0.7576300137489763 ],... ]"
             },
             "prev0": {
               "layer": {
                 "class": "AbsActivationLayer",
-                "id": "a2ddb6b4-68f2-426a-905a-758d00000016"
+                "id": "bda0cb2d-e331-453b-937e-ddad00000016"
               },
               "prev0": {
                 "layer": {
                   "class": "BiasLayer",
-                  "id": "a2ddb6b4-68f2-426a-905a-758d00000015",
+                  "id": "bda0cb2d-e331-453b-937e-ddad00000015",
                   "bias": "[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]"
                 },
                 "prev0": {
                   "layer": {
                     "class": "DenseSynapseLayerJBLAS",
-                    "id": "a2ddb6b4-68f2-426a-905a-758d00000014",
-                    "weights": "[ [ 0.9009214398554469,-0.005282217646837058,1.6108637565296509,-0.4667930388530999,-1.0686004239319282,-1.8785484842517817,0.08810735815079791,-0.7993940839665006,... ],[ -1.2512162330923093,0.3079479524023446,-0.6046528199053811,-0.47383065695245014,-1.1576461409849297,0.5383336658783114,0.05639206671984922,-0.06772029587085933,... ] ]"
+                    "id": "bda0cb2d-e331-453b-937e-ddad00000014",
+                    "weights": "[ [ 0.6767869237031598,-1.9295589342656005,-1.0309726644062092,0.564611440207325,0.3138618711453875,0.791844371230277,1.1143221707990643,1.2238424243616832,... ],[ -0.5660365609075952,0.18992147579040752,0.3101517357170239,-0.08942412512508476,-1.3699114811262127,-0.7797175117507096,-0.916399771798046,2.0539480585655365,... ] ]"
                   },
                   "prev0": {
-                    "target": "[107b106b-d025-46a5-a4a1-59ba93b70342, f4be08bf-d2c3-449c-b1f4-a2255d30ac24]"
+                    "target": "[4f8fef50-922d-4dd6-b6cf-add0a1f815be, 73594a1e-e787-4f64-b4ea-07e4758712c4]"
                   }
                 }
               }
@@ -313,26 +235,9 @@ Returns:
 
 
 
-Code from [MindsEyeDemo.scala:233](../../src/test/scala/MindsEyeDemo.scala#L233) executed in 0.13 seconds: 
+Code from [MindsEyeDemo.scala:248](../../src/test/scala/MindsEyeDemo.scala#L248) executed in 0.09 seconds: 
 ```java
-    (0 to 400).foreach(x ⇒ (0 to 400).foreach(y ⇒ {
-      function((x / 200.0) - 1.0, (y / 200.0) - 1.0) match {
-        case 0 ⇒ gfx.setColor(Color.RED)
-        case 1 ⇒ gfx.setColor(Color.GREEN)
-      }
-      gfx.drawRect(x, y, 1, 1)
-    }))
-    validationData.foreach(testObj ⇒ {
-      val row = new util.LinkedHashMap[String, AnyRef]()
-      val result = model.eval(testObj(0)).data.head
-      (0 until MAX).maxBy(i ⇒ result.get(i)) match {
-        case 0 ⇒ gfx.setColor(Color.PINK)
-        case 1 ⇒ gfx.setColor(Color.BLUE)
-      }
-      val xx = testObj(0).get(0) * 200.0 + 200.0
-      val yy = testObj(0).get(1) * 200.0 + 200.0
-      gfx.drawRect(xx.toInt - 1, yy.toInt - 1, 3, 3)
-    })
+    plotXY(gfx)
 ```
 
 Returns: 
@@ -341,29 +246,7 @@ Returns:
 
 
 
-Code from [MindsEyeDemo.scala:254](../../src/test/scala/MindsEyeDemo.scala#L254) executed in 0.00 seconds: 
-```java
-    validationData.map(testObj ⇒ {
-      val result = model.eval(testObj(0)).data.head
-      val prediction: Int = (0 until MAX).maxBy(i ⇒ result.get(i))
-      val actual: Int = (0 until MAX).maxBy(i ⇒ testObj(1).get(i))
-      actual → prediction
-    }).groupBy(_._1).mapValues(_.groupBy(_._2).mapValues(_.size))
-```
-
-Returns: 
-
-```
-    Map(1 -> Map(1 -> 43), 0 -> Map(1 -> 6, 0 -> 51))
-```
-
-
-
-Actual \ Predicted | 0 | 1
---- | --- | ---
- **0** | 51 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0
- **1** | 0 | 43 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0
-Code from [MindsEyeDemo.scala:276](../../src/test/scala/MindsEyeDemo.scala#L276) executed in 0.00 seconds: 
+Code from [MindsEyeDemo.scala:265](../../src/test/scala/MindsEyeDemo.scala#L265) executed in 0.00 seconds: 
 ```java
     overall → byCategory
 ```
@@ -371,13 +254,13 @@ Code from [MindsEyeDemo.scala:276](../../src/test/scala/MindsEyeDemo.scala#L276)
 Returns: 
 
 ```
-    (94.0,Map(0 -> 89.47368421052632, 1 -> 100.0))
+    (99.0,Map(0 -> 100.0, 1 -> 97.67441860465117))
 ```
 
 
 
 ## Circle
-Code from [MindsEyeDemo.scala:324](../../src/test/scala/MindsEyeDemo.scala#L324) executed in 0.00 seconds: 
+Code from [MindsEyeDemo.scala:314](../../src/test/scala/MindsEyeDemo.scala#L314) executed in 0.00 seconds: 
 ```java
     (x: Double, y: Double) ⇒ if ((x * x) + (y * y) < 0.5) 0 else 1
 ```
@@ -390,7 +273,7 @@ Returns:
 
 
 
-Code from [MindsEyeDemo.scala:327](../../src/test/scala/MindsEyeDemo.scala#L327) executed in 0.00 seconds: 
+Code from [MindsEyeDemo.scala:317](../../src/test/scala/MindsEyeDemo.scala#L317) executed in 0.00 seconds: 
 ```java
     var model: DAGNetwork = new DAGNetwork
     model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
@@ -406,31 +289,150 @@ Returns:
 ```
     {
       "class": "DAGNetwork",
-      "id": "a2ddb6b4-68f2-426a-905a-758d0000001c",
+      "id": "bda0cb2d-e331-453b-937e-ddad0000001c",
       "root": {
         "layer": {
           "class": "SoftmaxActivationLayer",
-          "id": "a2ddb6b4-68f2-426a-905a-758d0000001f"
+          "id": "bda0cb2d-e331-453b-937e-ddad0000001f"
         },
         "prev0": {
           "layer": {
             "class": "BiasLayer",
-            "id": "a2ddb6b4-68f2-426a-905a-758d0000001e",
+            "id": "bda0cb2d-e331-453b-937e-ddad0000001e",
             "bias": "[0.0, 0.0]"
           },
           "prev0": {
             "layer": {
               "class": "DenseSynapseLayerJBLAS",
-              "id": "a2ddb6b4-68f2-426a-905a-758d0000001d",
-              "weights": "[ [ -0.14680234437338002,-0.09676299057404171 ],[ 0.0810449214400146,-0.13933616534537166 ] ]"
+              "id": "bda0cb2d-e331-453b-937e-ddad0000001d",
+              "weights": "[ [ -0.003356582745107412,0.0249142274308162 ],[ -0.2928900855078193,-0.18830722067882058 ] ]"
             },
             "prev0": {
-              "target": "[b26ddd07-ccec-481a-8f80-9a4a5a6b0175, efdcd0cd-9f4c-46ce-888e-7366a0649bdf]"
+              "target": "[706aed6a-09d0-4d25-8a32-3a40212e5f55, d1160941-50fb-4213-849e-1bee04f6fdd7]"
             }
           }
         }
       }
     }
+```
+
+
+
+Code from [MindsEyeDemo.scala:248](../../src/test/scala/MindsEyeDemo.scala#L248) executed in 0.10 seconds: 
+```java
+    plotXY(gfx)
+```
+
+Returns: 
+
+![Result](2d_simple.4.png)
+
+
+
+Code from [MindsEyeDemo.scala:265](../../src/test/scala/MindsEyeDemo.scala#L265) executed in 0.00 seconds: 
+```java
+    overall → byCategory
+```
+
+Returns: 
+
+```
+    (27.0,Map(0 -> 100.0, 1 -> 0.0))
+```
+
+
+
+Code from [MindsEyeDemo.scala:326](../../src/test/scala/MindsEyeDemo.scala#L326) executed in 0.01 seconds: 
+```java
+    var model: DAGNetwork = new DAGNetwork
+    val middleSize = Array[Int](15)
+    model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+      override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
+    }))
+    model = model.add(new BiasLayer(middleSize: _*))
+    model = model.add(new AbsActivationLayer())
+    model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(middleSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+      override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
+    }))
+    model = model.add(new BiasLayer(outputSize: _*))
+    model = model.add(new SoftmaxActivationLayer)
+    model
+```
+
+Returns: 
+
+```
+    {
+      "class": "DAGNetwork",
+      "id": "bda0cb2d-e331-453b-937e-ddad00000022",
+      "root": {
+        "layer": {
+          "class": "SoftmaxActivationLayer",
+          "id": "bda0cb2d-e331-453b-937e-ddad00000028"
+        },
+        "prev0": {
+          "layer": {
+            "class": "BiasLayer",
+            "id": "bda0cb2d-e331-453b-937e-ddad00000027",
+            "bias": "[0.0, 0.0]"
+          },
+          "prev0": {
+            "layer": {
+              "class": "DenseSynapseLayerJBLAS",
+              "id": "bda0cb2d-e331-453b-937e-ddad00000026",
+              "weights": "[ [ -0.4961551027188386,-1.6025524003592786 ],[ 0.6767292416578095,-0.8863451967712533 ],[ -1.121203241198936,-0.3333470394557084 ],[ 0.9733358170048696,0.6715177421394439 ],[ 0.3229363904020222,-0.9522514379734052 ],[ -0.32358270664361916,-1.2090140024843026 ],[ -0.8040364686228791,-1.5256932878113028 ],[ 0.7149060426707465,1.0272808664745223 ],... ]"
+            },
+            "prev0": {
+              "layer": {
+                "class": "AbsActivationLayer",
+                "id": "bda0cb2d-e331-453b-937e-ddad00000025"
+              },
+              "prev0": {
+                "layer": {
+                  "class": "BiasLayer",
+                  "id": "bda0cb2d-e331-453b-937e-ddad00000024",
+                  "bias": "[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]"
+                },
+                "prev0": {
+                  "layer": {
+                    "class": "DenseSynapseLayerJBLAS",
+                    "id": "bda0cb2d-e331-453b-937e-ddad00000023",
+                    "weights": "[ [ 0.9625768457868111,-0.38876680380037737,-0.4523328529612256,-1.0216622841109824,0.8449977001476421,0.45399525572378346,-2.050719341712142,-0.013319889855142665,... ],[ 1.3616539843264095,0.09302535608072968,-2.2490902181775385,-1.1015821196548041,-1.2003008029304807,0.9784597150839556,0.30476902633282654,0.2599163782189681,... ] ]"
+                  },
+                  "prev0": {
+                    "target": "[fef293ab-0111-4b63-8719-6af62291d339, 4b2d9e56-dfb1-4088-a461-8e3871b9cb43]"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+```
+
+
+
+Code from [MindsEyeDemo.scala:248](../../src/test/scala/MindsEyeDemo.scala#L248) executed in 0.08 seconds: 
+```java
+    plotXY(gfx)
+```
+
+Returns: 
+
+![Result](2d_simple.5.png)
+
+
+
+Code from [MindsEyeDemo.scala:265](../../src/test/scala/MindsEyeDemo.scala#L265) executed in 0.00 seconds: 
+```java
+    overall → byCategory
+```
+
+Returns: 
+
+```
+    (98.0,Map(0 -> 95.83333333333333, 1 -> 100.0))
 ```
 
 
