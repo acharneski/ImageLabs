@@ -17,9 +17,9 @@
  * under the License.
  */
 
-import java.awt.{Color, Graphics2D}
 import java.awt.geom.AffineTransform
 import java.awt.image.{AffineTransformOp, BufferedImage}
+import java.awt.{Color, Graphics2D}
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import java.util.function.{DoubleSupplier, ToDoubleFunction}
@@ -269,6 +269,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         }
 
         log.h2("Linear")
+        log.p("The simplest problem is linear descrimination, which can be learned by the simplest network")
         runTest(log.eval {
           (x: Double, y: Double) ⇒ if (x < y) 0 else 1
         }, log.eval {
@@ -282,6 +283,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         })
 
         log.h2("XOR")
+        log.p("The XOR function is not linearly seperable, and cannot be solved by this network:")
         val xor_fn = log.eval {
           (x: Double, y: Double) ⇒ if ((x < 0) ^ (y < 0)) 0 else 1
         }
@@ -294,6 +296,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
           model = model.add(new SoftmaxActivationLayer)
           model
         })
+        log.p("If we add a hidden layer with enough units, we can learn the nonlinearity:")
         runTest(xor_fn, log.eval {
           var model: DAGNetwork = new DAGNetwork
           val middleSize = Array[Int](15)
@@ -311,6 +314,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         })
 
         log.h2("Circle")
+        log.p("Similar behavior is seen with simple networks on the unit circle function")
         val circle_fn = log.eval {
           (x: Double, y: Double) ⇒ if ((x * x) + (y * y) < 0.5) 0 else 1
         }
