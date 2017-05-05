@@ -28,7 +28,7 @@ import javax.imageio.ImageIO
 
 import com.simiacryptus.mindseye.net.activation.{AbsActivationLayer, L1NormalizationLayer, LinearActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.net.basic.BiasLayer
-import com.simiacryptus.mindseye.net.dag.{DAGNetwork, DAGNode, InnerNode}
+import com.simiacryptus.mindseye.net.dag._
 import com.simiacryptus.mindseye.net.dev.DenseSynapseLayerJBLAS
 import com.simiacryptus.mindseye.net.loss.{EntropyLossLayer, SqLossLayer}
 import com.simiacryptus.mindseye.net.media.{ConvolutionSynapseLayer, EntropyLayer}
@@ -47,6 +47,47 @@ import smile.plot.{PlotCanvas, ScatterPlot}
 
 import scala.collection.JavaConverters._
 import scala.util.Random
+
+
+object NetworkViz {
+
+  def getNodes(node: DAGNode): List[DAGNode] = node match {
+    case network: DAGNetwork ⇒ network.getNodes.asScala.toList//.flatMap(getNodes(_))
+    case _ ⇒ List(node)
+  }
+
+  def toGraph(network: DAGNetwork) = {
+    val nodes: List[DAGNode] = network.getNodes.asScala.toList
+    val graphNodes: Map[UUID, MutableNode] = nodes.map(node ⇒ {
+      node.getId() → guru.nidi.graphviz.model.Factory.mutNode((node match {
+        case n: InnerNode ⇒
+          n.layer match {
+            case _ if (n.layer.isInstanceOf[VerboseWrapper]) ⇒ n.layer.asInstanceOf[VerboseWrapper].inner.getClass.getSimpleName
+            case _ ⇒ n.layer.getClass.getSimpleName
+          }
+        case _ ⇒ node.getClass.getSimpleName
+      }) + "\n" + node.getId.toString)
+    }).toMap
+    val idMap: Map[UUID, List[UUID]] = nodes.flatMap((to: DAGNode) ⇒ {
+      val inputs: List[DAGNode] = to.getInputs.toList
+      inputs.map((from: DAGNode) ⇒ {
+        if (null == from) throw new AssertionError();
+        if (null == to) throw new AssertionError();
+        from.getId → to.getId
+      })
+    }).groupBy(_._1).mapValues(_.map(_._2))
+    nodes.foreach((to: DAGNode) ⇒ {
+      graphNodes(to.getId).addLink(idMap.getOrElse(to.getId, List.empty).map(from ⇒ {
+        Link.to(graphNodes(from))
+      }): _*)
+    })
+    val nodeArray = graphNodes.values.map(_.asInstanceOf[LinkSource]).toArray
+    guru.nidi.graphviz.model.Factory.graph().`with`(nodeArray: _*)
+      .generalAttr.`with`(RankDir.TOP_TO_BOTTOM).directed()
+  }
+
+}
+import NetworkViz._
 
 class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
@@ -77,23 +118,20 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
         log.h2("Model")
         log.p("Here we define the logic network that we are about to train: ")
-        var model: DAGNetwork = log.eval {
-          var model: DAGNetwork = new DAGNetwork
-          model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+        var model: PipelineNetwork = log.eval {
+          var model: PipelineNetwork = new PipelineNetwork
+          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.0
           }))
-          model = model.add(new BiasLayer(outputSize: _*))
-          model = model.add(new SoftmaxActivationLayer)
+          model.add(new BiasLayer(outputSize: _*))
+          model.add(new SoftmaxActivationLayer)
           model
         }
         log.p("We can visualize this network as a graph: ")
         networkGraph(log, model, 800)
         log.p("We encapsulate our model network within a supervisory network that applies a loss function: ")
-        val trainingNetwork: DAGNetwork = log.eval {
-          val trainingNetwork: DAGNetwork = new DAGNetwork
-          trainingNetwork.add(model)
-          trainingNetwork.addLossComponent(new EntropyLossLayer)
-          trainingNetwork
+        val trainingNetwork: SupervisedNetwork = log.eval {
+          new SupervisedNetwork(model, new EntropyLossLayer)
         }
         log.p("With a the following component graph: ")
         networkGraph(log, trainingNetwork, 600)
@@ -193,7 +231,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         val outputSize = Array[Int](2)
         val MAX: Int = 2
 
-        def runTest(function: (Double, Double) ⇒ Int, model: DAGNetwork) = {
+        def runTest(function: (Double, Double) ⇒ Int, model: PipelineNetwork) = {
 
           val trainingData: Seq[Array[Tensor]] = Stream.continually({
             val x = Random.nextDouble() * 2.0 - 1.0
@@ -207,9 +245,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
           }).take(100)
 
           val trainer = {
-            val trainingNetwork: DAGNetwork = new DAGNetwork
-            trainingNetwork.add(model)
-            trainingNetwork.addLossComponent(new EntropyLossLayer)
+            val trainingNetwork: SupervisedNetwork = new SupervisedNetwork(model, new EntropyLossLayer)
             val gradientTrainer: LbfgsTrainer = new LbfgsTrainer
             gradientTrainer.setNet(trainingNetwork)
             gradientTrainer.setData(trainingData.toArray)
@@ -273,12 +309,12 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         runTest(log.eval {
           (x: Double, y: Double) ⇒ if (x < y) 0 else 1
         }, log.eval {
-          var model: DAGNetwork = new DAGNetwork
-          model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          var model: PipelineNetwork = new PipelineNetwork
+          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.1
           }))
-          model = model.add(new BiasLayer(outputSize: _*))
-          model = model.add(new SoftmaxActivationLayer)
+          model.add(new BiasLayer(outputSize: _*))
+          model.add(new SoftmaxActivationLayer)
           model
         })
 
@@ -288,28 +324,28 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
           (x: Double, y: Double) ⇒ if ((x < 0) ^ (y < 0)) 0 else 1
         }
         runTest(xor_fn, log.eval {
-          var model: DAGNetwork = new DAGNetwork
-          model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          var model: PipelineNetwork = new PipelineNetwork
+          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.2
           }))
-          model = model.add(new BiasLayer(outputSize: _*))
-          model = model.add(new SoftmaxActivationLayer)
+          model.add(new BiasLayer(outputSize: _*))
+          model.add(new SoftmaxActivationLayer)
           model
         })
-        log.p("If we add a hidden layer with enough units, we can learn the nonlinearity:")
+        log.p("If we add a hidden id with enough units, we can learn the nonlinearity:")
         runTest(xor_fn, log.eval {
-          var model: DAGNetwork = new DAGNetwork
+          var model: PipelineNetwork = new PipelineNetwork
           val middleSize = Array[Int](15)
-          model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), middleSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
           }))
-          model = model.add(new BiasLayer(middleSize: _*))
-          model = model.add(new AbsActivationLayer())
-          model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(middleSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new BiasLayer(middleSize: _*))
+          model.add(new AbsActivationLayer())
+          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(middleSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
           }))
-          model = model.add(new BiasLayer(outputSize: _*))
-          model = model.add(new SoftmaxActivationLayer)
+          model.add(new BiasLayer(outputSize: _*))
+          model.add(new SoftmaxActivationLayer)
           model
         })
 
@@ -319,27 +355,27 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
           (x: Double, y: Double) ⇒ if ((x * x) + (y * y) < 0.5) 0 else 1
         }
         runTest(circle_fn, log.eval {
-          var model: DAGNetwork = new DAGNetwork
-          model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          var model: PipelineNetwork = new PipelineNetwork
+          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.2
           }))
-          model = model.add(new BiasLayer(outputSize: _*))
-          model = model.add(new SoftmaxActivationLayer)
+          model.add(new BiasLayer(outputSize: _*))
+          model.add(new SoftmaxActivationLayer)
           model
         })
         runTest(circle_fn, log.eval {
-          var model: DAGNetwork = new DAGNetwork
+          var model: PipelineNetwork = new PipelineNetwork
           val middleSize = Array[Int](15)
-          model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), middleSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
           }))
-          model = model.add(new BiasLayer(middleSize: _*))
-          model = model.add(new AbsActivationLayer())
-          model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(middleSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new BiasLayer(middleSize: _*))
+          model.add(new AbsActivationLayer())
+          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(middleSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
           }))
-          model = model.add(new BiasLayer(outputSize: _*))
-          model = model.add(new SoftmaxActivationLayer)
+          model.add(new BiasLayer(outputSize: _*))
+          model.add(new SoftmaxActivationLayer)
           model
         })
 
@@ -362,7 +398,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
             convolution.freeze
             convolution
           }
-          val net = new DAGNetwork
+          val net = new PipelineNetwork
           net.add(singleConvolution)
           net.add(singleConvolution)
           net.add(singleConvolution)
@@ -395,22 +431,22 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         val inputSize: Array[Int] = idealImageTensor.getDims
         val zeroInput = new Tensor(inputSize:_*)
 
-        log.p("Now we define a reconstruction network, which adapts a bias layer to find the source image" +
+        log.p("Now we define a reconstruction network, which adapts a bias id to find the source image" +
           " given a post-filter image while also considering normalization factors including image entropy: ")
-        val (bias, dagNetwork) = log.eval {
-          val net = new DAGNetwork
-          val bias = new BiasLayer(inputSize: _*)
-          val modeledImageNode = net.add(bias).getHead
+        val (bias: DAGNode, dagNetwork) = log.eval {
+
+
+          val net = new PipelineNetwork(2)
+          val bias: DAGNode = net.add(new BiasLayer(inputSize: _*))
           net.add(blurFilter)
-          net.addLossComponent(new SqLossLayer)
-          val imageRMS: DAGNode = net.add(new VerboseWrapper("rms", new BiasLayer().freeze)).getHead
-          net.add(new AbsActivationLayer, modeledImageNode)
+          val imageRMS: DAGNode = net.add(new SqLossLayer, net.getHead, net.getInput(1))
+          net.add(new AbsActivationLayer, bias)
           net.add(new L1NormalizationLayer)
           net.add(new EntropyLayer)
           net.add(new SumInputsLayer)
-          val image_entropy: DAGNode = net.add(new VerboseWrapper("entropy", new BiasLayer().freeze)).getHead
-          val scaledRms: DAGNode = net.add(new LinearActivationLayer().setWeight(1.0).freeze, imageRMS).getHead
-          val scaledEntropy: DAGNode = net.add(new LinearActivationLayer().setWeight(0.001).freeze, image_entropy).getHead
+          val image_entropy: DAGNode = net.add(new VerboseWrapper("entropy", new BiasLayer().freeze))
+          val scaledRms: DAGNode = net.add(new LinearActivationLayer().setWeight(1.0).freeze, imageRMS)
+          val scaledEntropy: DAGNode = net.add(new LinearActivationLayer().setWeight(0.001).freeze, image_entropy)
           net.add(new VerboseWrapper("composite", new SumInputsLayer), scaledRms, scaledEntropy)
           (bias, net)
         }
@@ -424,7 +460,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
           new IterativeTrainer(gradientTrainer)
         }
         log.eval {
-          bias.addWeights(new DoubleSupplier {
+          bias.getLayer.asInstanceOf[BiasLayer].addWeights(new DoubleSupplier {
             override def getAsDouble: Double = Util.R.get.nextGaussian * 1e-5
           })
           val trainingContext = new TrainingContext
@@ -468,36 +504,6 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
     }
   }
 
-  private def networkGraph(log: ScalaMarkdownPrintStream, dagNetwork: DAGNetwork, width: Int = 1200) = {
-    log.eval {
-      val nodes: List[DAGNode] = dagNetwork.getNodes.asScala.toList
-      val graphNodes: Map[UUID, MutableNode] = nodes.map(node ⇒ {
-        node.getId() → guru.nidi.graphviz.model.Factory.mutNode((node match {
-          case n : InnerNode ⇒
-            n.nnlayer match {
-              case _ if(n.nnlayer.isInstanceOf[VerboseWrapper]) ⇒ n.nnlayer.asInstanceOf[VerboseWrapper].inner.getClass.getSimpleName
-              case _ ⇒ n.nnlayer.getClass.getSimpleName
-            }
-          case _ ⇒ node.getClass.getSimpleName
-        }) + "\n" + node.getId.toString)
-      }).toMap
-      val idMap: Map[UUID, List[UUID]] = nodes.flatMap((to: DAGNode) ⇒ {
-        to.getInputs.map((from: DAGNode) ⇒ {
-          from.getId → to.getId
-        })
-      }).groupBy(_._1).mapValues(_.map(_._2))
-      nodes.foreach((to: DAGNode) ⇒ {
-        graphNodes(to.getId).addLink(idMap.getOrElse(to.getId, List.empty).map(from ⇒ {
-          Link.to(graphNodes(from))
-        }): _*)
-      })
-      val nodeArray = graphNodes.values.map(_.asInstanceOf[LinkSource]).toArray
-      val graph = guru.nidi.graphviz.model.Factory.graph().`with`(nodeArray: _*)
-        .generalAttr.`with`(RankDir.TOP_TO_BOTTOM).directed()
-      Graphviz.fromGraph(graph).width(width).render(Format.PNG).toImage
-    }
-  }
-
   def toOut(label: String): Int = {
     var i = 0
     while ( {
@@ -511,6 +517,12 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
       }
     }
     throw new RuntimeException
+  }
+
+  def networkGraph(log: ScalaMarkdownPrintStream, network: DAGNetwork, width: Int = 1200) = {
+    log.eval {
+      Graphviz.fromGraph(toGraph(network)).width(width).render(Format.PNG).toImage
+    }
   }
 
   def toOutNDArray(out: Int, max: Int): Tensor = {

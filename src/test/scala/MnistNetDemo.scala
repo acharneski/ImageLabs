@@ -24,7 +24,7 @@ import java.{lang, util}
 
 import com.simiacryptus.mindseye.net.activation.{AbsActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.net.basic.BiasLayer
-import com.simiacryptus.mindseye.net.dag.{DAGNetwork, DAGNode, InnerNode}
+import com.simiacryptus.mindseye.net.dag._
 import com.simiacryptus.mindseye.net.dev.DenseSynapseLayerJBLAS
 import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.net.media.{ConvolutionSynapseLayer, MaxSubsampleLayer}
@@ -54,12 +54,12 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
       report("simple", log ⇒ {
         test(log, log.eval {
           trainingTimeMinutes = 5
-          var model: DAGNetwork = new DAGNetwork
-          model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          var model: PipelineNetwork = new PipelineNetwork
+          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.0
           }))
-          model = model.add(new BiasLayer(outputSize: _*))
-          model = model.add(new SoftmaxActivationLayer)
+          model.add(new BiasLayer(outputSize: _*))
+          model.add(new SoftmaxActivationLayer)
           model
         })
       })
@@ -70,17 +70,17 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
         test(log, log.eval {
           trainingTimeMinutes = 120
           val middleSize = Array[Int](28, 28, 1)
-          var model: DAGNetwork = new DAGNetwork
-          model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+          var model: PipelineNetwork = new PipelineNetwork
+          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), middleSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
-          model = model.add(new BiasLayer(middleSize: _*))
-          model = model.add(new AbsActivationLayer)
-          model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(middleSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new BiasLayer(middleSize: _*))
+          model.add(new AbsActivationLayer)
+          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(middleSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
-          model = model.add(new BiasLayer(outputSize: _*))
-          model = model.add(new SoftmaxActivationLayer)
+          model.add(new BiasLayer(outputSize: _*))
+          model.add(new SoftmaxActivationLayer)
           model
         })
       })
@@ -91,24 +91,24 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
         test(log, log.eval {
           trainingTimeMinutes = 120
           val middleSize = Array[Int](28, 28, 1)
-          var model: DAGNetwork = new DAGNetwork
-          model = model.add(new ConvolutionSynapseLayer(Array(2,2), 2).setWeights(new ToDoubleFunction[Coordinate] {
+          var model: PipelineNetwork = new PipelineNetwork
+          model.add(new ConvolutionSynapseLayer(Array(2,2), 2).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
-          model = model.add(new AbsActivationLayer)
-          model = model.add(new MaxSubsampleLayer(2,2,1))
-          model = model.add(new ConvolutionSynapseLayer(Array(2,2), 2).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new AbsActivationLayer)
+          model.add(new MaxSubsampleLayer(2,2,1))
+          model.add(new ConvolutionSynapseLayer(Array(2,2), 2).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
-          model = model.add(new AbsActivationLayer)
-          model = model.add(new MaxSubsampleLayer(2,2,1))
+          model.add(new AbsActivationLayer)
+          model.add(new MaxSubsampleLayer(2,2,1))
 
           def headDims = model.eval(new Tensor(inputSize:_*)).data(0).getDims
-          model = model.add(new DenseSynapseLayerJBLAS(Tensor.dim(headDims: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(headDims: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
-          model = model.add(new BiasLayer(headDims: _*))
-          model = model.add(new SoftmaxActivationLayer)
+          model.add(new BiasLayer(headDims: _*))
+          model.add(new SoftmaxActivationLayer)
           model
         })
       })
@@ -116,7 +116,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
   }
 
-  def test(log: ScalaMarkdownPrintStream, model: DAGNetwork) = {
+  def test(log: ScalaMarkdownPrintStream, model: PipelineNetwork) = {
     log.h2("Data")
     log.p("First, we load the training dataset: ")
     val data: Seq[Array[Tensor]] = log.code(() ⇒ {
@@ -128,11 +128,8 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
     log.p("We can visualize this network as a graph: ")
     networkGraph(log, model, 800)
     log.p("We encapsulate our model network within a supervisory network that applies a loss function: ")
-    val trainingNetwork: DAGNetwork = log.eval {
-      val trainingNetwork: DAGNetwork = new DAGNetwork
-      trainingNetwork.add(model)
-      trainingNetwork.addLossComponent(new EntropyLossLayer)
-      trainingNetwork
+    val trainingNetwork: SupervisedNetwork = log.eval {
+      new SupervisedNetwork(model, new EntropyLossLayer)
     }
     log.p("With a the following component graph: ")
     networkGraph(log, trainingNetwork, 600)
@@ -258,9 +255,9 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
       val graphNodes: Map[UUID, MutableNode] = nodes.map(node ⇒ {
         node.getId() → guru.nidi.graphviz.model.Factory.mutNode((node match {
           case n : InnerNode ⇒
-            n.nnlayer match {
-              case _ if(n.nnlayer.isInstanceOf[VerboseWrapper]) ⇒ n.nnlayer.asInstanceOf[VerboseWrapper].inner.getClass.getSimpleName
-              case _ ⇒ n.nnlayer.getClass.getSimpleName
+            n.layer match {
+              case _ if(n.layer.isInstanceOf[VerboseWrapper]) ⇒ n.layer.asInstanceOf[VerboseWrapper].inner.getClass.getSimpleName
+              case _ ⇒ n.layer.getClass.getSimpleName
             }
           case _ ⇒ node.getClass.getSimpleName
         }) + "\n" + node.getId.toString)
