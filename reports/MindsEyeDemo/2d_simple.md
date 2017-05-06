@@ -1,7 +1,7 @@
 ## Linear
 The simplest problem is linear descrimination, which can be learned by the simplest network
 
-Code from [MindsEyeDemo.scala:309](../../src/test/scala/MindsEyeDemo.scala#L309) executed in 0.00 seconds: 
+Code from [MindsEyeDemo.scala:271](../../src/test/scala/MindsEyeDemo.scala#L271) executed in 0.00 seconds: 
 ```java
     (x: Double, y: Double) ⇒ if (x < y) 0 else 1
 ```
@@ -14,10 +14,10 @@ Returns:
 
 
 
-Code from [MindsEyeDemo.scala:311](../../src/test/scala/MindsEyeDemo.scala#L311) executed in 0.01 seconds: 
+Code from [MindsEyeDemo.scala:273](../../src/test/scala/MindsEyeDemo.scala#L273) executed in 0.00 seconds: 
 ```java
     var model: PipelineNetwork = new PipelineNetwork
-    model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+    model.add(new DenseSynapseLayerJBLAS(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
       override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.1
     }))
     model.add(new BiasLayer(outputSize: _*))
@@ -30,54 +30,54 @@ Returns:
 ```
     {
       "class": "PipelineNetwork",
-      "id": "5c4a4a38-73ac-488b-b1a1-b55a00000007",
+      "id": "bf91e8ca-00fc-4e91-bc12-526300000007",
       "nodes": [
         {
           "id": {
             "class": "DenseSynapseLayerJBLAS",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a00000008",
-            "weights": "[ [ 0.15064511430430585,0.1254296736614699 ],[ 0.059788408642144714,0.05896708758013644 ] ]"
+            "id": "bf91e8ca-00fc-4e91-bc12-526300000008",
+            "weights": "[ [ -0.03636484932721239,1.2188257931298182E-4 ],[ 0.0111983680432676,0.023474488635533062 ] ]"
           },
           "prev0": {
-            "target": "[ec4a591a-e0f8-42a0-b108-adc5407ac414]"
+            "target": "[84015669-8072-4e31-981e-54299d95f683]"
           }
         },
         {
           "id": {
             "class": "BiasLayer",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a00000009",
+            "id": "bf91e8ca-00fc-4e91-bc12-526300000009",
             "bias": "[0.0, 0.0]"
           },
           "prev0": {
             "id": {
               "class": "DenseSynapseLayerJBLAS",
-              "id": "5c4a4a38-73ac-488b-b1a1-b55a00000008",
-              "weights": "[ [ 0.15064511430430585,0.1254296736614699 ],[ 0.059788408642144714,0.05896708758013644 ] ]"
+              "id": "bf91e8ca-00fc-4e91-bc12-526300000008",
+              "weights": "[ [ -0.03636484932721239,1.2188257931298182E-4 ],[ 0.0111983680432676,0.023474488635533062 ] ]"
             },
             "prev0": {
-              "target": "[ec4a591a-e0f8-42a0-b108-adc5407ac414]"
+              "target": "[84015669-8072-4e31-981e-54299d95f683]"
             }
           }
         },
         {
           "id": {
             "class": "SoftmaxActivationLayer",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a0000000a"
+            "id": "bf91e8ca-00fc-4e91-bc12-52630000000a"
           },
           "prev0": {
             "id": {
               "class": "BiasLayer",
-              "id": "5c4a4a38-73ac-488b-b1a1-b55a00000009",
+              "id": "bf91e8ca-00fc-4e91-bc12-526300000009",
               "bias": "[0.0, 0.0]"
             },
             "prev0": {
               "id": {
                 "class": "DenseSynapseLayerJBLAS",
-                "id": "5c4a4a38-73ac-488b-b1a1-b55a00000008",
-                "weights": "[ [ 0.15064511430430585,0.1254296736614699 ],[ 0.059788408642144714,0.05896708758013644 ] ]"
+                "id": "bf91e8ca-00fc-4e91-bc12-526300000008",
+                "weights": "[ [ -0.03636484932721239,1.2188257931298182E-4 ],[ 0.0111983680432676,0.023474488635533062 ] ]"
               },
               "prev0": {
-                "target": "[ec4a591a-e0f8-42a0-b108-adc5407ac414]"
+                "target": "[84015669-8072-4e31-981e-54299d95f683]"
               }
             }
           }
@@ -86,22 +86,22 @@ Returns:
       "root": {
         "id": {
           "class": "SoftmaxActivationLayer",
-          "id": "5c4a4a38-73ac-488b-b1a1-b55a0000000a"
+          "id": "bf91e8ca-00fc-4e91-bc12-52630000000a"
         },
         "prev0": {
           "id": {
             "class": "BiasLayer",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a00000009",
+            "id": "bf91e8ca-00fc-4e91-bc12-526300000009",
             "bias": "[0.0, 0.0]"
           },
           "prev0": {
             "id": {
               "class": "DenseSynapseLayerJBLAS",
-              "id": "5c4a4a38-73ac-488b-b1a1-b55a00000008",
-              "weights": "[ [ 0.15064511430430585,0.1254296736614699 ],[ 0.059788408642144714,0.05896708758013644 ] ]"
+              "id": "bf91e8ca-00fc-4e91-bc12-526300000008",
+              "weights": "[ [ -0.03636484932721239,1.2188257931298182E-4 ],[ 0.0111983680432676,0.023474488635533062 ] ]"
             },
             "prev0": {
-              "target": "[ec4a591a-e0f8-42a0-b108-adc5407ac414]"
+              "target": "[84015669-8072-4e31-981e-54299d95f683]"
             }
           }
         }
@@ -111,7 +111,38 @@ Returns:
 
 
 
-Code from [MindsEyeDemo.scala:284](../../src/test/scala/MindsEyeDemo.scala#L284) executed in 0.11 seconds: 
+Code from [MindsEyeDemo.scala:214](../../src/test/scala/MindsEyeDemo.scala#L214) executed in 0.00 seconds: 
+```java
+    val trainingNetwork: SupervisedNetwork = new SupervisedNetwork(model, new EntropyLossLayer)
+    val trainable = new StochasticArrayTrainable(trainingData.toArray, trainingNetwork, 1000)
+    val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
+    trainer.setTimeout(10, TimeUnit.SECONDS)
+    trainer.setTerminateThreshold(0.0)
+    trainer
+```
+
+Returns: 
+
+```
+    com.simiacryptus.mindseye.opt.IterativeTrainer@59f7c106
+```
+
+
+
+Code from [MindsEyeDemo.scala:222](../../src/test/scala/MindsEyeDemo.scala#L222) executed in 10.01 seconds: 
+```java
+    trainer.run()
+```
+
+Returns: 
+
+```
+    NaN
+```
+
+
+
+Code from [MindsEyeDemo.scala:246](../../src/test/scala/MindsEyeDemo.scala#L246) executed in 0.10 seconds: 
 ```java
     plotXY(gfx)
 ```
@@ -122,7 +153,7 @@ Returns:
 
 
 
-Code from [MindsEyeDemo.scala:301](../../src/test/scala/MindsEyeDemo.scala#L301) executed in 0.00 seconds: 
+Code from [MindsEyeDemo.scala:263](../../src/test/scala/MindsEyeDemo.scala#L263) executed in 0.00 seconds: 
 ```java
     overall → byCategory
 ```
@@ -130,7 +161,7 @@ Code from [MindsEyeDemo.scala:301](../../src/test/scala/MindsEyeDemo.scala#L301)
 Returns: 
 
 ```
-    (99.0,Map(0 -> 97.82608695652173, 1 -> 100.0))
+    (95.0,Map(0 -> 88.88888888888889, 1 -> 100.0))
 ```
 
 
@@ -138,7 +169,7 @@ Returns:
 ## XOR
 The XOR function is not linearly seperable, and cannot be solved by this network:
 
-Code from [MindsEyeDemo.scala:323](../../src/test/scala/MindsEyeDemo.scala#L323) executed in 0.00 seconds: 
+Code from [MindsEyeDemo.scala:285](../../src/test/scala/MindsEyeDemo.scala#L285) executed in 0.00 seconds: 
 ```java
     (x: Double, y: Double) ⇒ if ((x < 0) ^ (y < 0)) 0 else 1
 ```
@@ -151,10 +182,10 @@ Returns:
 
 
 
-Code from [MindsEyeDemo.scala:326](../../src/test/scala/MindsEyeDemo.scala#L326) executed in 0.00 seconds: 
+Code from [MindsEyeDemo.scala:288](../../src/test/scala/MindsEyeDemo.scala#L288) executed in 0.00 seconds: 
 ```java
     var model: PipelineNetwork = new PipelineNetwork
-    model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+    model.add(new DenseSynapseLayerJBLAS(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
       override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.2
     }))
     model.add(new BiasLayer(outputSize: _*))
@@ -167,54 +198,54 @@ Returns:
 ```
     {
       "class": "PipelineNetwork",
-      "id": "5c4a4a38-73ac-488b-b1a1-b55a0000000d",
+      "id": "bf91e8ca-00fc-4e91-bc12-52630000000d",
       "nodes": [
         {
           "id": {
             "class": "DenseSynapseLayerJBLAS",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a0000000e",
-            "weights": "[ [ -0.23729889364087375,0.03307450634045789 ],[ -0.08216429349465698,0.14374585308169033 ] ]"
+            "id": "bf91e8ca-00fc-4e91-bc12-52630000000e",
+            "weights": "[ [ -0.4385123429203249,-0.154908578595438 ],[ 0.33273099198612877,8.357791682557198E-4 ] ]"
           },
           "prev0": {
-            "target": "[81df8788-1a5f-431a-92fc-16feaa9fa20e]"
+            "target": "[12f54a38-0e41-475b-b59b-89ffcfb6144b]"
           }
         },
         {
           "id": {
             "class": "BiasLayer",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a0000000f",
+            "id": "bf91e8ca-00fc-4e91-bc12-52630000000f",
             "bias": "[0.0, 0.0]"
           },
           "prev0": {
             "id": {
               "class": "DenseSynapseLayerJBLAS",
-              "id": "5c4a4a38-73ac-488b-b1a1-b55a0000000e",
-              "weights": "[ [ -0.23729889364087375,0.03307450634045789 ],[ -0.08216429349465698,0.14374585308169033 ] ]"
+              "id": "bf91e8ca-00fc-4e91-bc12-52630000000e",
+              "weights": "[ [ -0.4385123429203249,-0.154908578595438 ],[ 0.33273099198612877,8.357791682557198E-4 ] ]"
             },
             "prev0": {
-              "target": "[81df8788-1a5f-431a-92fc-16feaa9fa20e]"
+              "target": "[12f54a38-0e41-475b-b59b-89ffcfb6144b]"
             }
           }
         },
         {
           "id": {
             "class": "SoftmaxActivationLayer",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a00000010"
+            "id": "bf91e8ca-00fc-4e91-bc12-526300000010"
           },
           "prev0": {
             "id": {
               "class": "BiasLayer",
-              "id": "5c4a4a38-73ac-488b-b1a1-b55a0000000f",
+              "id": "bf91e8ca-00fc-4e91-bc12-52630000000f",
               "bias": "[0.0, 0.0]"
             },
             "prev0": {
               "id": {
                 "class": "DenseSynapseLayerJBLAS",
-                "id": "5c4a4a38-73ac-488b-b1a1-b55a0000000e",
-                "weights": "[ [ -0.23729889364087375,0.03307450634045789 ],[ -0.08216429349465698,0.14374585308169033 ] ]"
+                "id": "bf91e8ca-00fc-4e91-bc12-52630000000e",
+                "weights": "[ [ -0.4385123429203249,-0.154908578595438 ],[ 0.33273099198612877,8.357791682557198E-4 ] ]"
               },
               "prev0": {
-                "target": "[81df8788-1a5f-431a-92fc-16feaa9fa20e]"
+                "target": "[12f54a38-0e41-475b-b59b-89ffcfb6144b]"
               }
             }
           }
@@ -223,22 +254,22 @@ Returns:
       "root": {
         "id": {
           "class": "SoftmaxActivationLayer",
-          "id": "5c4a4a38-73ac-488b-b1a1-b55a00000010"
+          "id": "bf91e8ca-00fc-4e91-bc12-526300000010"
         },
         "prev0": {
           "id": {
             "class": "BiasLayer",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a0000000f",
+            "id": "bf91e8ca-00fc-4e91-bc12-52630000000f",
             "bias": "[0.0, 0.0]"
           },
           "prev0": {
             "id": {
               "class": "DenseSynapseLayerJBLAS",
-              "id": "5c4a4a38-73ac-488b-b1a1-b55a0000000e",
-              "weights": "[ [ -0.23729889364087375,0.03307450634045789 ],[ -0.08216429349465698,0.14374585308169033 ] ]"
+              "id": "bf91e8ca-00fc-4e91-bc12-52630000000e",
+              "weights": "[ [ -0.4385123429203249,-0.154908578595438 ],[ 0.33273099198612877,8.357791682557198E-4 ] ]"
             },
             "prev0": {
-              "target": "[81df8788-1a5f-431a-92fc-16feaa9fa20e]"
+              "target": "[12f54a38-0e41-475b-b59b-89ffcfb6144b]"
             }
           }
         }
@@ -248,7 +279,38 @@ Returns:
 
 
 
-Code from [MindsEyeDemo.scala:284](../../src/test/scala/MindsEyeDemo.scala#L284) executed in 0.08 seconds: 
+Code from [MindsEyeDemo.scala:214](../../src/test/scala/MindsEyeDemo.scala#L214) executed in 0.00 seconds: 
+```java
+    val trainingNetwork: SupervisedNetwork = new SupervisedNetwork(model, new EntropyLossLayer)
+    val trainable = new StochasticArrayTrainable(trainingData.toArray, trainingNetwork, 1000)
+    val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
+    trainer.setTimeout(10, TimeUnit.SECONDS)
+    trainer.setTerminateThreshold(0.0)
+    trainer
+```
+
+Returns: 
+
+```
+    com.simiacryptus.mindseye.opt.IterativeTrainer@1ec4fe38
+```
+
+
+
+Code from [MindsEyeDemo.scala:222](../../src/test/scala/MindsEyeDemo.scala#L222) executed in 10.00 seconds: 
+```java
+    trainer.run()
+```
+
+Returns: 
+
+```
+    NaN
+```
+
+
+
+Code from [MindsEyeDemo.scala:246](../../src/test/scala/MindsEyeDemo.scala#L246) executed in 0.09 seconds: 
 ```java
     plotXY(gfx)
 ```
@@ -259,7 +321,7 @@ Returns:
 
 
 
-Code from [MindsEyeDemo.scala:301](../../src/test/scala/MindsEyeDemo.scala#L301) executed in 0.00 seconds: 
+Code from [MindsEyeDemo.scala:263](../../src/test/scala/MindsEyeDemo.scala#L263) executed in 0.00 seconds: 
 ```java
     overall → byCategory
 ```
@@ -267,23 +329,23 @@ Code from [MindsEyeDemo.scala:301](../../src/test/scala/MindsEyeDemo.scala#L301)
 Returns: 
 
 ```
-    (52.0,Map(0 -> 47.916666666666664, 1 -> 55.76923076923077))
+    (59.0,Map(0 -> 48.83720930232558, 1 -> 66.66666666666667))
 ```
 
 
 
 If we add a hidden id with enough units, we can learn the nonlinearity:
 
-Code from [MindsEyeDemo.scala:336](../../src/test/scala/MindsEyeDemo.scala#L336) executed in 0.01 seconds: 
+Code from [MindsEyeDemo.scala:298](../../src/test/scala/MindsEyeDemo.scala#L298) executed in 0.01 seconds: 
 ```java
     var model: PipelineNetwork = new PipelineNetwork
     val middleSize = Array[Int](15)
-    model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+    model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
       override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
     }))
     model.add(new BiasLayer(middleSize: _*))
     model.add(new AbsActivationLayer())
-    model.add(new DenseSynapseLayerJBLAS(Tensor.dim(middleSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+    model.add(new DenseSynapseLayerJBLAS(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
       override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
     }))
     model.add(new BiasLayer(outputSize: _*))
@@ -296,54 +358,54 @@ Returns:
 ```
     {
       "class": "PipelineNetwork",
-      "id": "5c4a4a38-73ac-488b-b1a1-b55a00000013",
+      "id": "bf91e8ca-00fc-4e91-bc12-526300000013",
       "nodes": [
         {
           "id": {
             "class": "DenseSynapseLayerJBLAS",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a00000014",
-            "weights": "[ [ -0.6781016010946287,0.8082510839918802,-0.48625194324811977,0.27595942189893785,-0.33463261047516785,-0.36828606295347466,-1.0457456384468575,-0.7195931121832095,... ],[ -1.549420027658395,-2.207056000565788,-1.5564736978989966,-1.9842516171140847,-1.2776997557341745,-1.1219206473400656,-2.063388558587663,-0.48652977023539973,... ] ]"
+            "id": "bf91e8ca-00fc-4e91-bc12-526300000014",
+            "weights": "[ [ -1.2311996971141235,-0.003707473001929643,-2.359939463451168,0.21423755566661767,0.24924599064998587,0.5054974544847066,-0.16626506491687199,0.23599140859545203,... ],[ -0.6308951368661083,-1.2971873749113163,0.2100940366571568,1.6698466625327302,-0.7545029965635098,1.9420542203877156,1.0011124068275807,0.26619129564012767,... ] ]"
           },
           "prev0": {
-            "target": "[3d5991ff-bc01-4040-8ef0-6be21964c96a]"
+            "target": "[011ef31c-0eac-4e49-b7db-50e39c725621]"
           }
         },
         {
           "id": {
             "class": "BiasLayer",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a00000015",
+            "id": "bf91e8ca-00fc-4e91-bc12-526300000015",
             "bias": "[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]"
           },
           "prev0": {
             "id": {
               "class": "DenseSynapseLayerJBLAS",
-              "id": "5c4a4a38-73ac-488b-b1a1-b55a00000014",
-              "weights": "[ [ -0.6781016010946287,0.8082510839918802,-0.48625194324811977,0.27595942189893785,-0.33463261047516785,-0.36828606295347466,-1.0457456384468575,-0.7195931121832095,... ],[ -1.549420027658395,-2.207056000565788,-1.5564736978989966,-1.9842516171140847,-1.2776997557341745,-1.1219206473400656,-2.063388558587663,-0.48652977023539973,... ] ]"
+              "id": "bf91e8ca-00fc-4e91-bc12-526300000014",
+              "weights": "[ [ -1.2311996971141235,-0.003707473001929643,-2.359939463451168,0.21423755566661767,0.24924599064998587,0.5054974544847066,-0.16626506491687199,0.23599140859545203,... ],[ -0.6308951368661083,-1.2971873749113163,0.2100940366571568,1.6698466625327302,-0.7545029965635098,1.9420542203877156,1.0011124068275807,0.26619129564012767,... ] ]"
             },
             "prev0": {
-              "target": "[3d5991ff-bc01-4040-8ef0-6be21964c96a]"
+              "target": "[011ef31c-0eac-4e49-b7db-50e39c725621]"
             }
           }
         },
         {
           "id": {
             "class": "AbsActivationLayer",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a00000016"
+            "id": "bf91e8ca-00fc-4e91-bc12-526300000016"
           },
           "prev0": {
             "id": {
               "class": "BiasLayer",
-              "id": "5c4a4a38-73ac-488b-b1a1-b55a00000015",
+              "id": "bf91e8ca-00fc-4e91-bc12-526300000015",
               "bias": "[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]"
             },
             "prev0": {
               "id": {
                 "class": "DenseSynapseLayerJBLAS",
-                "id": "5c4a4a38-73ac-488b-b1a1-b55a00000014",
-                "weights": "[ [ -0.6781016010946287,0.8082510839918802,-0.48625194324811977,0.27595942189893785,-0.33463261047516785,-0.36828606295347466,-1.0457456384468575,-0.7195931121832095,... ],[ -1.549420027658395,-2.207056000565788,-1.5564736978989966,-1.9842516171140847,-1.2776997557341745,-1.1219206473400656,-2.063388558587663,-0.48652977023539973,... ] ]"
+                "id": "bf91e8ca-00fc-4e91-bc12-526300000014",
+                "weights": "[ [ -1.2311996971141235,-0.003707473001929643,-2.359939463451168,0.21423755566661767,0.24924599064998587,0.5054974544847066,-0.16626506491687199,0.23599140859545203,... ],[ -0.6308951368661083,-1.2971873749113163,0.2100940366571568,1.6698466625327302,-0.7545029965635098,1.9420542203877156,1.0011124068275807,0.26619129564012767,... ] ]"
               },
               "prev0": {
-                "target": "[3d5991ff-bc01-4040-8ef0-6be21964c96a]"
+                "target": "[011ef31c-0eac-4e49-b7db-50e39c725621]"
               }
             }
           }
@@ -351,28 +413,28 @@ Returns:
         {
           "id": {
             "class": "DenseSynapseLayerJBLAS",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a00000017",
-            "weights": "[ [ -1.5527787562377051,-0.7517290184983089 ],[ -1.5119119159789303,0.6101319130782988 ],[ 0.14224088534386597,-0.23134124579599966 ],[ -1.1795743974669448,0.8407277238606542 ],[ -1.205040215969255,-1.0776460683044062 ],[ 0.5558706943950652,-0.02065362860721885 ],[ -0.5918689921219654,-0.7786631827737767 ],[ -1.093126501090422,1.1373047315593843 ],... ]"
+            "id": "bf91e8ca-00fc-4e91-bc12-526300000017",
+            "weights": "[ [ 1.1743034034795576,-1.5298001946772113 ],[ 1.3685270672090621,0.9036747561425088 ],[ 0.2904167499816018,0.23939079150039738 ],[ -0.8249147237333315,0.09301636545663848 ],[ 1.0369888199133972,-0.6057178690991806 ],[ -0.7454841166563169,-0.12880925746491018 ],[ -0.3485707523631505,1.7468276941981997 ],[ 0.051788283507919024,-0.12513386702176343 ],... ]"
           },
           "prev0": {
             "id": {
               "class": "AbsActivationLayer",
-              "id": "5c4a4a38-73ac-488b-b1a1-b55a00000016"
+              "id": "bf91e8ca-00fc-4e91-bc12-526300000016"
             },
             "prev0": {
               "id": {
                 "class": "BiasLayer",
-                "id": "5c4a4a38-73ac-488b-b1a1-b55a00000015",
+                "id": "bf91e8ca-00fc-4e91-bc12-526300000015",
                 "bias": "[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]"
               },
               "prev0": {
                 "id": {
                   "class": "DenseSynapseLayerJBLAS",
-                  "id": "5c4a4a38-73ac-488b-b1a1-b55a00000014",
-                  "weights": "[ [ -0.6781016010946287,0.8082510839918802,-0.48625194324811977,0.27595942189893785,-0.33463261047516785,-0.36828606295347466,-1.0457456384468575,-0.7195931121832095,... ],[ -1.549420027658395,-2.207056000565788,-1.5564736978989966,-1.9842516171140847,-1.2776997557341745,-1.1219206473400656,-2.063388558587663,-0.48652977023539973,... ] ]"
+                  "id": "bf91e8ca-00fc-4e91-bc12-526300000014",
+                  "weights": "[ [ -1.2311996971141235,-0.003707473001929643,-2.359939463451168,0.21423755566661767,0.24924599064998587,0.5054974544847066,-0.16626506491687199,0.23599140859545203,... ],[ -0.6308951368661083,-1.2971873749113163,0.2100940366571568,1.6698466625327302,-0.7545029965635098,1.9420542203877156,1.0011124068275807,0.26619129564012767,... ] ]"
                 },
                 "prev0": {
-                  "target": "[3d5991ff-bc01-4040-8ef0-6be21964c96a]"
+                  "target": "[011ef31c-0eac-4e49-b7db-50e39c725621]"
                 }
               }
             }
@@ -381,34 +443,34 @@ Returns:
         {
           "id": {
             "class": "BiasLayer",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a00000018",
+            "id": "bf91e8ca-00fc-4e91-bc12-526300000018",
             "bias": "[0.0, 0.0]"
           },
           "prev0": {
             "id": {
               "class": "DenseSynapseLayerJBLAS",
-              "id": "5c4a4a38-73ac-488b-b1a1-b55a00000017",
-              "weights": "[ [ -1.5527787562377051,-0.7517290184983089 ],[ -1.5119119159789303,0.6101319130782988 ],[ 0.14224088534386597,-0.23134124579599966 ],[ -1.1795743974669448,0.8407277238606542 ],[ -1.205040215969255,-1.0776460683044062 ],[ 0.5558706943950652,-0.02065362860721885 ],[ -0.5918689921219654,-0.7786631827737767 ],[ -1.093126501090422,1.1373047315593843 ],... ]"
+              "id": "bf91e8ca-00fc-4e91-bc12-526300000017",
+              "weights": "[ [ 1.1743034034795576,-1.5298001946772113 ],[ 1.3685270672090621,0.9036747561425088 ],[ 0.2904167499816018,0.23939079150039738 ],[ -0.8249147237333315,0.09301636545663848 ],[ 1.0369888199133972,-0.6057178690991806 ],[ -0.7454841166563169,-0.12880925746491018 ],[ -0.3485707523631505,1.7468276941981997 ],[ 0.051788283507919024,-0.12513386702176343 ],... ]"
             },
             "prev0": {
               "id": {
                 "class": "AbsActivationLayer",
-                "id": "5c4a4a38-73ac-488b-b1a1-b55a00000016"
+                "id": "bf91e8ca-00fc-4e91-bc12-526300000016"
               },
               "prev0": {
                 "id": {
                   "class": "BiasLayer",
-                  "id": "5c4a4a38-73ac-488b-b1a1-b55a00000015",
+                  "id": "bf91e8ca-00fc-4e91-bc12-526300000015",
                   "bias": "[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]"
                 },
                 "prev0": {
                   "id": {
                     "class": "DenseSynapseLayerJBLAS",
-                    "id": "5c4a4a38-73ac-488b-b1a1-b55a00000014",
-                    "weights": "[ [ -0.6781016010946287,0.8082510839918802,-0.48625194324811977,0.27595942189893785,-0.33463261047516785,-0.36828606295347466,-1.0457456384468575,-0.7195931121832095,... ],[ -1.549420027658395,-2.207056000565788,-1.5564736978989966,-1.9842516171140847,-1.2776997557341745,-1.1219206473400656,-2.063388558587663,-0.48652977023539973,... ] ]"
+                    "id": "bf91e8ca-00fc-4e91-bc12-526300000014",
+                    "weights": "[ [ -1.2311996971141235,-0.003707473001929643,-2.359939463451168,0.21423755566661767,0.24924599064998587,0.5054974544847066,-0.16626506491687199,0.23599140859545203,... ],[ -0.6308951368661083,-1.2971873749113163,0.2100940366571568,1.6698466625327302,-0.7545029965635098,1.9420542203877156,1.0011124068275807,0.26619129564012767,... ] ]"
                   },
                   "prev0": {
-                    "target": "[3d5991ff-bc01-4040-8ef0-6be21964c96a]"
+                    "target": "[011ef31c-0eac-4e49-b7db-50e39c725621]"
                   }
                 }
               }
@@ -418,41 +480,73 @@ Returns:
         {
           "id": {
             "class": "SoftmaxActivationLayer",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a00000019"
+            "id": "bf91e8ca-00fc-4e91-bc12-526300000019"
           },
           "prev0": {
             "id": {
               "class": "BiasLayer",
-              "id": "5c4a4a38-73ac-488b-b1a1-b55a00000018",
+              "id": "bf91e8ca-00fc-4e91-bc12-526300000018",
               "bias": "[0.0, 0.0]"
             },
             "prev0": {
               "id": {
                 "class": "DenseSynapseLayerJBLAS",
-                "id": "5c4a4a38-73ac-488b-b1a1-b55a00000017",
-                "weights": "[ [ -1.5527787562377051,-0.7517290184983089 ],[ -1.5119119159789303,0.6101319130782988 ],[ 0.14224088534386597,-0.23134124579599966 ],[ -1.1795743974669448,0.8407277238606542 ],[ -1.205040215969255,-1.0776460683044062 ],[ 0.5558706943950652,-0.02065362860721885 ],[ -0.5918689921219654,-0.7786631827737767 ],[ -1.093126501090422,1.1373047315593843 ],... ]"
+                "id": "bf91e8ca-00fc-4e91-bc12-526300000017",
+                "weights": "[ [ 1.1743034034795576,-1.5298001946772113 ],[ 1.3685270672090621,0.9036747561425088 ],[ 0.2904167499816018,0.23939079150039738 ],[ -0.8249147237333315,0.09301636545663848 ],[ 1.0369888199133972,-0.6057178690991806 ],[ -0.7454841166563169,-0.12880925746491018 ],[ -0.3485707523631505,1.7468276941981997 ],[ 0.051788283507919024,-0.12513386702176343 ],... ]"
               },
               "prev0": {
                 "id": {
                   "class": "AbsActivationLayer",
-                  "id": "5c4a4a38-73ac-488b-b1a1-b55a00000016"
+                  "id": "bf91e8ca-00fc-4e91-bc12-526300000016"
                 },
                 "prev0": {
                   "id": {
                     "class": "BiasLayer",
-                    "id": "5c4a4a38-73ac-488b-b1a1-b55a00000015",
+                    "id": "bf91e8ca-00fc-4e91-bc12-526300000015",
                     "bias": "[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]"
                   },
                   "prev0": {
                     "id": {
                       "class": "DenseSynapseLayerJBLAS",
-                      "id": "5c4a4a38-73ac-488b-b1a1-b55a00000014",
-                      "weights": "[ [ -0.6781016010946287,0.8082510839918802,-0.48625194324811977,0.27595942189893785,-0.33463261047516785,-0.36828606295347466,-1.0457456384468575,-0.7195931121832095,... ],[ -1.549420027658395,-2.207056000565788,-1.5564736978989966,-1.9842516171140847,-1.2776997557341745,-1.1219206473400656,-2.063388558587663,-0.4865297702353997... and 2342 more bytes
+                      "id": "bf91e8ca-00fc-4e91-bc12-526300000014",
+                      "weights": "[ [ -1.2311996971141235,-0.003707473001929643,-2.359939463451168,0.21423755566661767,0.24924599064998587,0.5054974544847066,-0.16626506491687199,0.23599140859545203,... ],[ -0.6308951368661083,-1.2971873749113163,0.2100940366571568,1.6698466625327302,-0.7545029965635098,1.9420542203877156,1.0011124068275807,0.26619129564012767,... ] ]"
+    ... and 2325 more bytes
 ```
 
 
 
-Code from [MindsEyeDemo.scala:284](../../src/test/scala/MindsEyeDemo.scala#L284) executed in 0.07 seconds: 
+Code from [MindsEyeDemo.scala:214](../../src/test/scala/MindsEyeDemo.scala#L214) executed in 0.00 seconds: 
+```java
+    val trainingNetwork: SupervisedNetwork = new SupervisedNetwork(model, new EntropyLossLayer)
+    val trainable = new StochasticArrayTrainable(trainingData.toArray, trainingNetwork, 1000)
+    val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
+    trainer.setTimeout(10, TimeUnit.SECONDS)
+    trainer.setTerminateThreshold(0.0)
+    trainer
+```
+
+Returns: 
+
+```
+    com.simiacryptus.mindseye.opt.IterativeTrainer@27d0b621
+```
+
+
+
+Code from [MindsEyeDemo.scala:222](../../src/test/scala/MindsEyeDemo.scala#L222) executed in 10.00 seconds: 
+```java
+    trainer.run()
+```
+
+Returns: 
+
+```
+    NaN
+```
+
+
+
+Code from [MindsEyeDemo.scala:246](../../src/test/scala/MindsEyeDemo.scala#L246) executed in 0.08 seconds: 
 ```java
     plotXY(gfx)
 ```
@@ -463,7 +557,7 @@ Returns:
 
 
 
-Code from [MindsEyeDemo.scala:301](../../src/test/scala/MindsEyeDemo.scala#L301) executed in 0.00 seconds: 
+Code from [MindsEyeDemo.scala:263](../../src/test/scala/MindsEyeDemo.scala#L263) executed in 0.00 seconds: 
 ```java
     overall → byCategory
 ```
@@ -471,7 +565,7 @@ Code from [MindsEyeDemo.scala:301](../../src/test/scala/MindsEyeDemo.scala#L301)
 Returns: 
 
 ```
-    (97.0,Map(0 -> 94.33962264150944, 1 -> 100.0))
+    (97.0,Map(0 -> 97.5609756097561, 1 -> 96.61016949152543))
 ```
 
 
@@ -479,7 +573,7 @@ Returns:
 ## Circle
 Similar behavior is seen with simple networks on the unit circle function
 
-Code from [MindsEyeDemo.scala:354](../../src/test/scala/MindsEyeDemo.scala#L354) executed in 0.00 seconds: 
+Code from [MindsEyeDemo.scala:316](../../src/test/scala/MindsEyeDemo.scala#L316) executed in 0.00 seconds: 
 ```java
     (x: Double, y: Double) ⇒ if ((x * x) + (y * y) < 0.5) 0 else 1
 ```
@@ -492,10 +586,10 @@ Returns:
 
 
 
-Code from [MindsEyeDemo.scala:357](../../src/test/scala/MindsEyeDemo.scala#L357) executed in 0.00 seconds: 
+Code from [MindsEyeDemo.scala:319](../../src/test/scala/MindsEyeDemo.scala#L319) executed in 0.00 seconds: 
 ```java
     var model: PipelineNetwork = new PipelineNetwork
-    model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+    model.add(new DenseSynapseLayerJBLAS(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
       override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.2
     }))
     model.add(new BiasLayer(outputSize: _*))
@@ -508,54 +602,54 @@ Returns:
 ```
     {
       "class": "PipelineNetwork",
-      "id": "5c4a4a38-73ac-488b-b1a1-b55a0000001c",
+      "id": "bf91e8ca-00fc-4e91-bc12-52630000001c",
       "nodes": [
         {
           "id": {
             "class": "DenseSynapseLayerJBLAS",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a0000001d",
-            "weights": "[ [ 0.1478485145753441,-0.3312272055898643 ],[ -0.28318057167727223,-0.033030345699399846 ] ]"
+            "id": "bf91e8ca-00fc-4e91-bc12-52630000001d",
+            "weights": "[ [ 0.02161199454033596,-0.05006336570006144 ],[ -0.24400763548472423,-0.055548360446179015 ] ]"
           },
           "prev0": {
-            "target": "[9d037374-df13-4456-ab3c-3a57ee7a7563]"
+            "target": "[e8069e1f-07fb-468e-aac0-5d9f79db1c93]"
           }
         },
         {
           "id": {
             "class": "BiasLayer",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a0000001e",
+            "id": "bf91e8ca-00fc-4e91-bc12-52630000001e",
             "bias": "[0.0, 0.0]"
           },
           "prev0": {
             "id": {
               "class": "DenseSynapseLayerJBLAS",
-              "id": "5c4a4a38-73ac-488b-b1a1-b55a0000001d",
-              "weights": "[ [ 0.1478485145753441,-0.3312272055898643 ],[ -0.28318057167727223,-0.033030345699399846 ] ]"
+              "id": "bf91e8ca-00fc-4e91-bc12-52630000001d",
+              "weights": "[ [ 0.02161199454033596,-0.05006336570006144 ],[ -0.24400763548472423,-0.055548360446179015 ] ]"
             },
             "prev0": {
-              "target": "[9d037374-df13-4456-ab3c-3a57ee7a7563]"
+              "target": "[e8069e1f-07fb-468e-aac0-5d9f79db1c93]"
             }
           }
         },
         {
           "id": {
             "class": "SoftmaxActivationLayer",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a0000001f"
+            "id": "bf91e8ca-00fc-4e91-bc12-52630000001f"
           },
           "prev0": {
             "id": {
               "class": "BiasLayer",
-              "id": "5c4a4a38-73ac-488b-b1a1-b55a0000001e",
+              "id": "bf91e8ca-00fc-4e91-bc12-52630000001e",
               "bias": "[0.0, 0.0]"
             },
             "prev0": {
               "id": {
                 "class": "DenseSynapseLayerJBLAS",
-                "id": "5c4a4a38-73ac-488b-b1a1-b55a0000001d",
-                "weights": "[ [ 0.1478485145753441,-0.3312272055898643 ],[ -0.28318057167727223,-0.033030345699399846 ] ]"
+                "id": "bf91e8ca-00fc-4e91-bc12-52630000001d",
+                "weights": "[ [ 0.02161199454033596,-0.05006336570006144 ],[ -0.24400763548472423,-0.055548360446179015 ] ]"
               },
               "prev0": {
-                "target": "[9d037374-df13-4456-ab3c-3a57ee7a7563]"
+                "target": "[e8069e1f-07fb-468e-aac0-5d9f79db1c93]"
               }
             }
           }
@@ -564,22 +658,22 @@ Returns:
       "root": {
         "id": {
           "class": "SoftmaxActivationLayer",
-          "id": "5c4a4a38-73ac-488b-b1a1-b55a0000001f"
+          "id": "bf91e8ca-00fc-4e91-bc12-52630000001f"
         },
         "prev0": {
           "id": {
             "class": "BiasLayer",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a0000001e",
+            "id": "bf91e8ca-00fc-4e91-bc12-52630000001e",
             "bias": "[0.0, 0.0]"
           },
           "prev0": {
             "id": {
               "class": "DenseSynapseLayerJBLAS",
-              "id": "5c4a4a38-73ac-488b-b1a1-b55a0000001d",
-              "weights": "[ [ 0.1478485145753441,-0.3312272055898643 ],[ -0.28318057167727223,-0.033030345699399846 ] ]"
+              "id": "bf91e8ca-00fc-4e91-bc12-52630000001d",
+              "weights": "[ [ 0.02161199454033596,-0.05006336570006144 ],[ -0.24400763548472423,-0.055548360446179015 ] ]"
             },
             "prev0": {
-              "target": "[9d037374-df13-4456-ab3c-3a57ee7a7563]"
+              "target": "[e8069e1f-07fb-468e-aac0-5d9f79db1c93]"
             }
           }
         }
@@ -589,7 +683,38 @@ Returns:
 
 
 
-Code from [MindsEyeDemo.scala:284](../../src/test/scala/MindsEyeDemo.scala#L284) executed in 0.07 seconds: 
+Code from [MindsEyeDemo.scala:214](../../src/test/scala/MindsEyeDemo.scala#L214) executed in 0.00 seconds: 
+```java
+    val trainingNetwork: SupervisedNetwork = new SupervisedNetwork(model, new EntropyLossLayer)
+    val trainable = new StochasticArrayTrainable(trainingData.toArray, trainingNetwork, 1000)
+    val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
+    trainer.setTimeout(10, TimeUnit.SECONDS)
+    trainer.setTerminateThreshold(0.0)
+    trainer
+```
+
+Returns: 
+
+```
+    com.simiacryptus.mindseye.opt.IterativeTrainer@40ec88ef
+```
+
+
+
+Code from [MindsEyeDemo.scala:222](../../src/test/scala/MindsEyeDemo.scala#L222) executed in 10.00 seconds: 
+```java
+    trainer.run()
+```
+
+Returns: 
+
+```
+    NaN
+```
+
+
+
+Code from [MindsEyeDemo.scala:246](../../src/test/scala/MindsEyeDemo.scala#L246) executed in 0.09 seconds: 
 ```java
     plotXY(gfx)
 ```
@@ -600,7 +725,7 @@ Returns:
 
 
 
-Code from [MindsEyeDemo.scala:301](../../src/test/scala/MindsEyeDemo.scala#L301) executed in 0.00 seconds: 
+Code from [MindsEyeDemo.scala:263](../../src/test/scala/MindsEyeDemo.scala#L263) executed in 0.00 seconds: 
 ```java
     overall → byCategory
 ```
@@ -608,21 +733,21 @@ Code from [MindsEyeDemo.scala:301](../../src/test/scala/MindsEyeDemo.scala#L301)
 Returns: 
 
 ```
-    (61.0,Map(0 -> 0.0, 1 -> 100.0))
+    (47.0,Map(0 -> 23.80952380952381, 1 -> 63.793103448275865))
 ```
 
 
 
-Code from [MindsEyeDemo.scala:366](../../src/test/scala/MindsEyeDemo.scala#L366) executed in 0.01 seconds: 
+Code from [MindsEyeDemo.scala:328](../../src/test/scala/MindsEyeDemo.scala#L328) executed in 0.01 seconds: 
 ```java
     var model: PipelineNetwork = new PipelineNetwork
     val middleSize = Array[Int](15)
-    model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+    model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
       override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
     }))
     model.add(new BiasLayer(middleSize: _*))
     model.add(new AbsActivationLayer())
-    model.add(new DenseSynapseLayerJBLAS(Tensor.dim(middleSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+    model.add(new DenseSynapseLayerJBLAS(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
       override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
     }))
     model.add(new BiasLayer(outputSize: _*))
@@ -635,54 +760,54 @@ Returns:
 ```
     {
       "class": "PipelineNetwork",
-      "id": "5c4a4a38-73ac-488b-b1a1-b55a00000022",
+      "id": "bf91e8ca-00fc-4e91-bc12-526300000022",
       "nodes": [
         {
           "id": {
             "class": "DenseSynapseLayerJBLAS",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a00000023",
-            "weights": "[ [ -1.5504727197120647,1.3328780090441656,-0.5063301538833035,-1.2219496149980371,0.2546113468824688,1.2281887043750292,0.2896863614802504,-1.9075494971445501,... ],[ 0.14112178614693607,-0.34804850070586063,-0.452861728832872,1.3849435858685295,2.5550393998494507,1.4952477348728812,-0.27307013276552605,0.30447177895311245,... ] ]"
+            "id": "bf91e8ca-00fc-4e91-bc12-526300000023",
+            "weights": "[ [ 0.5348930626062534,0.8791177089733158,-0.3670876870430905,0.8321082893530115,-1.257889287992193,-0.5859398095124264,-0.2809521762910377,-1.3407494126965587,... ],[ -0.3749034476338172,-0.0609323147785642,0.0572810878141887,0.0732304736448543,-0.3311987841775831,-1.5554152518468543,-0.920078342882825,-0.0894018998686719,... ] ]"
           },
           "prev0": {
-            "target": "[016b8ca3-912d-4958-8e6a-0cbcd9408301]"
+            "target": "[4a477bf5-31ce-4ebb-bef8-e6251d3c7d29]"
           }
         },
         {
           "id": {
             "class": "BiasLayer",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a00000024",
+            "id": "bf91e8ca-00fc-4e91-bc12-526300000024",
             "bias": "[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]"
           },
           "prev0": {
             "id": {
               "class": "DenseSynapseLayerJBLAS",
-              "id": "5c4a4a38-73ac-488b-b1a1-b55a00000023",
-              "weights": "[ [ -1.5504727197120647,1.3328780090441656,-0.5063301538833035,-1.2219496149980371,0.2546113468824688,1.2281887043750292,0.2896863614802504,-1.9075494971445501,... ],[ 0.14112178614693607,-0.34804850070586063,-0.452861728832872,1.3849435858685295,2.5550393998494507,1.4952477348728812,-0.27307013276552605,0.30447177895311245,... ] ]"
+              "id": "bf91e8ca-00fc-4e91-bc12-526300000023",
+              "weights": "[ [ 0.5348930626062534,0.8791177089733158,-0.3670876870430905,0.8321082893530115,-1.257889287992193,-0.5859398095124264,-0.2809521762910377,-1.3407494126965587,... ],[ -0.3749034476338172,-0.0609323147785642,0.0572810878141887,0.0732304736448543,-0.3311987841775831,-1.5554152518468543,-0.920078342882825,-0.0894018998686719,... ] ]"
             },
             "prev0": {
-              "target": "[016b8ca3-912d-4958-8e6a-0cbcd9408301]"
+              "target": "[4a477bf5-31ce-4ebb-bef8-e6251d3c7d29]"
             }
           }
         },
         {
           "id": {
             "class": "AbsActivationLayer",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a00000025"
+            "id": "bf91e8ca-00fc-4e91-bc12-526300000025"
           },
           "prev0": {
             "id": {
               "class": "BiasLayer",
-              "id": "5c4a4a38-73ac-488b-b1a1-b55a00000024",
+              "id": "bf91e8ca-00fc-4e91-bc12-526300000024",
               "bias": "[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]"
             },
             "prev0": {
               "id": {
                 "class": "DenseSynapseLayerJBLAS",
-                "id": "5c4a4a38-73ac-488b-b1a1-b55a00000023",
-                "weights": "[ [ -1.5504727197120647,1.3328780090441656,-0.5063301538833035,-1.2219496149980371,0.2546113468824688,1.2281887043750292,0.2896863614802504,-1.9075494971445501,... ],[ 0.14112178614693607,-0.34804850070586063,-0.452861728832872,1.3849435858685295,2.5550393998494507,1.4952477348728812,-0.27307013276552605,0.30447177895311245,... ] ]"
+                "id": "bf91e8ca-00fc-4e91-bc12-526300000023",
+                "weights": "[ [ 0.5348930626062534,0.8791177089733158,-0.3670876870430905,0.8321082893530115,-1.257889287992193,-0.5859398095124264,-0.2809521762910377,-1.3407494126965587,... ],[ -0.3749034476338172,-0.0609323147785642,0.0572810878141887,0.0732304736448543,-0.3311987841775831,-1.5554152518468543,-0.920078342882825,-0.0894018998686719,... ] ]"
               },
               "prev0": {
-                "target": "[016b8ca3-912d-4958-8e6a-0cbcd9408301]"
+                "target": "[4a477bf5-31ce-4ebb-bef8-e6251d3c7d29]"
               }
             }
           }
@@ -690,28 +815,28 @@ Returns:
         {
           "id": {
             "class": "DenseSynapseLayerJBLAS",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a00000026",
-            "weights": "[ [ 0.1289044473987378,0.4950134253229858 ],[ -0.31920671292242814,0.39179312894830187 ],[ -0.6919202962176788,-0.9555114280155242 ],[ 0.9982885353436776,0.49571431196746746 ],[ -0.2548890685267655,-0.18073545659789422 ],[ 0.6060216817840343,1.645104862855589 ],[ 0.2752799468710272,0.025821741520068157 ],[ 0.12232859062351178,-1.7277246773886688 ],... ]"
+            "id": "bf91e8ca-00fc-4e91-bc12-526300000026",
+            "weights": "[ [ 0.9005996485518326,-1.3414285988284422 ],[ 2.1656422093308096,-0.9784251699018189 ],[ 0.5756835167414042,2.0942165213801 ],[ -0.38559029174415627,0.6398539092575672 ],[ 0.23163664859553987,-0.22510107938272775 ],[ 0.6910620101329208,-0.3589896108206934 ],[ -0.4263774063917185,-0.7341155294962441 ],[ 0.879073644217262,0.6618101521997762 ],... ]"
           },
           "prev0": {
             "id": {
               "class": "AbsActivationLayer",
-              "id": "5c4a4a38-73ac-488b-b1a1-b55a00000025"
+              "id": "bf91e8ca-00fc-4e91-bc12-526300000025"
             },
             "prev0": {
               "id": {
                 "class": "BiasLayer",
-                "id": "5c4a4a38-73ac-488b-b1a1-b55a00000024",
+                "id": "bf91e8ca-00fc-4e91-bc12-526300000024",
                 "bias": "[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]"
               },
               "prev0": {
                 "id": {
                   "class": "DenseSynapseLayerJBLAS",
-                  "id": "5c4a4a38-73ac-488b-b1a1-b55a00000023",
-                  "weights": "[ [ -1.5504727197120647,1.3328780090441656,-0.5063301538833035,-1.2219496149980371,0.2546113468824688,1.2281887043750292,0.2896863614802504,-1.9075494971445501,... ],[ 0.14112178614693607,-0.34804850070586063,-0.452861728832872,1.3849435858685295,2.5550393998494507,1.4952477348728812,-0.27307013276552605,0.30447177895311245,... ] ]"
+                  "id": "bf91e8ca-00fc-4e91-bc12-526300000023",
+                  "weights": "[ [ 0.5348930626062534,0.8791177089733158,-0.3670876870430905,0.8321082893530115,-1.257889287992193,-0.5859398095124264,-0.2809521762910377,-1.3407494126965587,... ],[ -0.3749034476338172,-0.0609323147785642,0.0572810878141887,0.0732304736448543,-0.3311987841775831,-1.5554152518468543,-0.920078342882825,-0.0894018998686719,... ] ]"
                 },
                 "prev0": {
-                  "target": "[016b8ca3-912d-4958-8e6a-0cbcd9408301]"
+                  "target": "[4a477bf5-31ce-4ebb-bef8-e6251d3c7d29]"
                 }
               }
             }
@@ -720,34 +845,34 @@ Returns:
         {
           "id": {
             "class": "BiasLayer",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a00000027",
+            "id": "bf91e8ca-00fc-4e91-bc12-526300000027",
             "bias": "[0.0, 0.0]"
           },
           "prev0": {
             "id": {
               "class": "DenseSynapseLayerJBLAS",
-              "id": "5c4a4a38-73ac-488b-b1a1-b55a00000026",
-              "weights": "[ [ 0.1289044473987378,0.4950134253229858 ],[ -0.31920671292242814,0.39179312894830187 ],[ -0.6919202962176788,-0.9555114280155242 ],[ 0.9982885353436776,0.49571431196746746 ],[ -0.2548890685267655,-0.18073545659789422 ],[ 0.6060216817840343,1.645104862855589 ],[ 0.2752799468710272,0.025821741520068157 ],[ 0.12232859062351178,-1.7277246773886688 ],... ]"
+              "id": "bf91e8ca-00fc-4e91-bc12-526300000026",
+              "weights": "[ [ 0.9005996485518326,-1.3414285988284422 ],[ 2.1656422093308096,-0.9784251699018189 ],[ 0.5756835167414042,2.0942165213801 ],[ -0.38559029174415627,0.6398539092575672 ],[ 0.23163664859553987,-0.22510107938272775 ],[ 0.6910620101329208,-0.3589896108206934 ],[ -0.4263774063917185,-0.7341155294962441 ],[ 0.879073644217262,0.6618101521997762 ],... ]"
             },
             "prev0": {
               "id": {
                 "class": "AbsActivationLayer",
-                "id": "5c4a4a38-73ac-488b-b1a1-b55a00000025"
+                "id": "bf91e8ca-00fc-4e91-bc12-526300000025"
               },
               "prev0": {
                 "id": {
                   "class": "BiasLayer",
-                  "id": "5c4a4a38-73ac-488b-b1a1-b55a00000024",
+                  "id": "bf91e8ca-00fc-4e91-bc12-526300000024",
                   "bias": "[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]"
                 },
                 "prev0": {
                   "id": {
                     "class": "DenseSynapseLayerJBLAS",
-                    "id": "5c4a4a38-73ac-488b-b1a1-b55a00000023",
-                    "weights": "[ [ -1.5504727197120647,1.3328780090441656,-0.5063301538833035,-1.2219496149980371,0.2546113468824688,1.2281887043750292,0.2896863614802504,-1.9075494971445501,... ],[ 0.14112178614693607,-0.34804850070586063,-0.452861728832872,1.3849435858685295,2.5550393998494507,1.4952477348728812,-0.27307013276552605,0.30447177895311245,... ] ]"
+                    "id": "bf91e8ca-00fc-4e91-bc12-526300000023",
+                    "weights": "[ [ 0.5348930626062534,0.8791177089733158,-0.3670876870430905,0.8321082893530115,-1.257889287992193,-0.5859398095124264,-0.2809521762910377,-1.3407494126965587,... ],[ -0.3749034476338172,-0.0609323147785642,0.0572810878141887,0.0732304736448543,-0.3311987841775831,-1.5554152518468543,-0.920078342882825,-0.0894018998686719,... ] ]"
                   },
                   "prev0": {
-                    "target": "[016b8ca3-912d-4958-8e6a-0cbcd9408301]"
+                    "target": "[4a477bf5-31ce-4ebb-bef8-e6251d3c7d29]"
                   }
                 }
               }
@@ -757,43 +882,74 @@ Returns:
         {
           "id": {
             "class": "SoftmaxActivationLayer",
-            "id": "5c4a4a38-73ac-488b-b1a1-b55a00000028"
+            "id": "bf91e8ca-00fc-4e91-bc12-526300000028"
           },
           "prev0": {
             "id": {
               "class": "BiasLayer",
-              "id": "5c4a4a38-73ac-488b-b1a1-b55a00000027",
+              "id": "bf91e8ca-00fc-4e91-bc12-526300000027",
               "bias": "[0.0, 0.0]"
             },
             "prev0": {
               "id": {
                 "class": "DenseSynapseLayerJBLAS",
-                "id": "5c4a4a38-73ac-488b-b1a1-b55a00000026",
-                "weights": "[ [ 0.1289044473987378,0.4950134253229858 ],[ -0.31920671292242814,0.39179312894830187 ],[ -0.6919202962176788,-0.9555114280155242 ],[ 0.9982885353436776,0.49571431196746746 ],[ -0.2548890685267655,-0.18073545659789422 ],[ 0.6060216817840343,1.645104862855589 ],[ 0.2752799468710272,0.025821741520068157 ],[ 0.12232859062351178,-1.7277246773886688 ],... ]"
+                "id": "bf91e8ca-00fc-4e91-bc12-526300000026",
+                "weights": "[ [ 0.9005996485518326,-1.3414285988284422 ],[ 2.1656422093308096,-0.9784251699018189 ],[ 0.5756835167414042,2.0942165213801 ],[ -0.38559029174415627,0.6398539092575672 ],[ 0.23163664859553987,-0.22510107938272775 ],[ 0.6910620101329208,-0.3589896108206934 ],[ -0.4263774063917185,-0.7341155294962441 ],[ 0.879073644217262,0.6618101521997762 ],... ]"
               },
               "prev0": {
                 "id": {
                   "class": "AbsActivationLayer",
-                  "id": "5c4a4a38-73ac-488b-b1a1-b55a00000025"
+                  "id": "bf91e8ca-00fc-4e91-bc12-526300000025"
                 },
                 "prev0": {
                   "id": {
                     "class": "BiasLayer",
-                    "id": "5c4a4a38-73ac-488b-b1a1-b55a00000024",
+                    "id": "bf91e8ca-00fc-4e91-bc12-526300000024",
                     "bias": "[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]"
                   },
                   "prev0": {
                     "id": {
                       "class": "DenseSynapseLayerJBLAS",
-                      "id": "5c4a4a38-73ac-488b-b1a1-b55a00000023",
-                      "weights": "[ [ -1.5504727197120647,1.3328780090441656,-0.5063301538833035,-1.2219496149980371,0.2546113468824688,1.2281887043750292,0.2896863614802504,-1.9075494971445501,... ],[ 0.14112178614693607,-0.34804850070586063,-0.452861728832872,1.3849435858685295,2.5550393998494507,1.4952477348728812,-0.27307013276552605,0.30447177895311245,... ] ]"
+                      "id": "bf91e8ca-00fc-4e91-bc12-526300000023",
+                      "weights": "[ [ 0.5348930626062534,0.8791177089733158,-0.3670876870430905,0.8321082893530115,-1.257889287992193,-0.5859398095124264,-0.2809521762910377,-1.3407494126965587,... ],[ -0.3749034476338172,-0.0609323147785642,0.0572810878141887,0.0732304736448543,-0.3311987841775831,-1.5554152518468543,-0.920078342882825,-0.0894018998686719,... ] ]"
                     },
-  ... and 2300 more bytes
+                    "prev0... and 2269 more bytes
 ```
 
 
 
-Code from [MindsEyeDemo.scala:284](../../src/test/scala/MindsEyeDemo.scala#L284) executed in 0.06 seconds: 
+Code from [MindsEyeDemo.scala:214](../../src/test/scala/MindsEyeDemo.scala#L214) executed in 0.00 seconds: 
+```java
+    val trainingNetwork: SupervisedNetwork = new SupervisedNetwork(model, new EntropyLossLayer)
+    val trainable = new StochasticArrayTrainable(trainingData.toArray, trainingNetwork, 1000)
+    val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
+    trainer.setTimeout(10, TimeUnit.SECONDS)
+    trainer.setTerminateThreshold(0.0)
+    trainer
+```
+
+Returns: 
+
+```
+    com.simiacryptus.mindseye.opt.IterativeTrainer@507ca1ed
+```
+
+
+
+Code from [MindsEyeDemo.scala:222](../../src/test/scala/MindsEyeDemo.scala#L222) executed in 10.00 seconds: 
+```java
+    trainer.run()
+```
+
+Returns: 
+
+```
+    NaN
+```
+
+
+
+Code from [MindsEyeDemo.scala:246](../../src/test/scala/MindsEyeDemo.scala#L246) executed in 0.08 seconds: 
 ```java
     plotXY(gfx)
 ```
@@ -804,7 +960,7 @@ Returns:
 
 
 
-Code from [MindsEyeDemo.scala:301](../../src/test/scala/MindsEyeDemo.scala#L301) executed in 0.00 seconds: 
+Code from [MindsEyeDemo.scala:263](../../src/test/scala/MindsEyeDemo.scala#L263) executed in 0.00 seconds: 
 ```java
     overall → byCategory
 ```
@@ -812,7 +968,7 @@ Code from [MindsEyeDemo.scala:301](../../src/test/scala/MindsEyeDemo.scala#L301)
 Returns: 
 
 ```
-    (94.0,Map(0 -> 97.36842105263158, 1 -> 91.93548387096774))
+    (87.0,Map(0 -> 92.3076923076923, 1 -> 83.60655737704919))
 ```
 
 

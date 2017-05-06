@@ -34,7 +34,6 @@ import com.simiacryptus.mindseye.net.loss.{EntropyLossLayer, SqLossLayer}
 import com.simiacryptus.mindseye.net.media.{ConvolutionSynapseLayer, EntropyLayer}
 import com.simiacryptus.mindseye.net.reducers.SumInputsLayer
 import com.simiacryptus.mindseye.net.util.VerboseWrapper
-import com.simiacryptus.mindseye.training.{IterativeTrainer, LbfgsTrainer, TrainingContext}
 import com.simiacryptus.util.Util
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
@@ -212,21 +211,16 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
             Array(new Tensor(Array(2), Array(x, y)), toOutNDArray(function(x, y), 2))
           }).take(100)
 
-          val trainer = {
+          val trainer = log.eval {
             val trainingNetwork: SupervisedNetwork = new SupervisedNetwork(model, new EntropyLossLayer)
-            val trainer: LbfgsTrainer = new LbfgsTrainer
-            trainer.setNet(trainingNetwork)
-            trainer.setData(trainingData.toArray)
-            new com.simiacryptus.mindseye.training.IterativeTrainer(trainer)
+            val trainable = new StochasticArrayTrainable(trainingData.toArray, trainingNetwork, 1000)
+            val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
+            trainer.setTimeout(10, TimeUnit.SECONDS)
+            trainer.setTerminateThreshold(0.0)
+            trainer
           }
-
-          {
-            val trainingContext = new TrainingContext
-            trainingContext.terminalErr = 0.05
-            trainer.step(trainingContext)
-            val finalError = trainer.step(trainingContext).finalError
-            System.out.println(s"Final Error = $finalError")
-            model
+          log.eval {
+            trainer.run()
           }
 
           def plotXY(gfx : Graphics2D) = {
@@ -412,33 +406,41 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
           net.add(new L1NormalizationLayer)
           net.add(new EntropyLayer)
           net.add(new SumInputsLayer)
-          val image_entropy: DAGNode = net.add(new VerboseWrapper("entropy", new BiasLayer().freeze))
+          val image_entropy: DAGNode = net.add(new BiasLayer().freeze)
           val scaledRms: DAGNode = net.add(new LinearActivationLayer().setWeight(1.0).freeze, imageRMS)
           val scaledEntropy: DAGNode = net.add(new LinearActivationLayer().setWeight(0.001).freeze, image_entropy)
-          net.add(new VerboseWrapper("composite", new SumInputsLayer), scaledRms, scaledEntropy)
+          net.add(new SumInputsLayer, scaledRms, scaledEntropy)
           (bias, net)
         }
         networkGraph(log, dagNetwork)
 
         log.p("Now we define a standard L-BFGS trainer to optimize the reconstruction")
+        val history = new scala.collection.mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]()
         val trainer = log.eval {
-          val trainer: LbfgsTrainer = new LbfgsTrainer
-          trainer.setNet(dagNetwork)
-          trainer.setData(Seq(Array(zeroInput, blurredImage)).toArray)
-          new com.simiacryptus.mindseye.training.IterativeTrainer(trainer)
+          val trainable = new StochasticArrayTrainable(Seq(Array(zeroInput, blurredImage)).toArray, dagNetwork, 1000)
+          val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
+          trainer.setMonitor(new TrainingMonitor {
+            override def log(msg: String): Unit = {
+              System.err.println(msg)
+            }
+
+            override def onStepComplete(currentPoint: com.simiacryptus.mindseye.opt.IterativeTrainer.Step): Unit = {
+              history += currentPoint
+            }
+          })
+          trainer.setTimeout(1, TimeUnit.MINUTES)
+          trainer.setTerminateThreshold(0.05)
+          trainer
         }
         log.eval {
           bias.getLayer.asInstanceOf[BiasLayer].addWeights(new DoubleSupplier {
             override def getAsDouble: Double = Util.R.get.nextGaussian * 1e-5
           })
-          val trainingContext = new TrainingContext
-          trainingContext.terminalErr = 0.05
-          trainer.step(trainingContext)
-          val finalError = trainer.step(trainingContext).finalError
-          System.out.println(s"Final Error = $finalError")
+          trainer.run()
         }
+
         log.p("Which results in the convergence timeline: ")
-        summarizeHistory(log, trainer.history)
+        summarizeHistory(log, history.toList)
 
         log.p("Now we query the reconstruction model for the source image: ")
         log.eval {
@@ -464,28 +466,6 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
     log.eval {
       val plot: PlotCanvas = ScatterPlot.plot(history.map(item ⇒ Array[Double](
         item.iteration, Math.log(item.point.value)
-      )).toArray: _*)
-      plot.setTitle("Convergence Plot")
-      plot.setAxisLabels("Iteration", "log(Fitness)")
-      plot.setSize(600, 400)
-      plot
-    }
-  }
-
-  private def summarizeHistory(log: ScalaMarkdownPrintStream, history: util.ArrayList[com.simiacryptus.mindseye.training.IterativeTrainer.StepState]) = {
-    log.eval {
-      val step = Math.max(Math.pow(10,Math.ceil(Math.log(history.size()) / Math.log(10))-2), 1).toInt
-      TableOutput.create(history.asScala.filter(0==_.getIteration%step).map(state ⇒
-        Map[String, AnyRef](
-          "iteration" → state.getIteration.toInt.asInstanceOf[Integer],
-          "time" → state.getEvaluationTime.toDouble.asInstanceOf[lang.Double],
-          "fitness" → state.getFitness.toDouble.asInstanceOf[lang.Double]
-        ).asJava
-      ): _*)
-    }
-    log.eval {
-      val plot: PlotCanvas = ScatterPlot.plot(history.asScala.map(item ⇒ Array[Double](
-        item.getIteration, Math.log(item.getFitness)
       )).toArray: _*)
       plot.setTitle("Convergence Plot")
       plot.setAxisLabels("Iteration", "log(Fitness)")
