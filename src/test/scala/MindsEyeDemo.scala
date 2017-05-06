@@ -47,47 +47,9 @@ import smile.plot.{PlotCanvas, ScatterPlot}
 
 import scala.collection.JavaConverters._
 import scala.util.Random
-
-
-object NetworkViz {
-
-  def getNodes(node: DAGNode): List[DAGNode] = node match {
-    case network: DAGNetwork ⇒ network.getNodes.asScala.toList//.flatMap(getNodes(_))
-    case _ ⇒ List(node)
-  }
-
-  def toGraph(network: DAGNetwork) = {
-    val nodes: List[DAGNode] = network.getNodes.asScala.toList
-    val graphNodes: Map[UUID, MutableNode] = nodes.map(node ⇒ {
-      node.getId() → guru.nidi.graphviz.model.Factory.mutNode((node match {
-        case n: InnerNode ⇒
-          n.layer match {
-            case _ if (n.layer.isInstanceOf[VerboseWrapper]) ⇒ n.layer.asInstanceOf[VerboseWrapper].inner.getClass.getSimpleName
-            case _ ⇒ n.layer.getClass.getSimpleName
-          }
-        case _ ⇒ node.getClass.getSimpleName
-      }) + "\n" + node.getId.toString)
-    }).toMap
-    val idMap: Map[UUID, List[UUID]] = nodes.flatMap((to: DAGNode) ⇒ {
-      val inputs: List[DAGNode] = to.getInputs.toList
-      inputs.map((from: DAGNode) ⇒ {
-        if (null == from) throw new AssertionError();
-        if (null == to) throw new AssertionError();
-        from.getId → to.getId
-      })
-    }).groupBy(_._1).mapValues(_.map(_._2))
-    nodes.foreach((to: DAGNode) ⇒ {
-      graphNodes(to.getId).addLink(idMap.getOrElse(to.getId, List.empty).map(from ⇒ {
-        Link.to(graphNodes(from))
-      }): _*)
-    })
-    val nodeArray = graphNodes.values.map(_.asInstanceOf[LinkSource]).toArray
-    guru.nidi.graphviz.model.Factory.graph().`with`(nodeArray: _*)
-      .generalAttr.`with`(RankDir.TOP_TO_BOTTOM).directed()
-  }
-
-}
 import NetworkViz._
+import com.simiacryptus.mindseye.net.{PipelineNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.opt.{IterativeTrainer, StochasticArrayTrainable, Trainable, TrainingMonitor}
 
 class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
@@ -120,7 +82,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         log.p("Here we define the logic network that we are about to train: ")
         var model: PipelineNetwork = log.eval {
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayerJBLAS(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.0
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -139,26 +101,32 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
         log.h2("Training")
         log.p("We train using a standard iterative L-BFGS strategy: ")
+        val history = new scala.collection.mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]()
         val trainer = log.eval {
-          val gradientTrainer: LbfgsTrainer = new LbfgsTrainer
-          gradientTrainer.setNet(trainingNetwork)
-          gradientTrainer.setData(data.toArray)
-          new IterativeTrainer(gradientTrainer)
+          val trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
+          val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
+          trainer.setMonitor(new TrainingMonitor {
+            override def log(msg: String): Unit = {
+              System.err.println(msg)
+            }
+
+            override def onStepComplete(currentPoint: com.simiacryptus.mindseye.opt.IterativeTrainer.Step): Unit = {
+              history += currentPoint
+            }
+          })
+          trainer.setTimeout(1, TimeUnit.MINUTES)
+          trainer.setTerminateThreshold(0.0)
+          trainer
         }
         log.eval {
-          val trainingContext = new TrainingContext
-          trainingContext.terminalErr = 0.0
-          trainingContext.setTimeout(5, TimeUnit.SECONDS)
-          trainer.step(trainingContext)
-          val finalError = trainer.step(trainingContext).finalError
-          System.out.println(s"Final Error = $finalError")
+          trainer.run()
         }
         log.p("After training, we have the following parameterized model: ")
         log.eval {
           model.toString
         }
         log.p("A summary of the training timeline: ")
-        summarizeHistory(log, trainer.history)
+        summarizeHistory(log, history.toList)
 
         log.h2("Validation")
         log.p("Here we examine a sample of validation rows, randomly selected: ")
@@ -246,10 +214,10 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
           val trainer = {
             val trainingNetwork: SupervisedNetwork = new SupervisedNetwork(model, new EntropyLossLayer)
-            val gradientTrainer: LbfgsTrainer = new LbfgsTrainer
-            gradientTrainer.setNet(trainingNetwork)
-            gradientTrainer.setData(trainingData.toArray)
-            new IterativeTrainer(gradientTrainer)
+            val trainer: LbfgsTrainer = new LbfgsTrainer
+            trainer.setNet(trainingNetwork)
+            trainer.setData(trainingData.toArray)
+            new com.simiacryptus.mindseye.training.IterativeTrainer(trainer)
           }
 
           {
@@ -310,7 +278,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
           (x: Double, y: Double) ⇒ if (x < y) 0 else 1
         }, log.eval {
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayerJBLAS(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.1
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -325,7 +293,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         }
         runTest(xor_fn, log.eval {
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayerJBLAS(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.2
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -336,12 +304,12 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         runTest(xor_fn, log.eval {
           var model: PipelineNetwork = new PipelineNetwork
           val middleSize = Array[Int](15)
-          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
           }))
           model.add(new BiasLayer(middleSize: _*))
           model.add(new AbsActivationLayer())
-          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(middleSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayerJBLAS(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -356,7 +324,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         }
         runTest(circle_fn, log.eval {
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayerJBLAS(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.2
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -366,12 +334,12 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         runTest(circle_fn, log.eval {
           var model: PipelineNetwork = new PipelineNetwork
           val middleSize = Array[Int](15)
-          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
           }))
           model.add(new BiasLayer(middleSize: _*))
           model.add(new AbsActivationLayer())
-          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(middleSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayerJBLAS(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -454,10 +422,10 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
         log.p("Now we define a standard L-BFGS trainer to optimize the reconstruction")
         val trainer = log.eval {
-          val gradientTrainer: LbfgsTrainer = new LbfgsTrainer
-          gradientTrainer.setNet(dagNetwork)
-          gradientTrainer.setData(Seq(Array(zeroInput, blurredImage)).toArray)
-          new IterativeTrainer(gradientTrainer)
+          val trainer: LbfgsTrainer = new LbfgsTrainer
+          trainer.setNet(dagNetwork)
+          trainer.setData(Seq(Array(zeroInput, blurredImage)).toArray)
+          new com.simiacryptus.mindseye.training.IterativeTrainer(trainer)
         }
         log.eval {
           bias.getLayer.asInstanceOf[BiasLayer].addWeights(new DoubleSupplier {
@@ -482,7 +450,29 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
   }
 
-  private def summarizeHistory(log: ScalaMarkdownPrintStream, history: util.ArrayList[IterativeTrainer.StepState]) = {
+  private def summarizeHistory(log: ScalaMarkdownPrintStream, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
+    log.eval {
+      val step = Math.max(Math.pow(10,Math.ceil(Math.log(history.size) / Math.log(10))-2), 1).toInt
+      TableOutput.create(history.filter(0==_.iteration%step).map(state ⇒
+        Map[String, AnyRef](
+          "iteration" → state.iteration.toInt.asInstanceOf[Integer],
+          "time" → state.time.toDouble.asInstanceOf[lang.Double],
+          "fitness" → state.point.value.toDouble.asInstanceOf[lang.Double]
+        ).asJava
+      ): _*)
+    }
+    log.eval {
+      val plot: PlotCanvas = ScatterPlot.plot(history.map(item ⇒ Array[Double](
+        item.iteration, Math.log(item.point.value)
+      )).toArray: _*)
+      plot.setTitle("Convergence Plot")
+      plot.setAxisLabels("Iteration", "log(Fitness)")
+      plot.setSize(600, 400)
+      plot
+    }
+  }
+
+  private def summarizeHistory(log: ScalaMarkdownPrintStream, history: util.ArrayList[com.simiacryptus.mindseye.training.IterativeTrainer.StepState]) = {
     log.eval {
       val step = Math.max(Math.pow(10,Math.ceil(Math.log(history.size()) / Math.log(10))-2), 1).toInt
       TableOutput.create(history.asScala.filter(0==_.getIteration%step).map(state ⇒

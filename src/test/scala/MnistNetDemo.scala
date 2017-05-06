@@ -17,26 +17,23 @@
  * under the License.
  */
 
-import java.util.UUID
 import java.util.concurrent.TimeUnit
 import java.util.function.ToDoubleFunction
 import java.{lang, util}
 
+import com.simiacryptus.mindseye.net.{PipelineNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.net.activation.{AbsActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.net.basic.BiasLayer
 import com.simiacryptus.mindseye.net.dag._
-import com.simiacryptus.mindseye.net.dev.DenseSynapseLayerJBLAS
+import com.simiacryptus.mindseye.net.dev.{DenseSynapseLayerJBLAS, ToeplitzSynapseLayerJBLAS}
 import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.net.media.{ConvolutionSynapseLayer, MaxSubsampleLayer}
-import com.simiacryptus.mindseye.net.util.VerboseWrapper
 import com.simiacryptus.mindseye.training.{IterativeTrainer, LbfgsTrainer, TrainingContext}
 import com.simiacryptus.util.Util
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
 import com.simiacryptus.util.text.TableOutput
-import guru.nidi.graphviz.attribute.RankDir
 import guru.nidi.graphviz.engine.{Format, Graphviz}
-import guru.nidi.graphviz.model._
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}
 
@@ -46,7 +43,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
     val inputSize = Array[Int](28, 28, 1)
     val outputSize = Array[Int](10)
-    var trainingTimeMinutes = 120
+    var trainingTimeMinutes = 5
 
   "Train Digit Recognizer Network" should {
 
@@ -55,7 +52,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
         test(log, log.eval {
           trainingTimeMinutes = 5
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayerJBLAS(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.0
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -71,12 +68,32 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
           trainingTimeMinutes = 120
           val middleSize = Array[Int](28, 28, 1)
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(inputSize: _*), middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new BiasLayer(middleSize: _*))
           model.add(new AbsActivationLayer)
-          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(middleSize: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayerJBLAS(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
+          }))
+          model.add(new BiasLayer(outputSize: _*))
+          model.add(new SoftmaxActivationLayer)
+          model
+        })
+      })
+    }
+
+    "Toeplitz 2-Layer Abs" in {
+      report("twolayertoeplitz", log ⇒ {
+        test(log, log.eval {
+          trainingTimeMinutes = 120
+          val middleSize = Array[Int](28, 28, 1)
+          var model: PipelineNetwork = new PipelineNetwork
+          model.add(new ToeplitzSynapseLayerJBLAS(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
+          }))
+          model.add(new AbsActivationLayer)
+          model.add(new DenseSynapseLayerJBLAS(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -104,7 +121,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
           model.add(new MaxSubsampleLayer(2,2,1))
 
           def headDims = model.eval(new Tensor(inputSize:_*)).data(0).getDims
-          model.add(new DenseSynapseLayerJBLAS(Tensor.dim(headDims: _*), outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayerJBLAS(headDims, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new BiasLayer(headDims: _*))
@@ -153,7 +170,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
     }
     log.eval {
       val trainingContext = new TrainingContext
-      trainingContext.terminalErr = 0.0
+      trainingContext.terminalErr = 0.05
       trainingContext.setTimeout(trainingTimeMinutes, TimeUnit.MINUTES)
       val finalError = trainer.step(trainingContext).finalError
       System.out.println(s"Final Error = $finalError")
@@ -250,33 +267,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
   }
 
   private def networkGraph(log: ScalaMarkdownPrintStream, dagNetwork: DAGNetwork, width: Int = 1200) = {
-    log.eval {
-      val nodes: List[DAGNode] = dagNetwork.getNodes.asScala.toList
-      val graphNodes: Map[UUID, MutableNode] = nodes.map(node ⇒ {
-        node.getId() → guru.nidi.graphviz.model.Factory.mutNode((node match {
-          case n : InnerNode ⇒
-            n.layer match {
-              case _ if(n.layer.isInstanceOf[VerboseWrapper]) ⇒ n.layer.asInstanceOf[VerboseWrapper].inner.getClass.getSimpleName
-              case _ ⇒ n.layer.getClass.getSimpleName
-            }
-          case _ ⇒ node.getClass.getSimpleName
-        }) + "\n" + node.getId.toString)
-      }).toMap
-      val idMap: Map[UUID, List[UUID]] = nodes.flatMap((to: DAGNode) ⇒ {
-        to.getInputs.map((from: DAGNode) ⇒ {
-          from.getId → to.getId
-        })
-      }).groupBy(_._1).mapValues(_.map(_._2))
-      nodes.foreach((to: DAGNode) ⇒ {
-        graphNodes(to.getId).addLink(idMap.getOrElse(to.getId, List.empty).map(from ⇒ {
-          Link.to(graphNodes(from))
-        }): _*)
-      })
-      val nodeArray = graphNodes.values.map(_.asInstanceOf[LinkSource]).toArray
-      val graph = guru.nidi.graphviz.model.Factory.graph().`with`(nodeArray: _*)
-        .generalAttr.`with`(RankDir.TOP_TO_BOTTOM).directed()
-      Graphviz.fromGraph(graph).width(width).render(Format.PNG).toImage
-    }
+    Graphviz.fromGraph(NetworkViz.toGraph(dagNetwork)).width(width).render(Format.PNG).toImage
   }
 
   def toOut(label: String): Int = {
