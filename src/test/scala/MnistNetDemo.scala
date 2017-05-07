@@ -17,23 +17,21 @@
  * under the License.
  */
 
+import java.lang
 import java.util.concurrent.TimeUnit
 import java.util.function.ToDoubleFunction
-import java.{lang, util}
 
-import com.simiacryptus.mindseye.net.{PipelineNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.net.activation.{AbsActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.net.basic.BiasLayer
-import com.simiacryptus.mindseye.net.dag._
 import com.simiacryptus.mindseye.net.dev.{DenseSynapseLayerJBLAS, ToeplitzSynapseLayerJBLAS}
 import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.net.media.{ConvolutionSynapseLayer, MaxSubsampleLayer}
+import com.simiacryptus.mindseye.net.{PipelineNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt.{StochasticArrayTrainable, TrainingMonitor}
 import com.simiacryptus.util.Util
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
 import com.simiacryptus.util.text.TableOutput
-import guru.nidi.graphviz.engine.{Format, Graphviz}
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}
 
@@ -41,9 +39,11 @@ import scala.collection.JavaConverters._
 
 class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
-    val inputSize = Array[Int](28, 28, 1)
-    val outputSize = Array[Int](10)
-    var trainingTimeMinutes = 5
+  val terminationThreshold = 0.05
+  val inputSize = Array[Int](28, 28, 1)
+  val outputSize = Array[Int](10)
+  var trainingTimeMinutes = 5
+  val trainingSize = 2000
 
   "Train Digit Recognizer Network" should {
 
@@ -65,7 +65,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
     "Flat 2-Layer Abs" in {
       report("twolayerabs", log ⇒ {
         test(log, log.eval {
-          trainingTimeMinutes = 120
+          trainingTimeMinutes = 30
           val middleSize = Array[Int](28, 28, 1)
           var model: PipelineNetwork = new PipelineNetwork
           model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
@@ -86,7 +86,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
     "Toeplitz 2-Layer Abs" in {
       report("twolayertoeplitz", log ⇒ {
         test(log, log.eval {
-          trainingTimeMinutes = 120
+          trainingTimeMinutes = 30
           val middleSize = Array[Int](28, 28, 1)
           var model: PipelineNetwork = new PipelineNetwork
           model.add(new ToeplitzSynapseLayerJBLAS(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
@@ -103,10 +103,61 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
       })
     }
 
+    "ToeplitzMax 2-Layer Abs" in {
+      report("twolayertoeplitzmax", log ⇒ {
+        test(log, log.eval {
+          trainingTimeMinutes = 30
+          val middleSize1 = Array[Int](28, 28, 4)
+          val middleSize2 = Array[Int](14, 14, 4)
+          var model: PipelineNetwork = new PipelineNetwork
+          model.add(new ToeplitzSynapseLayerJBLAS(inputSize, middleSize1).setWeights(new ToDoubleFunction[Coordinate] {
+            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
+          }))
+          model.add(new AbsActivationLayer)
+          model.add(new MaxSubsampleLayer(2,2,1))
+          model.add(new DenseSynapseLayerJBLAS(middleSize2, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
+          }))
+          model.add(new BiasLayer(outputSize: _*))
+          model.add(new SoftmaxActivationLayer)
+          model
+        })
+      })
+    }
+
+    "ToeplitzMax 3-Layer Abs" in {
+      report("threelayertoeplitzmax", log ⇒ {
+        test(log, log.eval {
+          trainingTimeMinutes = 30
+          val middleSize1 = Array[Int](28, 28, 4)
+          val middleSize2 = Array[Int](14, 14, 4)
+          val middleSize3 = Array[Int](14, 14, 16)
+          val middleSize4 = Array[Int](7, 7, 16)
+          var model: PipelineNetwork = new PipelineNetwork
+          model.add(new ToeplitzSynapseLayerJBLAS(inputSize, middleSize1).setWeights(new ToDoubleFunction[Coordinate] {
+            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
+          }))
+          model.add(new AbsActivationLayer)
+          model.add(new MaxSubsampleLayer(2,2,1))
+          model.add(new ToeplitzSynapseLayerJBLAS(middleSize2, middleSize3).setWeights(new ToDoubleFunction[Coordinate] {
+            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
+          }))
+          model.add(new AbsActivationLayer)
+          model.add(new MaxSubsampleLayer(2,2,1))
+          model.add(new DenseSynapseLayerJBLAS(middleSize4, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
+          }))
+          model.add(new BiasLayer(outputSize: _*))
+          model.add(new SoftmaxActivationLayer)
+          model
+        })
+      })
+    }
+
     "Simple convolution-maxpool" in {
       report("simpleconv", log ⇒ {
         test(log, log.eval {
-          trainingTimeMinutes = 120
+          trainingTimeMinutes = 30
           val middleSize = Array[Int](28, 28, 1)
           var model: PipelineNetwork = new PipelineNetwork
           model.add(new ConvolutionSynapseLayer(Array(2,2), 2).setWeights(new ToDoubleFunction[Coordinate] {
@@ -136,28 +187,17 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
   def test(log: ScalaMarkdownPrintStream, model: PipelineNetwork) = {
     log.h2("Data")
     log.p("First, we load the training dataset: ")
-    val data: Seq[Array[Tensor]] = log.code(() ⇒ {
+    val trainingData: Seq[Array[Tensor]] = log.code(() ⇒ {
       MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
         Array(labeledObj.data, toOutNDArray(toOut(labeledObj.label), 10))
       }).toList
     })
-
-    log.p("We can visualize this network as a graph: ")
-    networkGraph(log, model, 800)
-    log.p("We encapsulate our model network within a supervisory network that applies a loss function: ")
-    val trainingNetwork: SupervisedNetwork = log.eval {
-      new SupervisedNetwork(model, new EntropyLossLayer)
-    }
-    log.p("With a the following component graph: ")
-    networkGraph(log, trainingNetwork, 600)
-    log.p("Note that this visualization does not expand DAGNetworks recursively")
-
     log.h2("Training")
-    log.p("We train using a standard iterative L-BFGS strategy: ")
-
+    log.p("We encapsulate our model network within a supervisory network that applies a loss function, then train using a standard iterative L-BFGS strategy: ")
     val history = new scala.collection.mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]()
     val trainer = log.eval {
-      val trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 2000)
+      val trainingNetwork: SupervisedNetwork = new SupervisedNetwork(model, new EntropyLossLayer)
+      val trainable = new StochasticArrayTrainable(trainingData.toArray, trainingNetwork, trainingSize)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
       trainer.setMonitor(new TrainingMonitor {
         override def log(msg: String): Unit = {
@@ -169,7 +209,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
         }
       })
       trainer.setTimeout(trainingTimeMinutes, TimeUnit.MINUTES)
-      trainer.setTerminateThreshold(0.05)
+      trainer.setTerminateThreshold(terminationThreshold)
       trainer
     }
     log.eval {
@@ -265,10 +305,6 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
       plot.setSize(600, 400)
       plot
     }
-  }
-
-  private def networkGraph(log: ScalaMarkdownPrintStream, dagNetwork: DAGNetwork, width: Int = 1200) = {
-    Graphviz.fromGraph(NetworkViz.toGraph(dagNetwork)).width(width).render(Format.PNG).toImage
   }
 
   def toOut(label: String): Int = {
