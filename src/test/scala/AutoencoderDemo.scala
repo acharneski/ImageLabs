@@ -18,15 +18,16 @@
  */
 
 import java.util.concurrent.TimeUnit
-import java.util.function.ToDoubleFunction
+import java.util.function.{IntToDoubleFunction, ToDoubleFunction}
 import java.{lang, util}
 
-import com.simiacryptus.mindseye.net.{AutoencoderNetwork, PipelineNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.net.activation.AbsActivationLayer
+import com.simiacryptus.mindseye.net._
+import com.simiacryptus.mindseye.net.activation.{AbsActivationLayer, SoftmaxActivationLayer}
+import com.simiacryptus.mindseye.net.basic.BiasLayer
 import com.simiacryptus.mindseye.net.dag._
 import com.simiacryptus.mindseye.net.dev.{DenseSynapseLayerJBLAS, ToeplitzSynapseLayerJBLAS}
-import com.simiacryptus.mindseye.net.loss.SqLossLayer
-import com.simiacryptus.mindseye.opt.{StochasticArrayTrainable, TrainingMonitor}
+import com.simiacryptus.mindseye.net.loss.MeanSqLossLayer
+import com.simiacryptus.mindseye.opt.{IterativeTrainer, StochasticArrayTrainable, TrainingMonitor}
 import com.simiacryptus.util.Util
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
@@ -37,144 +38,189 @@ import smile.plot.{PlotCanvas, ScatterPlot}
 
 import scala.collection.JavaConverters._
 
+object AutoencoderDemo {
+
+  implicit def cvt(fn:Int⇒Double) : IntToDoubleFunction = {
+    new IntToDoubleFunction {
+      override def applyAsDouble(v : Int): Double = fn(v)
+    }
+  }
+
+  implicit def cvt[T](fn:T⇒Double) : ToDoubleFunction[T] = {
+    new ToDoubleFunction[T] {
+      override def applyAsDouble(v : T): Double = fn(v)
+    }
+  }
+
+}
+import AutoencoderDemo._
+
 class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
     val inputSize = Array[Int](28, 28, 1)
-    val middleSize = Array[Int](6, 6, 1)
-    var trainingTimeMinutes = 5
+    val middleSize = Array[Int](10, 10, 1)
+    val minutesPerPhase = 15
 
   "Train Digit Autoencoder Network" should {
 
     "Linear" in {
       report("linear", log ⇒ {
         test(log, log.eval {
-          trainingTimeMinutes = 60
+          new AutoencoderNetwork({
+            new DenseSynapseLayerJBLAS(inputSize, middleSize)
+              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001))
+          }, {
+            new DenseSynapseLayerJBLAS(middleSize, inputSize)
+              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001))
+          })
+        })
+      })
+    }
+
+    "LinearBias" in {
+      report("linearBias", log ⇒ {
+        test(log, log.eval {
           new AutoencoderNetwork({
             var model: PipelineNetwork = new PipelineNetwork
-            model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
-              override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
-            }))
+            model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize)
+              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001)))
+            model.add(new BiasLayer(middleSize:_*).setWeights(cvt(i⇒0.0)))
             model
           }, {
             var model: PipelineNetwork = new PipelineNetwork
-            model.add(new DenseSynapseLayerJBLAS(middleSize, inputSize).setWeights(new ToDoubleFunction[Coordinate] {
-              override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
-            }))
+            model.add(new DenseSynapseLayerJBLAS(middleSize, inputSize)
+              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001)))
+            model.add(new BiasLayer(inputSize:_*).setWeights(cvt(i⇒0.0)))
             model
           })
         })
       })
     }
 
-    "Flat 2-Layer Abs" in {
-      report("twolayerabs", log ⇒ {
+    "Half-Toeplitz" in {
+      report("toeplitz_half", log ⇒ {
         test(log, log.eval {
-          trainingTimeMinutes = 60
           new AutoencoderNetwork({
+            new ToeplitzSynapseLayerJBLAS(inputSize, middleSize)
+              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001))
+          }, {
+            new DenseSynapseLayerJBLAS(middleSize, inputSize)
+              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001))
+          })
+        })
+      })
+    }
+
+    "Full-Toeplitz" in {
+      report("toeplitz_full", log ⇒ {
+        test(log, log.eval {
+          new AutoencoderNetwork({
+            new ToeplitzSynapseLayerJBLAS(inputSize, middleSize)
+              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001))
+          }, {
+            new ToeplitzSynapseLayerJBLAS(middleSize, inputSize)
+              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001))
+          })
+        })
+      })
+    }
+
+    "SparseLinearBias" in {
+      report("sparseLinearBias", log ⇒ {
+        import scala.language.implicitConversions
+        test(log, log.eval {
+          val middleSize = Array[Int](10, 10, 1)
+          new SparseAutoencoderTrainer({
             var model: PipelineNetwork = new PipelineNetwork
-            model.add(new DenseSynapseLayerJBLAS(inputSize, inputSize).setWeights(new ToDoubleFunction[Coordinate] {
-              override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
-            }))
-            model.add(new AbsActivationLayer)
-            model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
-              override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
-            }))
+            model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize)
+              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001)))
+            model.add(new BiasLayer(middleSize:_*).setWeights(cvt(i⇒0.0)))
+            model.add(new SoftmaxActivationLayer)
             model
           }, {
             var model: PipelineNetwork = new PipelineNetwork
-            model.add(new DenseSynapseLayerJBLAS(middleSize, inputSize).setWeights(new ToDoubleFunction[Coordinate] {
-              override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
-            }))
-            model.add(new AbsActivationLayer)
-            model.add(new DenseSynapseLayerJBLAS(inputSize, inputSize).setWeights(new ToDoubleFunction[Coordinate] {
-              override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
-            }))
+            model.add(new DenseSynapseLayerJBLAS(middleSize, inputSize)
+              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001)))
+            model.add(new BiasLayer(inputSize:_*).setWeights(cvt(i⇒0.0)))
             model
           })
         })
       })
     }
 
-    "Toeplitz 2-Layer Abs" in {
-      report("twolayertoeplitz", log ⇒ {
-        test(log, log.eval {
-          trainingTimeMinutes = 60
-          new AutoencoderNetwork({
-            var model: PipelineNetwork = new PipelineNetwork
-            model.add(new ToeplitzSynapseLayerJBLAS(inputSize, inputSize).setWeights(new ToDoubleFunction[Coordinate] {
-              override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
-            }))
-            model.add(new AbsActivationLayer)
-            model.add(new ToeplitzSynapseLayerJBLAS(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
-              override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
-            }))
-            model
-          }, {
-            var model: PipelineNetwork = new PipelineNetwork
-            model.add(new ToeplitzSynapseLayerJBLAS(middleSize, inputSize).setWeights(new ToDoubleFunction[Coordinate] {
-              override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
-            }))
-            model.add(new AbsActivationLayer)
-            model.add(new ToeplitzSynapseLayerJBLAS(inputSize, inputSize).setWeights(new ToDoubleFunction[Coordinate] {
-              override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
-            }))
-            model
-          })
-        })
-      })
-    }
 
   }
 
   def test(log: ScalaMarkdownPrintStream, model: AutoencoderNetwork) = {
+    val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new MeanSqLossLayer())
     log.h2("Data")
     log.p("First, we load the training dataset: ")
-    val data: Seq[Array[Tensor]] = log.code(() ⇒ {
+    val data: Array[Array[Tensor]] = log.code(() ⇒ {
       MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
         Array(labeledObj.data, labeledObj.data)
-      }).toList
+      }).toList.map(x ⇒ Array(x(0),x(0))).toArray
     })
-
-    log.p("We can visualize this network as a graph: ")
-    networkGraph(log, model, 800)
-    log.p("We encapsulate our model network within a supervisory network that applies a loss function: ")
-    val trainingNetwork: SupervisedNetwork = log.eval {
-      new SupervisedNetwork(model, new SqLossLayer)
+    _test(log, trainingNetwork, data)
+    log.eval {
+      TableOutput.create(MNIST.validationDataStream().iterator().asScala.toStream.take(100).map(testObj ⇒ {
+        val result = model.eval(testObj.data).data.head
+        Map[String, AnyRef](
+          "Input" → log.image(testObj.data.toGrayImage(), testObj.label),
+          "Output" → log.image(result.toGrayImage(), "Autoencoder Output")
+        ).asJava
+      }): _*)
     }
-    log.p("With a the following component graph: ")
-    networkGraph(log, trainingNetwork, 600)
-    log.p("Note that this visualization does not expand DAGNetworks recursively")
 
+  }
+
+  def test(log: ScalaMarkdownPrintStream, trainingNetwork: SparseAutoencoderTrainer) = {
+    log.h2("Data")
+    log.p("First, we load the training dataset: ")
+    val data: Array[Array[Tensor]] = log.code(() ⇒ {
+      MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
+        Array(labeledObj.data, labeledObj.data)
+      }).toList.map(x ⇒ Array(x(0))).toArray
+    })
+    _test(log, trainingNetwork, data)
+    log.eval {
+      TableOutput.create(MNIST.validationDataStream().iterator().asScala.toStream.take(100).map(testObj ⇒ {
+        var evalModel: PipelineNetwork = new PipelineNetwork
+        evalModel.add(trainingNetwork.encoder.getLayer)
+        evalModel.add(trainingNetwork.decoder.getLayer)
+        val result = evalModel.eval(testObj.data).data.head
+        Map[String, AnyRef](
+          "Input" → log.image(testObj.data.toGrayImage(), testObj.label),
+          "Output" → log.image(result.toGrayImage(), "Autoencoder Output")
+        ).asJava
+      }): _*)
+    }
+
+  }
+
+  private def _test(log: ScalaMarkdownPrintStream, trainingNetwork: SupervisedNetwork, data: Array[Array[Tensor]]) = {
     log.h2("Training")
-    log.p("We train using a standard iterative L-BFGS strategy: ")
+    val history = new scala.collection.mutable.ArrayBuffer[IterativeTrainer.Step]()
+    log.eval {
+      case class TrainingStep(sampleSize: Int, timeoutMinutes: Int)
+      List(TrainingStep(1000, minutesPerPhase), TrainingStep(2500, minutesPerPhase), TrainingStep(5000, minutesPerPhase)).foreach(scheduledStep ⇒ {
+        val trainable = new StochasticArrayTrainable(data, trainingNetwork, scheduledStep.sampleSize)
+        val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
+        trainer.setMonitor(new TrainingMonitor {
+          override def log(msg: String): Unit = {
+            System.err.println(msg)
+          }
 
-    val history = new scala.collection.mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]()
-    val trainer = log.eval {
-      val trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 2000)
-      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
-      trainer.setMonitor(new TrainingMonitor {
-        override def log(msg: String): Unit = {
-          System.err.println(msg)
-        }
-
-        override def onStepComplete(currentPoint: com.simiacryptus.mindseye.opt.IterativeTrainer.Step): Unit = {
-          history += currentPoint
-        }
+          override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
+            history += currentPoint
+          }
+        })
+        trainer.setTimeout(scheduledStep.timeoutMinutes, TimeUnit.MINUTES)
+        trainer.setTerminateThreshold(0.0)
+        trainer.run()
       })
-      trainer.setTimeout(trainingTimeMinutes, TimeUnit.MINUTES)
-      trainer.setTerminateThreshold(0.0)
-      trainer
-    }
-    log.eval {
-      trainer.run()
-    }
-    log.p("After training, we have the following parameterized model: ")
-    log.eval {
-      model.toString
     }
     log.p("A summary of the training timeline: ")
     summarizeHistory(log, history.toList)
-
   }
 
   private def summarizeHistory(log: ScalaMarkdownPrintStream, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
@@ -188,7 +234,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         ).asJava
       ): _*)
     }
-    log.eval {
+    if(!history.isEmpty) log.eval {
       val plot: PlotCanvas = ScatterPlot.plot(history.map(item ⇒ Array[Double](
         item.iteration, Math.log(item.point.value)
       )).toArray: _*)

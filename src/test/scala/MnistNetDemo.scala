@@ -26,8 +26,8 @@ import com.simiacryptus.mindseye.net.basic.BiasLayer
 import com.simiacryptus.mindseye.net.dev.{DenseSynapseLayerJBLAS, ToeplitzSynapseLayerJBLAS}
 import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.net.media.{ConvolutionSynapseLayer, MaxSubsampleLayer}
-import com.simiacryptus.mindseye.net.{PipelineNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.opt.{StochasticArrayTrainable, TrainingMonitor}
+import com.simiacryptus.mindseye.net.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.opt.{IterativeTrainer, StochasticArrayTrainable, TrainingMonitor}
 import com.simiacryptus.util.Util
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
@@ -39,12 +39,10 @@ import scala.collection.JavaConverters._
 
 class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
-  val terminationThreshold = 0.05
+  val terminationThreshold = 0.01
   val inputSize = Array[Int](28, 28, 1)
   val outputSize = Array[Int](10)
   var trainingTimeMinutes = 5
-  val trainingSize = 2000
-
   "Train Digit Recognizer Network" should {
 
     "Flat Logistic Regression" in {
@@ -65,7 +63,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
     "Flat 2-Layer Abs" in {
       report("twolayerabs", log ⇒ {
         test(log, log.eval {
-          trainingTimeMinutes = 30
+          trainingTimeMinutes = 60
           val middleSize = Array[Int](28, 28, 1)
           var model: PipelineNetwork = new PipelineNetwork
           model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
@@ -86,7 +84,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
     "Toeplitz 2-Layer Abs" in {
       report("twolayertoeplitz", log ⇒ {
         test(log, log.eval {
-          trainingTimeMinutes = 30
+          trainingTimeMinutes = 60
           val middleSize = Array[Int](28, 28, 1)
           var model: PipelineNetwork = new PipelineNetwork
           model.add(new ToeplitzSynapseLayerJBLAS(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
@@ -106,7 +104,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
     "ToeplitzMax 2-Layer Abs" in {
       report("twolayertoeplitzmax", log ⇒ {
         test(log, log.eval {
-          trainingTimeMinutes = 30
+          trainingTimeMinutes = 60
           val middleSize1 = Array[Int](28, 28, 4)
           val middleSize2 = Array[Int](14, 14, 4)
           var model: PipelineNetwork = new PipelineNetwork
@@ -128,7 +126,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
     "ToeplitzMax 3-Layer Abs" in {
       report("threelayertoeplitzmax", log ⇒ {
         test(log, log.eval {
-          trainingTimeMinutes = 30
+          trainingTimeMinutes = 60
           val middleSize1 = Array[Int](28, 28, 4)
           val middleSize2 = Array[Int](14, 14, 4)
           val middleSize3 = Array[Int](14, 14, 16)
@@ -157,7 +155,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
     "Simple convolution-maxpool" in {
       report("simpleconv", log ⇒ {
         test(log, log.eval {
-          trainingTimeMinutes = 30
+          trainingTimeMinutes = 60
           val middleSize = Array[Int](28, 28, 1)
           var model: PipelineNetwork = new PipelineNetwork
           model.add(new ConvolutionSynapseLayer(Array(2,2), 2).setWeights(new ToDoubleFunction[Coordinate] {
@@ -195,30 +193,42 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
     log.h2("Training")
     log.p("We encapsulate our model network within a supervisory network that applies a loss function, then train using a standard iterative L-BFGS strategy: ")
     val history = new scala.collection.mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]()
-    val trainer = log.eval {
-      val trainingNetwork: SupervisedNetwork = new SupervisedNetwork(model, new EntropyLossLayer)
-      val trainable = new StochasticArrayTrainable(trainingData.toArray, trainingNetwork, trainingSize)
-      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
-      trainer.setMonitor(new TrainingMonitor {
+    val monitor = log.eval {
+      val monitor = new TrainingMonitor {
         override def log(msg: String): Unit = {
           System.err.println(msg)
         }
 
-        override def onStepComplete(currentPoint: com.simiacryptus.mindseye.opt.IterativeTrainer.Step): Unit = {
+        override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
           history += currentPoint
         }
-      })
-      trainer.setTimeout(trainingTimeMinutes, TimeUnit.MINUTES)
-      trainer.setTerminateThreshold(terminationThreshold)
-      trainer
+      }
+      monitor
     }
+    log.p("First we pretrain the model on a very small dataset until it is at a reasonable starting point")
     log.eval {
+      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
+      val trainable = new StochasticArrayTrainable(trainingData.toArray, trainingNetwork, 100)
+      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
+      trainer.setMonitor(monitor)
+      trainer.setTimeout(Math.min(trainingTimeMinutes, 10), TimeUnit.MINUTES)
+      trainer.setTerminateThreshold(1.0)
+      trainer.run()
+    }
+    log.p("The second phase of training uses more data")
+    log.eval {
+      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
+      val trainable = new StochasticArrayTrainable(trainingData.toArray, trainingNetwork, 2000)
+      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
+      trainer.setMonitor(monitor)
+      trainer.setTimeout(trainingTimeMinutes, TimeUnit.MINUTES)
+      trainer.setTerminateThreshold(0.05)
       trainer.run()
     }
 
     log.p("After training, we have the following parameterized model: ")
     log.eval {
-      model.toString
+      model
     }
     log.p("A summary of the training timeline: ")
     summarizeHistory(log, history.toList)

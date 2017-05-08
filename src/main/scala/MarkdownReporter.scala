@@ -40,6 +40,7 @@ trait MarkdownReporter {
     val path: File = new File(List("reports", className, methodName + ".md").mkString(File.separator))
     path.getParentFile.mkdirs
     val log = new ScalaMarkdownPrintStream(path, methodName)
+    log.addCopy(System.out)
     try {
       fn.apply(log)
     } finally {

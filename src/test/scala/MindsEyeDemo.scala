@@ -30,7 +30,7 @@ import com.simiacryptus.mindseye.net.activation.{AbsActivationLayer, L1Normaliza
 import com.simiacryptus.mindseye.net.basic.BiasLayer
 import com.simiacryptus.mindseye.net.dag._
 import com.simiacryptus.mindseye.net.dev.DenseSynapseLayerJBLAS
-import com.simiacryptus.mindseye.net.loss.{EntropyLossLayer, SqLossLayer}
+import com.simiacryptus.mindseye.net.loss.{EntropyLossLayer, MeanSqLossLayer}
 import com.simiacryptus.mindseye.net.media.{ConvolutionSynapseLayer, EntropyLayer}
 import com.simiacryptus.mindseye.net.reducers.SumInputsLayer
 import com.simiacryptus.mindseye.net.util.VerboseWrapper
@@ -47,7 +47,7 @@ import smile.plot.{PlotCanvas, ScatterPlot}
 import scala.collection.JavaConverters._
 import scala.util.Random
 import NetworkViz._
-import com.simiacryptus.mindseye.net.{PipelineNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.net.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt.{IterativeTrainer, StochasticArrayTrainable, Trainable, TrainingMonitor}
 
 class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
@@ -92,7 +92,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         networkGraph(log, model, 800)
         log.p("We encapsulate our model network within a supervisory network that applies a loss function: ")
         val trainingNetwork: SupervisedNetwork = log.eval {
-          new SupervisedNetwork(model, new EntropyLossLayer)
+          new SimpleLossNetwork(model, new EntropyLossLayer)
         }
         log.p("With a the following component graph: ")
         networkGraph(log, trainingNetwork, 600)
@@ -212,7 +212,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
           }).take(100)
 
           val trainer = log.eval {
-            val trainingNetwork: SupervisedNetwork = new SupervisedNetwork(model, new EntropyLossLayer)
+            val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
             val trainable = new StochasticArrayTrainable(trainingData.toArray, trainingNetwork, 1000)
             val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
             trainer.setTimeout(10, TimeUnit.SECONDS)
@@ -401,7 +401,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
           val net = new PipelineNetwork(2)
           val bias: DAGNode = net.add(new BiasLayer(inputSize: _*))
           net.add(blurFilter)
-          val imageRMS: DAGNode = net.add(new SqLossLayer, net.getHead, net.getInput(1))
+          val imageRMS: DAGNode = net.add(new MeanSqLossLayer, net.getHead, net.getInput(1))
           net.add(new AbsActivationLayer, bias)
           net.add(new L1NormalizationLayer)
           net.add(new EntropyLayer)
