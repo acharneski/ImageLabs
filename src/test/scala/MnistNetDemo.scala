@@ -27,7 +27,7 @@ import com.simiacryptus.mindseye.net.dev.{DenseSynapseLayerJBLAS, ToeplitzSynaps
 import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.net.media.{ConvolutionSynapseLayer, MaxSubsampleLayer}
 import com.simiacryptus.mindseye.net.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.opt.{IterativeTrainer, StochasticArrayTrainable, TrainingMonitor}
+import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.util.Util
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
@@ -63,7 +63,28 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
     "Flat 2-Layer Abs" in {
       report("twolayerabs", log ⇒ {
         test(log, log.eval {
-          trainingTimeMinutes = 60
+          trainingTimeMinutes = 10
+          val middleSize = Array[Int](28, 28, 1)
+          var model: PipelineNetwork = new PipelineNetwork
+          model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
+          }))
+          model.add(new BiasLayer(middleSize: _*))
+          model.add(new AbsActivationLayer)
+          model.add(new DenseSynapseLayerJBLAS(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
+          }))
+          model.add(new BiasLayer(outputSize: _*))
+          model.add(new SoftmaxActivationLayer)
+          model
+        })
+      })
+    }
+
+    "Flat 2-Layer ReLu" in {
+      report("twolayerrelu", log ⇒ {
+        test(log, log.eval {
+          trainingTimeMinutes = 10
           val middleSize = Array[Int](28, 28, 1)
           var model: PipelineNetwork = new PipelineNetwork
           model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
@@ -210,6 +231,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
       val trainable = new StochasticArrayTrainable(trainingData.toArray, trainingNetwork, 100)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
+      trainer.setOrientation(new L12Normalized(new LBFGS()))
       trainer.setMonitor(monitor)
       trainer.setTimeout(Math.min(trainingTimeMinutes, 10), TimeUnit.MINUTES)
       trainer.setTerminateThreshold(1.0)
@@ -220,6 +242,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
       val trainable = new StochasticArrayTrainable(trainingData.toArray, trainingNetwork, 2000)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
+      trainer.setOrientation(new L12Normalized(new LBFGS()))
       trainer.setMonitor(monitor)
       trainer.setTimeout(trainingTimeMinutes, TimeUnit.MINUTES)
       trainer.setTerminateThreshold(0.05)

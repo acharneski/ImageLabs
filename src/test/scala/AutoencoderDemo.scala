@@ -17,17 +17,18 @@
  * under the License.
  */
 
+import java.awt.Color
 import java.util.concurrent.TimeUnit
 import java.util.function.{IntToDoubleFunction, ToDoubleFunction}
 import java.{lang, util}
 
 import com.simiacryptus.mindseye.net._
-import com.simiacryptus.mindseye.net.activation.{AbsActivationLayer, SoftmaxActivationLayer}
+import com.simiacryptus.mindseye.net.activation.{AbsActivationLayer, SigmoidActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.net.basic.BiasLayer
 import com.simiacryptus.mindseye.net.dag._
 import com.simiacryptus.mindseye.net.dev.{DenseSynapseLayerJBLAS, ToeplitzSynapseLayerJBLAS}
 import com.simiacryptus.mindseye.net.loss.MeanSqLossLayer
-import com.simiacryptus.mindseye.opt.{IterativeTrainer, StochasticArrayTrainable, TrainingMonitor}
+import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.util.Util
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
@@ -59,23 +60,9 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
     val inputSize = Array[Int](28, 28, 1)
     val middleSize = Array[Int](10, 10, 1)
-    val minutesPerPhase = 15
+    val minutesPerPhase = 10
 
   "Train Digit Autoencoder Network" should {
-
-    "Linear" in {
-      report("linear", log ⇒ {
-        test(log, log.eval {
-          new AutoencoderNetwork({
-            new DenseSynapseLayerJBLAS(inputSize, middleSize)
-              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001))
-          }, {
-            new DenseSynapseLayerJBLAS(middleSize, inputSize)
-              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001))
-          })
-        })
-      })
-    }
 
     "LinearBias" in {
       report("linearBias", log ⇒ {
@@ -97,34 +84,6 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
       })
     }
 
-    "Half-Toeplitz" in {
-      report("toeplitz_half", log ⇒ {
-        test(log, log.eval {
-          new AutoencoderNetwork({
-            new ToeplitzSynapseLayerJBLAS(inputSize, middleSize)
-              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001))
-          }, {
-            new DenseSynapseLayerJBLAS(middleSize, inputSize)
-              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001))
-          })
-        })
-      })
-    }
-
-    "Full-Toeplitz" in {
-      report("toeplitz_full", log ⇒ {
-        test(log, log.eval {
-          new AutoencoderNetwork({
-            new ToeplitzSynapseLayerJBLAS(inputSize, middleSize)
-              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001))
-          }, {
-            new ToeplitzSynapseLayerJBLAS(middleSize, inputSize)
-              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001))
-          })
-        })
-      })
-    }
-
     "SparseLinearBias" in {
       report("sparseLinearBias", log ⇒ {
         import scala.language.implicitConversions
@@ -133,14 +92,14 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
           new SparseAutoencoderTrainer({
             var model: PipelineNetwork = new PipelineNetwork
             model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize)
-              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001)))
+              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.0001)))
             model.add(new BiasLayer(middleSize:_*).setWeights(cvt(i⇒0.0)))
-            model.add(new SoftmaxActivationLayer)
+            model.add(new SigmoidActivationLayer().setBalanced(false))
             model
           }, {
             var model: PipelineNetwork = new PipelineNetwork
             model.add(new DenseSynapseLayerJBLAS(middleSize, inputSize)
-              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001)))
+              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.0001)))
             model.add(new BiasLayer(inputSize:_*).setWeights(cvt(i⇒0.0)))
             model
           })
@@ -171,6 +130,27 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
       }): _*)
     }
 
+    val encoded = model.encoder.getLayer.eval(data.head.head).data.head
+    val width = encoded.getDims()(0)
+    val height = encoded.getDims()(1)
+    log.draw(gfx ⇒ {
+      (0 until width).foreach(x⇒{
+        (0 until height).foreach(y⇒{
+          encoded.fill(cvt((i:Int)⇒0.0))
+          encoded.set(Array(x,y),1.0)
+          val image = model.decoder.getLayer.eval(encoded).data.head
+          val sum = image.getData.sum
+          val min = image.getData.min
+          val max = image.getData.max
+          (0 until inputSize(0)).foreach(xx ⇒
+            (0 until inputSize(1)).foreach(yy ⇒ {
+              val value: Double = 255 * (image.get(xx, yy)-min) / (max-min)
+              gfx.setColor(new Color(value.toInt, value.toInt, value.toInt))
+              gfx.drawRect((x * inputSize(0)) + xx, (y * inputSize(1)) + yy, 1, 1)
+            }))
+        })
+      })
+    }, width = inputSize(0) * width, height = inputSize(1) * height)
   }
 
   def test(log: ScalaMarkdownPrintStream, trainingNetwork: SparseAutoencoderTrainer) = {
@@ -202,9 +182,10 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
     val history = new scala.collection.mutable.ArrayBuffer[IterativeTrainer.Step]()
     log.eval {
       case class TrainingStep(sampleSize: Int, timeoutMinutes: Int)
-      List(TrainingStep(1000, minutesPerPhase), TrainingStep(2500, minutesPerPhase), TrainingStep(5000, minutesPerPhase)).foreach(scheduledStep ⇒ {
+      List(TrainingStep(2500, minutesPerPhase), TrainingStep(5000, minutesPerPhase), TrainingStep(20000, minutesPerPhase)).foreach(scheduledStep ⇒ {
         val trainable = new StochasticArrayTrainable(data, trainingNetwork, scheduledStep.sampleSize)
         val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
+        trainer.setOrientation(new L12NormalizedConst(new LBFGS()).setFactor_L1(0.001))
         trainer.setMonitor(new TrainingMonitor {
           override def log(msg: String): Unit = {
             System.err.println(msg)
