@@ -61,6 +61,8 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
     val inputSize = Array[Int](28, 28, 1)
     val middleSize = Array[Int](10, 10, 1)
     val minutesPerPhase = 10
+    case class TrainingStep(sampleSize: Int, timeoutMinutes: Int)
+    val schedule = List(TrainingStep(2500, minutesPerPhase), TrainingStep(5000, minutesPerPhase), TrainingStep(20000, minutesPerPhase))
 
   "Train Digit Autoencoder Network" should {
 
@@ -180,12 +182,12 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
   private def _test(log: ScalaMarkdownPrintStream, trainingNetwork: SupervisedNetwork, data: Array[Array[Tensor]]) = {
     log.h2("Training")
     val history = new scala.collection.mutable.ArrayBuffer[IterativeTrainer.Step]()
-    log.eval {
-      case class TrainingStep(sampleSize: Int, timeoutMinutes: Int)
-      List(TrainingStep(2500, minutesPerPhase), TrainingStep(5000, minutesPerPhase), TrainingStep(20000, minutesPerPhase)).foreach(scheduledStep ⇒ {
+    schedule.foreach(scheduledStep ⇒ {
+      log.h3(scheduledStep.toString)
+      log.eval {
         val trainable = new StochasticArrayTrainable(data, trainingNetwork, scheduledStep.sampleSize)
         val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
-        trainer.setOrientation(new L12NormalizedConst(new LBFGS()).setFactor_L1(0.001))
+        trainer.setOrientation(new OwlQn())
         trainer.setMonitor(new TrainingMonitor {
           override def log(msg: String): Unit = {
             System.err.println(msg)
@@ -198,8 +200,8 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         trainer.setTimeout(scheduledStep.timeoutMinutes, TimeUnit.MINUTES)
         trainer.setTerminateThreshold(0.0)
         trainer.run()
-      })
-    }
+      }
+    })
     log.p("A summary of the training timeline: ")
     summarizeHistory(log, history.toList)
   }

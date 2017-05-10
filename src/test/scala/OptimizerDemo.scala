@@ -26,7 +26,7 @@ import com.simiacryptus.mindseye.net._
 import com.simiacryptus.mindseye.net.activation.{ReLuActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.net.basic.BiasLayer
 import com.simiacryptus.mindseye.net.dev.DenseSynapseLayerJBLAS
-import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
+import com.simiacryptus.mindseye.net.loss.{EntropyLossLayer, MeanSqLossLayer}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.util.Util
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
@@ -55,194 +55,71 @@ object OptimizerDemo {
 
 class OptimizerDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
+  val minutesPerPhase = 5
   case class TrainingStep(sampleSize: Int, timeoutMinutes: Int)
   val schedule = List(
-    TrainingStep(200, minutesPerPhase),
-    TrainingStep(1000, minutesPerPhase),
-    TrainingStep(10000, minutesPerPhase)
+    TrainingStep(200, minutesPerPhase)
   )
   val terminationThreshold = 0.01
   val inputSize = Array[Int](28, 28, 1)
-  val outputSize = Array[Int](10)
-  var minutesPerPhase = 5
+  val outputSize = Array[Int](10) // Array[Int](28, 28)
+  val middleSize = Array[Int](28, 28, 1)
+  val lossLayer = new EntropyLossLayer // new MeanSqLossLayer
 
   "Various Optimization Strategies" should {
 
-    "Neutral" in {
-      report("neutral", log ⇒ {
+    "LBFGS" in {
+      report("lbfgs", log ⇒ {
         test(log, trainable ⇒ log.eval {
           val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
-          trainer.setOrientation(new LBFGS())
+          trainer.setOrientation(new LBFGS()) // This is the default
           trainer
         })
       })
     }
 
-    "Normalized L1 a" in {
-      report("normal_l1_a", log ⇒ {
+    "L1 Normalized SGD" in {
+      report("l1sgd", log ⇒ {
         test(log, trainable ⇒ log.eval {
-          val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
-          trainer.setOrientation(new L12Normalized(new LBFGS()).setFactor_L1(0.01))
+          val normalized = new L12Normalizer(trainable).setFactor_L1(-1000.0)
+          val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(normalized)
+          trainer.setOrientation(new GradientDescent())
           trainer
         })
       })
     }
 
-    "Normalized L1 b" in {
-      report("normal_l1_b", log ⇒ {
+    "L2 Normalized SGD" in {
+      report("l2sgd", log ⇒ {
         test(log, trainable ⇒ log.eval {
-          val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
-          trainer.setOrientation(new L12Normalized(new LBFGS()) {
-            override def directionFilter(unitDotProduct: Double): Double = {
-              if(unitDotProduct>0) 0
-              else unitDotProduct
-            }
-          }.setFactor_L1(0.01))
+          val normalized = new L12Normalizer(trainable).setFactor_L1(0.0).setFactor_L2(1.0)
+          val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(normalized)
+          trainer.setOrientation(new GradientDescent())
           trainer
         })
       })
     }
 
-    "Normalized L1 c" in {
-      report("normal_l1_c", log ⇒ {
+    "OWL-QN" in {
+      report("owlqn", log ⇒ {
         test(log, trainable ⇒ log.eval {
           val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
-          trainer.setOrientation(new L12NormalizedConst(new LBFGS()).setFactor_L1(0.01))
+          trainer.setOrientation(new OwlQn())
+          // Not needed, just for illustration:
+          trainer.setScaling(new ArmijoWolfeConditions().setC2(0.8).setAlpha(1e-6))
           trainer
         })
       })
     }
 
-    "Normalized L1 a neg" in {
-      report("normal_l1_a_neg", log ⇒ {
-        test(log, trainable ⇒ log.eval {
-          val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
-          trainer.setOrientation(new L12Normalized(new LBFGS()).setFactor_L1(-0.01))
-          trainer
-        })
-      })
-    }
-
-    "Normalized L1 b neg" in {
-      report("normal_l1_b_neg", log ⇒ {
-        test(log, trainable ⇒ log.eval {
-          val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
-          trainer.setOrientation(new L12Normalized(new LBFGS()) {
-            override def directionFilter(unitDotProduct: Double): Double = {
-              if(unitDotProduct>0) 0
-              else unitDotProduct
-            }
-          }.setFactor_L1(-0.01))
-          trainer
-        })
-      })
-    }
-
-    "Normalized L1 c neg" in {
-      report("normal_l1_c_neg", log ⇒ {
-        test(log, trainable ⇒ log.eval {
-          val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
-          trainer.setOrientation(new L12NormalizedConst(new LBFGS()).setFactor_L1(-0.01))
-          trainer
-        })
-      })
-    }
-
-    "Normalized L2 a" in {
-      report("normal_l2_a", log ⇒ {
-        test(log, trainable ⇒ log.eval {
-          val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
-          trainer.setOrientation(new L12Normalized(new LBFGS()).setFactor_L1(0.0).setFactor_L2(0.01))
-          trainer
-        })
-      })
-    }
-
-    "Normalized L2 b" in {
-      report("normal_l2_b", log ⇒ {
-        test(log, trainable ⇒ log.eval {
-          val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
-          trainer.setOrientation(new L12Normalized(new LBFGS()) {
-            override def directionFilter(unitDotProduct: Double): Double = {
-              if(unitDotProduct>0) 0
-              else unitDotProduct
-            }
-          }.setFactor_L1(0.0).setFactor_L2(0.01))
-          trainer
-        })
-      })
-    }
-
-    "Normalized L2 c" in {
-      report("normal_l2_c", log ⇒ {
-        test(log, trainable ⇒ log.eval {
-          val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
-          trainer.setOrientation(new L12NormalizedConst(new LBFGS()).setFactor_L1(0.0).setFactor_L2(0.01))
-          trainer
-        })
-      })
-    }
-
-    "Normalized L2 a neg" in {
-      report("normal_l2_a_neg", log ⇒ {
-        test(log, trainable ⇒ log.eval {
-          val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
-          trainer.setOrientation(new L12Normalized(new LBFGS()).setFactor_L1(0.0).setFactor_L2(-0.01))
-          trainer
-        })
-      })
-    }
-
-    "Normalized L2 b neg" in {
-      report("normal_l2_b_neg", log ⇒ {
-        test(log, trainable ⇒ log.eval {
-          val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
-          trainer.setOrientation(new L12Normalized(new LBFGS()) {
-            override def directionFilter(unitDotProduct: Double): Double = {
-              if(unitDotProduct>0) 0
-              else unitDotProduct
-            }
-          }.setFactor_L1(0.0).setFactor_L2(-0.01))
-          trainer
-        })
-      })
-    }
-
-    "Normalized L2 c neg" in {
-      report("normal_l2_c_neg", log ⇒ {
-        test(log, trainable ⇒ log.eval {
-          val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
-          trainer.setOrientation(new L12NormalizedConst(new LBFGS()).setFactor_L1(0.0).setFactor_L2(-0.01))
-          trainer
-        })
-      })
-    }
 
   }
 
   def test(log: ScalaMarkdownPrintStream, optimizer: Trainable⇒IterativeTrainer) = {
-    val model = log.eval {
-      val middleSize = Array[Int](28, 28, 1)
-      var model: PipelineNetwork = new PipelineNetwork
-      model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize)
-        .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001)))
-      model.add(new BiasLayer(middleSize: _*))
-      model.add(new ReLuActivationLayer().freeze)
-      model.add(new DenseSynapseLayerJBLAS(middleSize, outputSize)
-        .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001)))
-      model.add(new BiasLayer(outputSize: _*))
-      model.add(new SoftmaxActivationLayer)
-      model
-    }
-    log.h2("Data")
-    log.p("First, we load the training dataset: ")
-    val trainingData: Seq[Array[Tensor]] = log.code(() ⇒ {
-      MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
-        Array(labeledObj.data, toOutNDArray(toOut(labeledObj.label), 10))
-      }).toList
-    })
+    log.h2("Model Problem: ")
+    val (model, trainingData) = testProblem_category(log)
+
     log.h2("Training")
-    log.p("We encapsulate our model network within a supervisory network that applies a loss function, then train using a standard iterative L-BFGS strategy: ")
     val history = new scala.collection.mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]()
     val monitor = log.eval {
       val monitor = new TrainingMonitor {
@@ -256,83 +133,100 @@ class OptimizerDemo extends WordSpec with MustMatchers with MarkdownReporter {
       }
       monitor
     }
-    log.p("First we pretrain the model on a very small dataset until it is at a reasonable starting point")
-
     schedule.foreach(scheduledStep ⇒ {
+      log.h3(scheduledStep.toString)
       log.eval {
         System.out.println(scheduledStep)
-        val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
+        val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossLayer)
         val trainable: StochasticArrayTrainable = new StochasticArrayTrainable(trainingData.toArray, trainingNetwork, scheduledStep.sampleSize)
         val trainer: IterativeTrainer = optimizer.apply(trainable)
         trainer.setMonitor(monitor)
-        trainer.setTimeout(Math.min(scheduledStep.timeoutMinutes, 10), TimeUnit.MINUTES)
-        trainer.setTerminateThreshold(1.0)
+        trainer.setTimeout(scheduledStep.timeoutMinutes, TimeUnit.MINUTES)
+        trainer.setTerminateThreshold(Double.NegativeInfinity)
         trainer.run()
       }
-
       log.eval {
-        val set = new DeltaSet()
-        model.eval(new Tensor(inputSize:_*)).accumulate(set,Array(new Tensor(10)))
-        set.map.asScala.map(ent⇒{
+        getBlankDeltaSet(model).map.asScala.map(ent⇒{
           val (layer, buffer) = ent
-          val data = buffer.target
-          val length = data.length
-          val sum = data.sum
-          val sumSq = data.map(x ⇒ x * x).sum
-          val meanAbs = data.map(x ⇒ Math.abs(x)).sum / length
           Map(
             "layer" → layer.getClass.getSimpleName,
-            "id" → layer.getId,
-            "max" → data.max,
-            "min" → data.min,
-            "length" → length,
-            "sum" → sum,
-            "sumSq" → sumSq,
-            "mean" → (sum / length),
-            "meanAbs" → meanAbs,
-            "stdDev" → Math.sqrt((sumSq / length) - Math.pow(sum / length, 2))
-          )
+            "id" → layer.getId
+          ) ++ summarize(buffer.target)
         }).mkString("\n")
       }
     })
-    log.p("After training, we have the following parameterized model: ")
-    log.eval {
-      model
-    }
     log.p("A summary of the training timeline: ")
     summarizeHistory(log, history.toList)
+  }
 
-    log.h2("Validation")
+  private def summarize(data: Array[Double]) = {
+    val zeroTol = 1e-20
+    val zeros = data.map(x ⇒ if(Math.abs(x) < zeroTol) 1.0 else 0.0).sum
+    Map(
+      "length" → data.length,
+      "sparsity" → (zeros / data.length),
+      "raw" → summarize2(data),
+      "abs" → summarize2(data.map(x ⇒ Math.abs(x))),
+      "log10" → summarize2(data.filter(x⇒Math.abs(x) > zeroTol).map(x ⇒ Math.log(Math.abs(x))/Math.log(10)))
+    )
+  }
 
-    log.p("To summarize the accuracy of the model, we calculate several summaries: ")
-    log.p("The (mis)categorization matrix displays a count matrix for every actual/predicted category: ")
-    val categorizationMatrix: Map[Int, Map[Int, Int]] = log.eval {
-      MNIST.validationDataStream().iterator().asScala.toStream.map(testObj ⇒ {
-        val result = model.eval(testObj.data).data.head
-        val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
-        val actual: Int = toOut(testObj.label)
-        actual → prediction
-      }).groupBy(_._1).mapValues(_.groupBy(_._2).mapValues(_.size))
+  private def summarize2(data: Array[Double]) = {
+    if(data.isEmpty) {
+      Map.empty
+    } else {
+      val sum = data.sum
+      val sumSq = data.map(x ⇒ x * x).sum
+      Map(
+        "max" → data.max,
+        "min" → data.min,
+        "mean" → (sum / data.length),
+        "stdDev" → Math.sqrt((sumSq / data.length) - Math.pow(sum / data.length, 2))
+      )
     }
-    log.out("Actual \\ Predicted | " + (0 to 9).mkString(" | "))
-    log.out((0 to 10).map(_ ⇒ "---").mkString(" | "))
-    (0 to 9).foreach(actual ⇒ {
-      log.out(s" **$actual** | " + (0 to 9).map(prediction ⇒ {
-        categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(prediction, 0)
-      }).mkString(" | "))
-    })
-    log.out("")
-    log.p("The accuracy, summarized per category: ")
+  }
+
+  private def getBlankDeltaSet(model: PipelineNetwork) = {
+    val set = new DeltaSet()
+    model.eval(new Tensor(inputSize: _*)).accumulate(set, Array(new Tensor(outputSize:_*)))
+    set
+  }
+
+  private def testProblem_autoencoder(log: ScalaMarkdownPrintStream) = {
     log.eval {
-      (0 to 9).map(actual ⇒ {
-        actual → (categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0) * 100.0 / categorizationMatrix.getOrElse(actual, Map.empty).values.sum)
-      }).toMap
+      val data = MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
+        Array(labeledObj.data, labeledObj.data)
+      }).toList
+
+      var model: PipelineNetwork = new PipelineNetwork
+      model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize)
+        .setWeights(cvt((c: Coordinate) ⇒ Util.R.get.nextGaussian * 0.001)))
+      model.add(new BiasLayer(middleSize: _*))
+      //model.add(new ReLuActivationLayer().freeze)
+      model.add(new DenseSynapseLayerJBLAS(middleSize, inputSize)
+        .setWeights(cvt((c: Coordinate) ⇒ Util.R.get.nextGaussian * 0.001)))
+      model.add(new BiasLayer(outputSize: _*))
+      (model, data)
     }
-    log.p("The accuracy, summarized over the entire validation set: ")
+  }
+
+  private def testProblem_category(log: ScalaMarkdownPrintStream) = {
     log.eval {
-      (0 to 9).map(actual ⇒ {
-        categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0)
-      }).sum.toDouble * 100.0 / categorizationMatrix.values.flatMap(_.values).sum
+      val data = MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
+        Array(labeledObj.data, toOutNDArray(toOut(labeledObj.label), 10))
+      }).toList
+
+      val middleSize = Array[Int](28, 28, 1)
+      var model: PipelineNetwork = new PipelineNetwork
+      model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize)
+        .setWeights(cvt((c: Coordinate) ⇒ Util.R.get.nextGaussian * 0.001)))
+      model.add(new BiasLayer(middleSize: _*))
+      model.add(new ReLuActivationLayer().freeze)
+      model.add(new DenseSynapseLayerJBLAS(middleSize, outputSize)
+        .setWeights(cvt((c: Coordinate) ⇒ Util.R.get.nextGaussian * 0.001)))
+      model.add(new BiasLayer(outputSize: _*))
+      model.add(new SoftmaxActivationLayer)
+      (model, data)
     }
   }
 
@@ -347,7 +241,7 @@ class OptimizerDemo extends WordSpec with MustMatchers with MarkdownReporter {
         ).asJava
       ): _*)
     }
-    log.eval {
+    if(!history.isEmpty) log.eval {
       val plot: PlotCanvas = ScatterPlot.plot(history.map(item ⇒ Array[Double](
         item.iteration, Math.log(item.point.value)
       )).toArray: _*)
