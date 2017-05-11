@@ -34,8 +34,13 @@ class ScalaMarkdownPrintStream(file : File, name : String) extends MarkdownPrint
 
 }
 
+object MarkdownReporter {
+  var currentMethod : String = null
+}
+
 trait MarkdownReporter {
   def report[T](methodName:String, fn:ScalaMarkdownPrintStream⇒T) : T = try {
+    MarkdownReporter.currentMethod = methodName
     val className: String = getClass.getCanonicalName
     val path: File = new File(List("reports", className, methodName + ".md").mkString(File.separator))
     path.getParentFile.mkdirs
@@ -50,5 +55,7 @@ trait MarkdownReporter {
     case e: FileNotFoundException ⇒ {
       throw new RuntimeException(e)
     }
+  } finally {
+    MarkdownReporter.currentMethod = null
   }
 }

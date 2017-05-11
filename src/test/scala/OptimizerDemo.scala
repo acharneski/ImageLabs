@@ -55,10 +55,9 @@ object OptimizerDemo {
 
 class OptimizerDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
-  val minutesPerPhase = 5
-  case class TrainingStep(sampleSize: Int, timeoutMinutes: Int)
+  case class TrainingStep(sampleSize: Int, timeoutMinutes: Int, terminationThreshold: Double)
   val schedule = List(
-    TrainingStep(200, minutesPerPhase)
+    TrainingStep(200, 5, 0.5), TrainingStep(1000, 5, 0.1)
   )
   val terminationThreshold = 0.01
   val inputSize = Array[Int](28, 28, 1)
@@ -142,7 +141,7 @@ class OptimizerDemo extends WordSpec with MustMatchers with MarkdownReporter {
         val trainer: IterativeTrainer = optimizer.apply(trainable)
         trainer.setMonitor(monitor)
         trainer.setTimeout(scheduledStep.timeoutMinutes, TimeUnit.MINUTES)
-        trainer.setTerminateThreshold(Double.NegativeInfinity)
+        trainer.setTerminateThreshold(scheduledStep.terminationThreshold)
         trainer.run()
       }
       log.eval {

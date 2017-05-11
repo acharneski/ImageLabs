@@ -23,13 +23,13 @@ import java.util.function.{IntToDoubleFunction, ToDoubleFunction}
 import java.{lang, util}
 
 import com.simiacryptus.mindseye.net._
-import com.simiacryptus.mindseye.net.activation.{AbsActivationLayer, SigmoidActivationLayer, SoftmaxActivationLayer}
+import com.simiacryptus.mindseye.net.activation.{AbsActivationLayer, ReLuActivationLayer, SigmoidActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.net.basic.BiasLayer
 import com.simiacryptus.mindseye.net.dag._
 import com.simiacryptus.mindseye.net.dev.{DenseSynapseLayerJBLAS, ToeplitzSynapseLayerJBLAS}
 import com.simiacryptus.mindseye.net.loss.MeanSqLossLayer
-import com.simiacryptus.mindseye.opt._
-import com.simiacryptus.util.Util
+import com.simiacryptus.mindseye.opt.{OrientationStrategy, _}
+import com.simiacryptus.util.{IO, Util}
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
 import com.simiacryptus.util.text.TableOutput
@@ -38,6 +38,7 @@ import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}
 
 import scala.collection.JavaConverters._
+import scala.util.Random
 
 object AutoencoderDemo {
 
@@ -59,16 +60,24 @@ import AutoencoderDemo._
 class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
     val inputSize = Array[Int](28, 28, 1)
-    val middleSize = Array[Int](10, 10, 1)
-    val minutesPerPhase = 10
-    case class TrainingStep(sampleSize: Int, timeoutMinutes: Int)
-    val schedule = List(TrainingStep(2500, minutesPerPhase), TrainingStep(5000, minutesPerPhase), TrainingStep(20000, minutesPerPhase))
+    case class TrainingStep(sampleSize: Int, timeoutMinutes: Int, endFitness : Double, orient : OrientationStrategy, step : LineSearchStrategy)
+    var schedule = List(
+      TrainingStep(5000, 30, 100.0,
+        new LBFGS(),
+        new ArmijoWolfeConditions().setC2(0.99)
+      ),
+      TrainingStep(10000, 30, 10.0,
+        new LBFGS(),
+        new ArmijoWolfeConditions()
+      )
+    )
 
   "Train Digit Autoencoder Network" should {
 
     "LinearBias" in {
       report("linearBias", log ⇒ {
-        test(log, log.eval {
+        testAutoencoder(log, log.eval {
+          val middleSize = Array[Int](10, 10, 1)
           new AutoencoderNetwork({
             var model: PipelineNetwork = new PipelineNetwork
             model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize)
@@ -86,11 +95,33 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
       })
     }
 
+    "ReLu" in {
+      report("relu", log ⇒ {
+        testAutoencoder(log, log.eval {
+          val middleSize = Array[Int](10, 10, 1)
+          new AutoencoderNetwork({
+            var model: PipelineNetwork = new PipelineNetwork
+            model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize)
+              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001)))
+            model.add(new BiasLayer(middleSize:_*).setWeights(cvt(i⇒0.0)))
+            model.add(new ReLuActivationLayer)
+            model
+          }, {
+            var model: PipelineNetwork = new PipelineNetwork
+            model.add(new DenseSynapseLayerJBLAS(middleSize, inputSize)
+              .setWeights(cvt((c:Coordinate)⇒Util.R.get.nextGaussian * 0.001)))
+            model.add(new BiasLayer(inputSize:_*).setWeights(cvt(i⇒0.0)))
+            model
+          })
+        })
+      })
+    }
+
     "SparseLinearBias" in {
       report("sparseLinearBias", log ⇒ {
         import scala.language.implicitConversions
-        test(log, log.eval {
-          val middleSize = Array[Int](10, 10, 1)
+        testSparse(log, log.eval {
+          val middleSize = Array[Int](50, 50, 1)
           new SparseAutoencoderTrainer({
             var model: PipelineNetwork = new PipelineNetwork
             model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize)
@@ -112,8 +143,8 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
   }
 
-  def test(log: ScalaMarkdownPrintStream, model: AutoencoderNetwork) = {
-    val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new MeanSqLossLayer())
+  def testAutoencoder(log: ScalaMarkdownPrintStream, model: ⇒AutoencoderNetwork) = {
+    def trainingNetwork = new SimpleLossNetwork(model, new MeanSqLossLayer())
     log.h2("Data")
     log.p("First, we load the training dataset: ")
     val data: Array[Array[Tensor]] = log.code(() ⇒ {
@@ -121,32 +152,51 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         Array(labeledObj.data, labeledObj.data)
       }).toList.map(x ⇒ Array(x(0),x(0))).toArray
     })
-    _test(log, trainingNetwork, data)
+    val currentNetwork = train(log, trainingNetwork, data)
+    val resultModel = currentNetwork.studentNode.getLayer.asInstanceOf[AutoencoderNetwork]
+    report(log, data, resultModel.encoder, resultModel.decoder)
+  }
+
+  def testSparse(log: ScalaMarkdownPrintStream, trainingNetwork: ⇒SparseAutoencoderTrainer) = {
+    log.h2("Data")
+    log.p("First, we load the training dataset: ")
+    val data: Array[Array[Tensor]] = log.code(() ⇒ {
+      MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
+        Array(labeledObj.data, labeledObj.data)
+      }).toList.map(x ⇒ Array(x(0))).toArray
+    })
+    val currentNetwork = train(log, trainingNetwork, data)
+    report(log, data, currentNetwork.encoder, currentNetwork.decoder)
+  }
+
+  private def report(log: ScalaMarkdownPrintStream, data: Array[Array[Tensor]], encoder: DAGNode, decoder: DAGNode) = {
     log.eval {
       TableOutput.create(MNIST.validationDataStream().iterator().asScala.toStream.take(100).map(testObj ⇒ {
-        val result = model.eval(testObj.data).data.head
+        var evalModel: PipelineNetwork = new PipelineNetwork
+        evalModel.add(encoder.getLayer)
+        evalModel.add(decoder.getLayer)
+        val result = evalModel.eval(testObj.data).data.head
         Map[String, AnyRef](
           "Input" → log.image(testObj.data.toGrayImage(), testObj.label),
           "Output" → log.image(result.toGrayImage(), "Autoencoder Output")
         ).asJava
       }): _*)
     }
-
-    val encoded = model.encoder.getLayer.eval(data.head.head).data.head
+    val encoded = encoder.getLayer.eval(data.head.head).data.head
     val width = encoded.getDims()(0)
     val height = encoded.getDims()(1)
     log.draw(gfx ⇒ {
-      (0 until width).foreach(x⇒{
-        (0 until height).foreach(y⇒{
-          encoded.fill(cvt((i:Int)⇒0.0))
-          encoded.set(Array(x,y),1.0)
-          val image = model.decoder.getLayer.eval(encoded).data.head
+      (0 until width).foreach(x ⇒ {
+        (0 until height).foreach(y ⇒ {
+          encoded.fill(cvt((i: Int) ⇒ 0.0))
+          encoded.set(Array(x, y), 1.0)
+          val image = decoder.getLayer.eval(encoded).data.head
           val sum = image.getData.sum
           val min = image.getData.min
           val max = image.getData.max
           (0 until inputSize(0)).foreach(xx ⇒
             (0 until inputSize(1)).foreach(yy ⇒ {
-              val value: Double = 255 * (image.get(xx, yy)-min) / (max-min)
+              val value: Double = 255 * (image.get(xx, yy) - min) / (max - min)
               gfx.setColor(new Color(value.toInt, value.toInt, value.toInt))
               gfx.drawRect((x * inputSize(0)) + xx, (y * inputSize(1)) + yy, 1, 1)
             }))
@@ -155,39 +205,43 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
     }, width = inputSize(0) * width, height = inputSize(1) * height)
   }
 
-  def test(log: ScalaMarkdownPrintStream, trainingNetwork: SparseAutoencoderTrainer) = {
-    log.h2("Data")
-    log.p("First, we load the training dataset: ")
-    val data: Array[Array[Tensor]] = log.code(() ⇒ {
-      MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
-        Array(labeledObj.data, labeledObj.data)
-      }).toList.map(x ⇒ Array(x(0))).toArray
-    })
-    _test(log, trainingNetwork, data)
-    log.eval {
-      TableOutput.create(MNIST.validationDataStream().iterator().asScala.toStream.take(100).map(testObj ⇒ {
-        var evalModel: PipelineNetwork = new PipelineNetwork
-        evalModel.add(trainingNetwork.encoder.getLayer)
-        evalModel.add(trainingNetwork.decoder.getLayer)
-        val result = evalModel.eval(testObj.data).data.head
-        Map[String, AnyRef](
-          "Input" → log.image(testObj.data.toGrayImage(), testObj.label),
-          "Output" → log.image(result.toGrayImage(), "Autoencoder Output")
-        ).asJava
-      }): _*)
-    }
-
-  }
-
-  private def _test(log: ScalaMarkdownPrintStream, trainingNetwork: SupervisedNetwork, data: Array[Array[Tensor]]) = {
-    log.h2("Training")
+  private def train[T <: SupervisedNetwork](log: ScalaMarkdownPrintStream, trainingNetwork: ⇒T, data: Array[Array[Tensor]]) : T = {
     val history = new scala.collection.mutable.ArrayBuffer[IterativeTrainer.Step]()
+    log.h2("Pre-Training")
+    var currentNetwork: Option[T] = None
+    log.eval {
+      var trainer : IterativeTrainer = null
+      val pretrainingThreshold = 4000.0
+      do {
+        currentNetwork = Option(trainingNetwork)
+        val trainable = new StochasticArrayTrainable(data.filter(_⇒Random.nextDouble() < (100.0 / data.length)), currentNetwork.get, Integer.MAX_VALUE)
+        //val normalized = new L12Normalizer(trainable).setFactor_L1(0.0).setFactor_L2(1.0)
+        trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
+        trainer.setOrientation(new GradientDescent())
+        trainer.setScaling(new ArmijoWolfeConditions().setAlpha(1e-7).setC2(0.99).setC1(1e-7))
+        trainer.setMonitor(new TrainingMonitor {
+          override def log(msg: String): Unit = {
+            System.err.println(msg)
+          }
+
+          override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
+            history += currentPoint
+          }
+        })
+        trainer.setMaxIterations(10)
+        trainer.setTimeout(1, TimeUnit.MINUTES)
+        trainer.setTerminateThreshold(pretrainingThreshold)
+      } while(trainer.run() > pretrainingThreshold)
+    }
+    log.h2("Training")
     schedule.foreach(scheduledStep ⇒ {
       log.h3(scheduledStep.toString)
       log.eval {
-        val trainable = new StochasticArrayTrainable(data, trainingNetwork, scheduledStep.sampleSize)
+        val trainable = new StochasticArrayTrainable(data, currentNetwork.get, scheduledStep.sampleSize)
+        //val normalized = new L12Normalizer(trainable).setFactor_L1(0.0).setFactor_L2(1.0)
         val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
-        trainer.setOrientation(new OwlQn())
+        trainer.setOrientation(scheduledStep.orient)
+        trainer.setScaling(scheduledStep.step)
         trainer.setMonitor(new TrainingMonitor {
           override def log(msg: String): Unit = {
             System.err.println(msg)
@@ -198,12 +252,14 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
           }
         })
         trainer.setTimeout(scheduledStep.timeoutMinutes, TimeUnit.MINUTES)
-        trainer.setTerminateThreshold(0.0)
+        trainer.setTerminateThreshold(scheduledStep.endFitness)
         trainer.run()
       }
     })
     log.p("A summary of the training timeline: ")
     summarizeHistory(log, history.toList)
+    IO.writeKryo(currentNetwork.get, log.newFile(MarkdownReporter.currentMethod + ".kryo.gz"))
+    currentNetwork.get
   }
 
   private def summarizeHistory(log: ScalaMarkdownPrintStream, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {

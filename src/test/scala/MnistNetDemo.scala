@@ -28,7 +28,7 @@ import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.net.media.{ConvolutionSynapseLayer, MaxSubsampleLayer}
 import com.simiacryptus.mindseye.net.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
-import com.simiacryptus.util.Util
+import com.simiacryptus.util.{IO, Util}
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
 import com.simiacryptus.util.text.TableOutput
@@ -48,7 +48,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
     "Flat Logistic Regression" in {
       report("simple", log ⇒ {
         test(log, log.eval {
-          trainingTimeMinutes = 5
+          trainingTimeMinutes = 2
           var model: PipelineNetwork = new PipelineNetwork
           model.add(new DenseSynapseLayerJBLAS(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.0
@@ -249,9 +249,11 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
       trainer.run()
     }
 
-    log.p("After training, we have the following parameterized model: ")
+    log.p("After training, we save the following parameterized model: ")
     log.eval {
-      model
+      val file = log.newFile("network.json")
+      IO.writeKryo(model, file)
+      IO.readKryo[PipelineNetwork](file)
     }
     log.p("A summary of the training timeline: ")
     summarizeHistory(log, history.toList)
