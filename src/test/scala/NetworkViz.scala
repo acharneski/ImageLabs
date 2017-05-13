@@ -1,6 +1,6 @@
 import java.util.UUID
 
-import com.simiacryptus.mindseye.net.dag.{DAGNetwork, DAGNode, InnerNode}
+import com.simiacryptus.mindseye.graph.dag.{DAGNetwork, DAGNode, InnerNode}
 import com.simiacryptus.mindseye.net.util.VerboseWrapper
 import guru.nidi.graphviz.attribute.RankDir
 import guru.nidi.graphviz.model.{Link, LinkSource, MutableNode}

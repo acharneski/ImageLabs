@@ -199,7 +199,7 @@ class WhiteboardDev extends WordSpec with MustMatchers with MarkdownReporter {
     }
 
     "Process Tiles" in {
-      report("tiles", log ⇒ {
+      report("tilesRgb", log ⇒ {
 
         val images: Seq[BufferedImage] = List(
           ImageIO.read(getClass.getClassLoader.getResourceAsStream("whiteboard_tile_1.png")),

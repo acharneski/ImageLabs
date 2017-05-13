@@ -27,9 +27,7 @@ import java.{lang, util}
 import javax.imageio.ImageIO
 
 import com.simiacryptus.mindseye.net.activation.{AbsActivationLayer, L1NormalizationLayer, LinearActivationLayer, SoftmaxActivationLayer}
-import com.simiacryptus.mindseye.net.basic.BiasLayer
-import com.simiacryptus.mindseye.net.dag._
-import com.simiacryptus.mindseye.net.dev.DenseSynapseLayerJBLAS
+import com.simiacryptus.mindseye.graph.dag._
 import com.simiacryptus.mindseye.net.loss.{EntropyLossLayer, MeanSqLossLayer}
 import com.simiacryptus.mindseye.net.media.{ConvolutionSynapseLayer, EntropyLayer}
 import com.simiacryptus.mindseye.net.reducers.SumInputsLayer
@@ -47,7 +45,9 @@ import smile.plot.{PlotCanvas, ScatterPlot}
 import scala.collection.JavaConverters._
 import scala.util.Random
 import NetworkViz._
-import com.simiacryptus.mindseye.net.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.graph.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer}
+import com.simiacryptus.mindseye.net.{SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt.{IterativeTrainer, StochasticArrayTrainable, Trainable, TrainingMonitor}
 
 class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
@@ -81,7 +81,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         log.p("Here we define the logic network that we are about to train: ")
         var model: PipelineNetwork = log.eval {
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new DenseSynapseLayerJBLAS(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayer(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.0
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -272,7 +272,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
           (x: Double, y: Double) ⇒ if (x < y) 0 else 1
         }, log.eval {
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new DenseSynapseLayerJBLAS(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayer(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.1
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -287,7 +287,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         }
         runTest(xor_fn, log.eval {
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new DenseSynapseLayerJBLAS(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayer(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.2
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -298,12 +298,12 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         runTest(xor_fn, log.eval {
           var model: PipelineNetwork = new PipelineNetwork
           val middleSize = Array[Int](15)
-          model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayer(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
           }))
           model.add(new BiasLayer(middleSize: _*))
           model.add(new AbsActivationLayer())
-          model.add(new DenseSynapseLayerJBLAS(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayer(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -318,7 +318,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         }
         runTest(circle_fn, log.eval {
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new DenseSynapseLayerJBLAS(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayer(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.2
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -328,12 +328,12 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         runTest(circle_fn, log.eval {
           var model: PipelineNetwork = new PipelineNetwork
           val middleSize = Array[Int](15)
-          model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayer(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
           }))
           model.add(new BiasLayer(middleSize: _*))
           model.add(new AbsActivationLayer())
-          model.add(new DenseSynapseLayerJBLAS(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayer(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
           }))
           model.add(new BiasLayer(outputSize: _*))

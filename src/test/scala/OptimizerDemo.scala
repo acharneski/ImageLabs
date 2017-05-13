@@ -21,12 +21,12 @@ import java.lang
 import java.util.concurrent.TimeUnit
 import java.util.function.{IntToDoubleFunction, ToDoubleFunction}
 
-import AutoencoderDemo.cvt
+import AutoencoderUtil._
+import com.simiacryptus.mindseye.graph.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.net._
 import com.simiacryptus.mindseye.net.activation.{ReLuActivationLayer, SoftmaxActivationLayer}
-import com.simiacryptus.mindseye.net.basic.BiasLayer
-import com.simiacryptus.mindseye.net.dev.DenseSynapseLayerJBLAS
 import com.simiacryptus.mindseye.net.loss.{EntropyLossLayer, MeanSqLossLayer}
+import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.util.Util
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
@@ -198,11 +198,11 @@ class OptimizerDemo extends WordSpec with MustMatchers with MarkdownReporter {
       }).toList
 
       var model: PipelineNetwork = new PipelineNetwork
-      model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize)
+      model.add(new DenseSynapseLayer(inputSize, middleSize)
         .setWeights(cvt((c: Coordinate) ⇒ Util.R.get.nextGaussian * 0.001)))
       model.add(new BiasLayer(middleSize: _*))
       //model.add(new ReLuActivationLayer().freeze)
-      model.add(new DenseSynapseLayerJBLAS(middleSize, inputSize)
+      model.add(new DenseSynapseLayer(middleSize, inputSize)
         .setWeights(cvt((c: Coordinate) ⇒ Util.R.get.nextGaussian * 0.001)))
       model.add(new BiasLayer(outputSize: _*))
       (model, data)
@@ -217,11 +217,11 @@ class OptimizerDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
       val middleSize = Array[Int](28, 28, 1)
       var model: PipelineNetwork = new PipelineNetwork
-      model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize)
+      model.add(new DenseSynapseLayer(inputSize, middleSize)
         .setWeights(cvt((c: Coordinate) ⇒ Util.R.get.nextGaussian * 0.001)))
       model.add(new BiasLayer(middleSize: _*))
       model.add(new ReLuActivationLayer().freeze)
-      model.add(new DenseSynapseLayerJBLAS(middleSize, outputSize)
+      model.add(new DenseSynapseLayer(middleSize, outputSize)
         .setWeights(cvt((c: Coordinate) ⇒ Util.R.get.nextGaussian * 0.001)))
       model.add(new BiasLayer(outputSize: _*))
       model.add(new SoftmaxActivationLayer)

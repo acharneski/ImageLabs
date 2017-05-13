@@ -21,12 +21,12 @@ import java.lang
 import java.util.concurrent.TimeUnit
 import java.util.function.ToDoubleFunction
 
+import com.simiacryptus.mindseye.graph.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.net.activation.{AbsActivationLayer, SoftmaxActivationLayer}
-import com.simiacryptus.mindseye.net.basic.BiasLayer
-import com.simiacryptus.mindseye.net.dev.{DenseSynapseLayerJBLAS, ToeplitzSynapseLayerJBLAS}
 import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.net.media.{ConvolutionSynapseLayer, MaxSubsampleLayer}
-import com.simiacryptus.mindseye.net.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer, ToeplitzSynapseLayer}
+import com.simiacryptus.mindseye.net.{SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.util.{IO, Util}
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
@@ -50,7 +50,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
         test(log, log.eval {
           trainingTimeMinutes = 2
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new DenseSynapseLayerJBLAS(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayer(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.0
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -66,12 +66,12 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
           trainingTimeMinutes = 10
           val middleSize = Array[Int](28, 28, 1)
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayer(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new BiasLayer(middleSize: _*))
           model.add(new AbsActivationLayer)
-          model.add(new DenseSynapseLayerJBLAS(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayer(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -87,12 +87,12 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
           trainingTimeMinutes = 10
           val middleSize = Array[Int](28, 28, 1)
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new DenseSynapseLayerJBLAS(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayer(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new BiasLayer(middleSize: _*))
           model.add(new AbsActivationLayer)
-          model.add(new DenseSynapseLayerJBLAS(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayer(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -108,11 +108,11 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
           trainingTimeMinutes = 60
           val middleSize = Array[Int](28, 28, 1)
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new ToeplitzSynapseLayerJBLAS(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new ToeplitzSynapseLayer(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new AbsActivationLayer)
-          model.add(new DenseSynapseLayerJBLAS(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayer(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -129,12 +129,12 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
           val middleSize1 = Array[Int](28, 28, 4)
           val middleSize2 = Array[Int](14, 14, 4)
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new ToeplitzSynapseLayerJBLAS(inputSize, middleSize1).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new ToeplitzSynapseLayer(inputSize, middleSize1).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new AbsActivationLayer)
           model.add(new MaxSubsampleLayer(2,2,1))
-          model.add(new DenseSynapseLayerJBLAS(middleSize2, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayer(middleSize2, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -153,17 +153,17 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
           val middleSize3 = Array[Int](14, 14, 16)
           val middleSize4 = Array[Int](7, 7, 16)
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new ToeplitzSynapseLayerJBLAS(inputSize, middleSize1).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new ToeplitzSynapseLayer(inputSize, middleSize1).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new AbsActivationLayer)
           model.add(new MaxSubsampleLayer(2,2,1))
-          model.add(new ToeplitzSynapseLayerJBLAS(middleSize2, middleSize3).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new ToeplitzSynapseLayer(middleSize2, middleSize3).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new AbsActivationLayer)
           model.add(new MaxSubsampleLayer(2,2,1))
-          model.add(new DenseSynapseLayerJBLAS(middleSize4, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayer(middleSize4, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -191,7 +191,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
           model.add(new MaxSubsampleLayer(2,2,1))
 
           def headDims = model.eval(new Tensor(inputSize:_*)).data(0).getDims
-          model.add(new DenseSynapseLayerJBLAS(headDims, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new DenseSynapseLayer(headDims, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new BiasLayer(headDims: _*))
