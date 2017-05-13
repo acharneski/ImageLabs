@@ -20,35 +20,30 @@
 import java.awt.geom.AffineTransform
 import java.awt.image.{AffineTransformOp, BufferedImage}
 import java.awt.{Color, Graphics2D}
-import java.util.UUID
 import java.util.concurrent.TimeUnit
 import java.util.function.{DoubleSupplier, ToDoubleFunction}
 import java.{lang, util}
 import javax.imageio.ImageIO
 
-import com.simiacryptus.mindseye.net.activation.{AbsActivationLayer, L1NormalizationLayer, LinearActivationLayer, SoftmaxActivationLayer}
+import NetworkViz._
 import com.simiacryptus.mindseye.graph.dag._
+import com.simiacryptus.mindseye.graph.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.net.activation.{AbsActivationLayer, L1NormalizationLayer, LinearActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.net.loss.{EntropyLossLayer, MeanSqLossLayer}
 import com.simiacryptus.mindseye.net.media.{ConvolutionSynapseLayer, EntropyLayer}
 import com.simiacryptus.mindseye.net.reducers.SumInputsLayer
-import com.simiacryptus.mindseye.net.util.VerboseWrapper
+import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer}
+import com.simiacryptus.mindseye.opt.{StochasticArrayTrainable, TrainingMonitor}
 import com.simiacryptus.util.Util
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
 import com.simiacryptus.util.text.TableOutput
-import guru.nidi.graphviz.attribute.RankDir
 import guru.nidi.graphviz.engine.{Format, Graphviz}
-import guru.nidi.graphviz.model._
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}
 
 import scala.collection.JavaConverters._
 import scala.util.Random
-import NetworkViz._
-import com.simiacryptus.mindseye.graph.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer}
-import com.simiacryptus.mindseye.net.{SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.opt.{IterativeTrainer, StochasticArrayTrainable, Trainable, TrainingMonitor}
 
 class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
@@ -70,11 +65,11 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         })
         log.p("And preview a few rows: ")
         log.eval {
-          TableOutput.create(data.take(10).map(testObj ⇒ Map[String,AnyRef](
+          TableOutput.create(data.take(10).map(testObj ⇒ Map[String, AnyRef](
             "Input1 (as Image)" → log.image(testObj(0).toGrayImage(), testObj(0).toString),
             "Input2 (as String)" → testObj(1).toString,
             "Input1 (as String)" → testObj(0).toString
-          ).asJava):_*)
+          ).asJava): _*)
         }
 
         log.h2("Model")
@@ -178,7 +173,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         log.p("The accuracy, summarized per category: ")
         log.eval {
           (0 to 9).map(actual ⇒ {
-            actual → (categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0) * 100.0 / categorizationMatrix.getOrElse(actual,Map.empty).values.sum)
+            actual → (categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0) * 100.0 / categorizationMatrix.getOrElse(actual, Map.empty).values.sum)
           }).toMap
         }
         log.p("The accuracy, summarized over the entire validation set: ")
@@ -223,7 +218,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
             trainer.run()
           }
 
-          def plotXY(gfx : Graphics2D) = {
+          def plotXY(gfx: Graphics2D) = {
             (0 to 400).foreach(x ⇒ (0 to 400).foreach(y ⇒ {
               function((x / 200.0) - 1.0, (y / 200.0) - 1.0) match {
                 case 0 ⇒ gfx.setColor(Color.RED)
@@ -243,6 +238,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
               gfx.drawRect(xx.toInt - 1, yy.toInt - 1, 3, 3)
             })
           }
+
           log.draw(gfx ⇒ {
             plotXY(gfx)
           }, width = 600, height = 600)
@@ -351,7 +347,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         val blurFilter = log.eval {
           def singleConvolution: ConvolutionSynapseLayer = {
             val convolution = new ConvolutionSynapseLayer(Array[Int](3, 3), 9)
-            (0 until 3).foreach(ii⇒{
+            (0 until 3).foreach(ii ⇒ {
               val i = ii + ii * 3
               convolution.kernel.set(Array[Int](0, 2, i), 0.333)
               convolution.kernel.set(Array[Int](1, 1, i), 0.333)
@@ -360,6 +356,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
             convolution.freeze
             convolution
           }
+
           val net = new PipelineNetwork
           net.add(singleConvolution)
           net.add(singleConvolution)
@@ -370,6 +367,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         log.p("We load an ideal training image, which we will try to reconstruct: ")
         val idealImage = log.eval {
           val read = ImageIO.read(getClass.getResourceAsStream("/monkey1.jpg"))
+
           def scale(img: BufferedImage, scale: Double) = {
             val w = img.getWidth
             val h = img.getHeight
@@ -378,6 +376,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
             at.scale(scale, scale)
             new AffineTransformOp(at, AffineTransformOp.TYPE_BILINEAR).filter(img, after)
           }
+
           scale(read, 0.5)
         }
 
@@ -391,7 +390,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         }
 
         val inputSize: Array[Int] = idealImageTensor.getDims
-        val zeroInput = new Tensor(inputSize:_*)
+        val zeroInput = new Tensor(inputSize: _*)
 
         log.p("Now we define a reconstruction network, which adapts a bias id to find the source image" +
           " given a post-filter image while also considering normalization factors including image entropy: ")
@@ -452,28 +451,6 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
   }
 
-  private def summarizeHistory(log: ScalaMarkdownPrintStream, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
-    log.eval {
-      val step = Math.max(Math.pow(10,Math.ceil(Math.log(history.size) / Math.log(10))-2), 1).toInt
-      TableOutput.create(history.filter(0==_.iteration%step).map(state ⇒
-        Map[String, AnyRef](
-          "iteration" → state.iteration.toInt.asInstanceOf[Integer],
-          "time" → state.time.toDouble.asInstanceOf[lang.Double],
-          "fitness" → state.point.value.toDouble.asInstanceOf[lang.Double]
-        ).asJava
-      ): _*)
-    }
-    log.eval {
-      val plot: PlotCanvas = ScatterPlot.plot(history.map(item ⇒ Array[Double](
-        item.iteration, Math.log(item.point.value)
-      )).toArray: _*)
-      plot.setTitle("Convergence Plot")
-      plot.setAxisLabels("Iteration", "log(Fitness)")
-      plot.setSize(600, 400)
-      plot
-    }
-  }
-
   def toOut(label: String): Int = {
     var i = 0
     while ( {
@@ -499,6 +476,28 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
     val ndArray = new Tensor(max)
     ndArray.set(out, 1)
     ndArray
+  }
+
+  private def summarizeHistory(log: ScalaMarkdownPrintStream, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
+    log.eval {
+      val step = Math.max(Math.pow(10, Math.ceil(Math.log(history.size) / Math.log(10)) - 2), 1).toInt
+      TableOutput.create(history.filter(0 == _.iteration % step).map(state ⇒
+        Map[String, AnyRef](
+          "iteration" → state.iteration.toInt.asInstanceOf[Integer],
+          "time" → state.time.toDouble.asInstanceOf[lang.Double],
+          "fitness" → state.point.value.toDouble.asInstanceOf[lang.Double]
+        ).asJava
+      ): _*)
+    }
+    log.eval {
+      val plot: PlotCanvas = ScatterPlot.plot(history.map(item ⇒ Array[Double](
+        item.iteration, Math.log(item.point.value)
+      )).toArray: _*)
+      plot.setTitle("Convergence Plot")
+      plot.setAxisLabels("Iteration", "log(Fitness)")
+      plot.setSize(600, 400)
+      plot
+    }
   }
 
 }

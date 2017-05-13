@@ -103,6 +103,7 @@ class Subtasks extends WordSpec with MustMatchers with MarkdownReporter {
               mix(quad.d, center, size)
             )
           }
+
           val candidateQuadrangles: List[Quadrilateral_F32] = log.code(() ⇒ {
             val imageBounds = new Rectangle2D_F32(0, 0, image1.getWidth, image1.getHeight)
             cross(pairs(horizontals), pairs(verticals)).map(xa ⇒ {
@@ -130,7 +131,8 @@ class Subtasks extends WordSpec with MustMatchers with MarkdownReporter {
               area * Math.pow(squareness, 4)
             })
           })
-          def draw(gfx : Graphics, quad: Quadrilateral_F32) = {
+
+          def draw(gfx: Graphics, quad: Quadrilateral_F32) = {
             gfx.drawPolygon(
               Array(
                 quad.b.x.toInt * width / image1.getWidth,
@@ -145,6 +147,7 @@ class Subtasks extends WordSpec with MustMatchers with MarkdownReporter {
                 quad.d.y.toInt * height / image1.getHeight
               ), 4)
           }
+
           log.draw((gfx: Graphics) ⇒ {
             gfx.drawImage(image1, 0, 0, width, height, null)
             gfx.setColor(Color.YELLOW)

@@ -48,7 +48,7 @@ import boofcv.struct.feature._
 import boofcv.struct.geo.AssociatedPair
 import boofcv.struct.image.{GrayF32, GrayS32, ImageType, Planar, _}
 import georegression.geometry.UtilPolygons2D_F32
-import georegression.metric.{Distance2D_F32, Intersection2D_F32}
+import georegression.metric.Intersection2D_F32
 import georegression.struct.homography.Homography2D_F64
 import georegression.struct.line.{LineParametric2D_F32, LineSegment2D_F32}
 import georegression.struct.point.{Point2D_F32, Point2D_F64}
@@ -184,7 +184,7 @@ class WhiteboardDev extends WordSpec with MustMatchers with MarkdownReporter {
         )
 
         val tileBounds = new Rectangle2D_F32(750, 750, 2000, 1500)
-        images.foreach(img⇒log.draw(gfx ⇒ {
+        images.foreach(img ⇒ log.draw(gfx ⇒ {
           gfx.drawImage(primaryImage, 0, 0, null)
           gfx.setStroke(new BasicStroke(3))
           gfx.setColor(Color.YELLOW)
@@ -192,7 +192,7 @@ class WhiteboardDev extends WordSpec with MustMatchers with MarkdownReporter {
           gfx.setColor(Color.RED)
           gfx.drawRect(tileBounds.p0.x.toInt, tileBounds.p0.x.toInt, tileBounds.getWidth.toInt, tileBounds.getHeight.toInt)
         }, height = primaryImage.getHeight, width = primaryImage.getWidth))
-        images.foreach(img⇒log.code(()⇒{
+        images.foreach(img ⇒ log.code(() ⇒ {
           img.getSubimage(tileBounds.p0.x.toInt, tileBounds.p0.x.toInt, tileBounds.getWidth.toInt, tileBounds.getHeight.toInt)
         }))
       })
@@ -324,7 +324,8 @@ class WhiteboardDev extends WordSpec with MustMatchers with MarkdownReporter {
           val stabilityConfig = new Stability
           FactoryDetectDescribe.surfStable(fastHessian, stabilityConfig, new ConfigSlidingIntegral(samplePeriod, windowSize, radius, weightSigma, sampleWidth), classOf[GrayF32])
         }
-        def merge(img: immutable.Seq[BufferedImage]): List[BufferedImage] = rectify(log, featureDetector1, false)(img.head,img.tail:_*)
+
+        def merge(img: immutable.Seq[BufferedImage]): List[BufferedImage] = rectify(log, featureDetector1, false)(img.head, img.tail: _*)
 
         val normalizedLighting: immutable.Seq[BufferedImage] = removeGradualLighting(log)(images.head, images.tail: _*)
 
@@ -555,29 +556,29 @@ class WhiteboardDev extends WordSpec with MustMatchers with MarkdownReporter {
       VisualizeBinaryData.renderBinary(shapeThresholdImage, false, null)
     })
 
-//
-//    import breeze.linalg.DenseVector
-//    import breeze.optimize.{ApproximateGradientFunction, LBFGS}
-//    def fn(v: DenseVector[Double]): Double = {
-//      val trialQuad: Quadrilateral_F32 = new Quadrilateral_F32(v(0).toFloat, v(1).toFloat, v(2).toFloat, v(3).toFloat, v(4).toFloat, v(5).toFloat, v(6).toFloat, v(7).toFloat)
-//      val stepSize = 2
-//      (0 until image.getWidth by stepSize).flatMap(x ⇒ {
-//        (0 until image.getHeight by stepSize).map(y ⇒ {
-//          val pt = new Point2D_F32(x, y)
-//          val distance = Distance2D_F32.distance(trialQuad, pt)
-//          val inside = if (Intersection2D_F32.contains(trialQuad, pt)) 1 else -1
-//          val pixel = shapeThresholdImage.get(x, y)
-//          (distance * inside * pixel)
-//        })
-//      }).sum
-//    }
-//    val startingPoint: DenseVector[Double] = DenseVector[Double](startQuad.a.x, startQuad.a.y, startQuad.b.x, startQuad.b.y,
-//      startQuad.c.x, startQuad.c.y, startQuad.d.x, startQuad.d.y)
-//    val gradientFunction = new ApproximateGradientFunction(fn _)
-//    val lbfgs: LBFGS[DenseVector[Double]] = new LBFGS[DenseVector[Double]](maxIter = 100, m = 3)
-//    val minimized: DenseVector[Double] = lbfgs.minimize(gradientFunction, startingPoint)
-//    val optimizedQuad = new Quadrilateral_F32(minimized(0).toFloat, minimized(1).toFloat, minimized(2).toFloat, minimized(3).toFloat,
-//      minimized(4).toFloat, minimized(5).toFloat, minimized(6).toFloat, minimized(7).toFloat)
+    //
+    //    import breeze.linalg.DenseVector
+    //    import breeze.optimize.{ApproximateGradientFunction, LBFGS}
+    //    def fn(v: DenseVector[Double]): Double = {
+    //      val trialQuad: Quadrilateral_F32 = new Quadrilateral_F32(v(0).toFloat, v(1).toFloat, v(2).toFloat, v(3).toFloat, v(4).toFloat, v(5).toFloat, v(6).toFloat, v(7).toFloat)
+    //      val stepSize = 2
+    //      (0 until image.getWidth by stepSize).flatMap(x ⇒ {
+    //        (0 until image.getHeight by stepSize).map(y ⇒ {
+    //          val pt = new Point2D_F32(x, y)
+    //          val distance = Distance2D_F32.distance(trialQuad, pt)
+    //          val inside = if (Intersection2D_F32.contains(trialQuad, pt)) 1 else -1
+    //          val pixel = shapeThresholdImage.get(x, y)
+    //          (distance * inside * pixel)
+    //        })
+    //      }).sum
+    //    }
+    //    val startingPoint: DenseVector[Double] = DenseVector[Double](startQuad.a.x, startQuad.a.y, startQuad.b.x, startQuad.b.y,
+    //      startQuad.c.x, startQuad.c.y, startQuad.d.x, startQuad.d.y)
+    //    val gradientFunction = new ApproximateGradientFunction(fn _)
+    //    val lbfgs: LBFGS[DenseVector[Double]] = new LBFGS[DenseVector[Double]](maxIter = 100, m = 3)
+    //    val minimized: DenseVector[Double] = lbfgs.minimize(gradientFunction, startingPoint)
+    //    val optimizedQuad = new Quadrilateral_F32(minimized(0).toFloat, minimized(1).toFloat, minimized(2).toFloat, minimized(3).toFloat,
+    //      minimized(4).toFloat, minimized(5).toFloat, minimized(6).toFloat, minimized(7).toFloat)
     val optimizedQuad = startQuad
     log.draw(gfx ⇒ {
       gfx.drawImage(image, 0, 0, null)
@@ -587,6 +588,32 @@ class WhiteboardDev extends WordSpec with MustMatchers with MarkdownReporter {
       gfx.setColor(Color.RED)
       draw(gfx, scale(optimizedQuad, 0.9f))
     }, width = image.getWidth, height = image.getHeight)
+  }
+
+  def scale(quad: Quadrilateral_F32, size: Float) = {
+    val center = UtilPolygons2D_F32.center(quad, null)
+    new Quadrilateral_F32(
+      mix(quad.a, center, size),
+      mix(quad.b, center, size),
+      mix(quad.c, center, size),
+      mix(quad.d, center, size)
+    )
+  }
+
+  def draw(gfx: Graphics, quad: Quadrilateral_F32) = {
+    gfx.drawPolygon(
+      Array(
+        quad.b.x.toInt,
+        quad.a.x.toInt,
+        quad.c.x.toInt,
+        quad.d.x.toInt
+      ),
+      Array(
+        quad.b.y.toInt,
+        quad.a.y.toInt,
+        quad.c.y.toInt,
+        quad.d.y.toInt
+      ), 4)
   }
 
   def apply(log: ScalaMarkdownPrintStream, op: GrayF32 ⇒ GrayU8)(primaryImage: BufferedImage, secondaryImages: BufferedImage*) = {
@@ -681,111 +708,137 @@ class WhiteboardDev extends WordSpec with MustMatchers with MarkdownReporter {
       FactoryDetectLineAlgs.lineRansac(regionSize, thresholdEdge, thresholdAngle, connectLines, classOf[GrayF32], classOf[GrayF32])
     }
     (List(primaryImage) ++ secondaryImages).map(img ⇒ resizeForFFT(img)).map(img ⇒ {
-        val rgb: Planar[GrayF32] = ConvertBufferedImage.convertFromMulti(img, null, true, classOf[GrayF32])
-        val hsv = rgb.createSameShape()
-        ColorHsv.rgbToHsv_F32(rgb, hsv)
+      val rgb: Planar[GrayF32] = ConvertBufferedImage.convertFromMulti(img, null, true, classOf[GrayF32])
+      val hsv = rgb.createSameShape()
+      ColorHsv.rgbToHsv_F32(rgb, hsv)
 
-        val normalizedLighting: GrayF32 = freqFilter(hsv.getBand(2))
-        val normalizedLightImg = log.code(() ⇒ {
-          val to: BufferedImage = ConvertBufferedImage.convertTo(normalizedLighting, null)
-          VisualizeImageData.standard(normalizedLighting, to)
-        })
-        val hsvNormalized = hsv.clone()
-        hsvNormalized.setBand(2, normalizedLighting)
-        val rgbNormalized = rgb.clone()
-        ColorHsv.hsvToRgb_F32(hsvNormalized, rgbNormalized)
-        log.code(() ⇒ {
-          ConvertBufferedImage.convertTo_F32(rgbNormalized, null, false)
-        })
-
-        val colorBand = {
-          val bandImg: GrayF32 = hsv.getBand(2)
-          val to = ConvertBufferedImage.convertTo(bandImg, null)
-          VisualizeImageData.standard(bandImg, to)
-          //normalizedLightImg // override above
-        }
-
-        val thresholded: BufferedImage = {
-          val single = ConvertBufferedImage.convertFromSingle(colorBand, null, classOf[GrayF32])
-          val binary = new GrayU8(single.width, single.height)
-          val radius = 60
-          val scale = 1.0
-          val localGaussian = GThresholdImageOps.localGaussian(single, binary, radius, scale, true, null, null)
-          var result = localGaussian
-          log.code(() ⇒ {
-            VisualizeBinaryData.renderBinary(result, false, null)
-          })
-          result = BinaryImageOps.erode4(result, 1, null)
-          result = BinaryImageOps.erode8(result, 1, null)
-          //result = BinaryImageOps.thin(result, 10, null)
-          log.code(() ⇒ {
-            VisualizeBinaryData.renderBinary(result, false, null)
-          })
-        }
-
-        val segmentation: BufferedImage = {
-          val input = ConvertBufferedImage.convertFrom(thresholded, null: GrayF32)
-          val imageType = ImageType.single(classOf[GrayF32])
-          val alg = FactoryImageSegmentation.fh04(new ConfigFh04(100, 30), imageType)
-          val segmentation = new GrayS32(thresholded.getWidth, thresholded.getHeight)
-          alg.segment(input, segmentation)
-          val superpixels = alg.getTotalSuperpixels
-          log.code(() ⇒ {
-            VisualizeRegions.regions(segmentation, superpixels, null)
-          })
-
-          val regionMemberCount = new GrowQueue_I32
-          regionMemberCount.resize(superpixels)
-          ImageSegmentationOps.countRegionPixels(segmentation, superpixels, regionMemberCount.data)
-
-          val segmentColors: Map[Int, Array[Float]] = (0 until segmentation.getWidth).flatMap(x ⇒ (0 until segmentation.getHeight).map(y ⇒ {
-            segmentation.get(x, y) → rgbNormalized.bands.map(_.get(x,y))
-          })).groupBy(x⇒x._1).mapValues(_.map(_._2)).mapValues((pixels: immutable.Seq[Array[Float]]) ⇒ {
-            (0 until 3).map(band⇒pixels.map(_(band)).sum / pixels.size).toArray
-          })
-
-          val segmentColor: ColorQueue_F32 = new ColorQueue_F32(3)
-          segmentColor.resize(superpixels)
-          val averageLuminosity = ImageStatistics.mean(hsv.getBand(2))
-          (0 until superpixels).foreach(i ⇒ {
-            val count = regionMemberCount.get(i)
-            val avgColor = segmentColors(i)
-            val hsvColor = new Array[Float](3)
-            val rgbColor = new Array[Float](3)
-            ColorHsv.rgbToHsv(avgColor(0),avgColor(1),avgColor(2),hsvColor)
-            val isWhite = hsvColor(1) < 0.05 && hsvColor(2) > averageLuminosity
-            val isBlack = hsvColor(1) < 0.05 && hsvColor(2) < averageLuminosity
-            if (count > 50 && count < 50000 && !isWhite) {
-              hsvColor(2) = if(isBlack) 0.0f else 255.0f
-              hsvColor(1) = if(isBlack) 0.0f else 1.0f
-              ColorHsv.hsvToRgb(hsvColor(0),hsvColor(1),hsvColor(2),rgbColor)
-              segmentColor.getData()(i) = rgbColor
-            } else {
-              //segmentColor.getTrainingData()(i) = Array(0.0f, 0.0f, 0.0f)
-              segmentColor.getData()(i) = Array(255.0f, 255.0f, 255.0f)
-            }
-          })
-
-          log.code(() ⇒ {
-            VisualizeRegions.regionsColor(segmentation, segmentColor, null)
-          })
-        }
-
-
-        val edgeDetectorSourceImage = segmentation
-        val segments: util.List[LineSegment2D_F32] = detector.detect(ConvertBufferedImage.convertFromSingle(edgeDetectorSourceImage, null, classOf[GrayF32]))
-        log.draw(gfx ⇒ {
-          gfx.drawImage(edgeDetectorSourceImage, 0, 0, null)
-          gfx.setStroke(new BasicStroke(3))
-          gfx.setColor(Color.GREEN)
-          segments.asScala.foreach(line ⇒ {
-            gfx.drawLine(
-              (line.a.x).toInt, (line.a.y).toInt,
-              (line.b.x).toInt, (line.b.y).toInt)
-          })
-        }, width = edgeDetectorSourceImage.getWidth, height = edgeDetectorSourceImage.getHeight())
-        segments
+      val normalizedLighting: GrayF32 = freqFilter(hsv.getBand(2))
+      val normalizedLightImg = log.code(() ⇒ {
+        val to: BufferedImage = ConvertBufferedImage.convertTo(normalizedLighting, null)
+        VisualizeImageData.standard(normalizedLighting, to)
       })
+      val hsvNormalized = hsv.clone()
+      hsvNormalized.setBand(2, normalizedLighting)
+      val rgbNormalized = rgb.clone()
+      ColorHsv.hsvToRgb_F32(hsvNormalized, rgbNormalized)
+      log.code(() ⇒ {
+        ConvertBufferedImage.convertTo_F32(rgbNormalized, null, false)
+      })
+
+      val colorBand = {
+        val bandImg: GrayF32 = hsv.getBand(2)
+        val to = ConvertBufferedImage.convertTo(bandImg, null)
+        VisualizeImageData.standard(bandImg, to)
+        //normalizedLightImg // override above
+      }
+
+      val thresholded: BufferedImage = {
+        val single = ConvertBufferedImage.convertFromSingle(colorBand, null, classOf[GrayF32])
+        val binary = new GrayU8(single.width, single.height)
+        val radius = 60
+        val scale = 1.0
+        val localGaussian = GThresholdImageOps.localGaussian(single, binary, radius, scale, true, null, null)
+        var result = localGaussian
+        log.code(() ⇒ {
+          VisualizeBinaryData.renderBinary(result, false, null)
+        })
+        result = BinaryImageOps.erode4(result, 1, null)
+        result = BinaryImageOps.erode8(result, 1, null)
+        //result = BinaryImageOps.thin(result, 10, null)
+        log.code(() ⇒ {
+          VisualizeBinaryData.renderBinary(result, false, null)
+        })
+      }
+
+      val segmentation: BufferedImage = {
+        val input = ConvertBufferedImage.convertFrom(thresholded, null: GrayF32)
+        val imageType = ImageType.single(classOf[GrayF32])
+        val alg = FactoryImageSegmentation.fh04(new ConfigFh04(100, 30), imageType)
+        val segmentation = new GrayS32(thresholded.getWidth, thresholded.getHeight)
+        alg.segment(input, segmentation)
+        val superpixels = alg.getTotalSuperpixels
+        log.code(() ⇒ {
+          VisualizeRegions.regions(segmentation, superpixels, null)
+        })
+
+        val regionMemberCount = new GrowQueue_I32
+        regionMemberCount.resize(superpixels)
+        ImageSegmentationOps.countRegionPixels(segmentation, superpixels, regionMemberCount.data)
+
+        val segmentColors: Map[Int, Array[Float]] = (0 until segmentation.getWidth).flatMap(x ⇒ (0 until segmentation.getHeight).map(y ⇒ {
+          segmentation.get(x, y) → rgbNormalized.bands.map(_.get(x, y))
+        })).groupBy(x ⇒ x._1).mapValues(_.map(_._2)).mapValues((pixels: immutable.Seq[Array[Float]]) ⇒ {
+          (0 until 3).map(band ⇒ pixels.map(_ (band)).sum / pixels.size).toArray
+        })
+
+        val segmentColor: ColorQueue_F32 = new ColorQueue_F32(3)
+        segmentColor.resize(superpixels)
+        val averageLuminosity = ImageStatistics.mean(hsv.getBand(2))
+        (0 until superpixels).foreach(i ⇒ {
+          val count = regionMemberCount.get(i)
+          val avgColor = segmentColors(i)
+          val hsvColor = new Array[Float](3)
+          val rgbColor = new Array[Float](3)
+          ColorHsv.rgbToHsv(avgColor(0), avgColor(1), avgColor(2), hsvColor)
+          val isWhite = hsvColor(1) < 0.05 && hsvColor(2) > averageLuminosity
+          val isBlack = hsvColor(1) < 0.05 && hsvColor(2) < averageLuminosity
+          if (count > 50 && count < 50000 && !isWhite) {
+            hsvColor(2) = if (isBlack) 0.0f else 255.0f
+            hsvColor(1) = if (isBlack) 0.0f else 1.0f
+            ColorHsv.hsvToRgb(hsvColor(0), hsvColor(1), hsvColor(2), rgbColor)
+            segmentColor.getData()(i) = rgbColor
+          } else {
+            //segmentColor.getTrainingData()(i) = Array(0.0f, 0.0f, 0.0f)
+            segmentColor.getData()(i) = Array(255.0f, 255.0f, 255.0f)
+          }
+        })
+
+        log.code(() ⇒ {
+          VisualizeRegions.regionsColor(segmentation, segmentColor, null)
+        })
+      }
+
+
+      val edgeDetectorSourceImage = segmentation
+      val segments: util.List[LineSegment2D_F32] = detector.detect(ConvertBufferedImage.convertFromSingle(edgeDetectorSourceImage, null, classOf[GrayF32]))
+      log.draw(gfx ⇒ {
+        gfx.drawImage(edgeDetectorSourceImage, 0, 0, null)
+        gfx.setStroke(new BasicStroke(3))
+        gfx.setColor(Color.GREEN)
+        segments.asScala.foreach(line ⇒ {
+          gfx.drawLine(
+            (line.a.x).toInt, (line.a.y).toInt,
+            (line.b.x).toInt, (line.b.y).toInt)
+        })
+      }, width = edgeDetectorSourceImage.getWidth, height = edgeDetectorSourceImage.getHeight())
+      segments
+    })
+  }
+
+  def resizeForFFT(img: BufferedImage): BufferedImage = {
+    def normalize(x: Double) = Math.pow(2.0, Math.ceil(Math.log(x) / Math.log(2))).toInt
+
+    val image = new BufferedImage(normalize(img.getWidth), normalize(img.getHeight), BufferedImage.TYPE_INT_RGB)
+    val gfx = image.getGraphics()
+    val hints = new RenderingHints(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC)
+    gfx.asInstanceOf[Graphics2D].setRenderingHints(hints)
+    gfx.drawImage(img, 0, 0, image.getWidth, image.getHeight, null)
+    image
+  }
+
+  def freqFilter(bandImg: GrayF32): GrayF32 = {
+    val minWidthFreq = 32
+    val minAreaFreq = 256
+    val copy = bandImg.createSameShape()
+    val tensor: Array[Array[Float]] = (0 until bandImg.getWidth).map(x ⇒ (0 until bandImg.getHeight).map(y ⇒ bandImg.get(x, y)).toArray).toArray
+    val fft = new FloatFFT_2D(bandImg.getWidth, bandImg.getHeight)
+    fft.realForward(tensor)
+    (0 until bandImg.getWidth).foreach(x ⇒ (0 until bandImg.getHeight).foreach(y ⇒ {
+      if (!(x == 0 && y == 0) && (x < minWidthFreq && y < minWidthFreq) && ((x * y) < minAreaFreq)) tensor(x)(y) = 0.0f
+    }))
+    fft.realInverse(tensor, true)
+    (0 until bandImg.getWidth).foreach(x ⇒ (0 until bandImg.getHeight).foreach(y ⇒ copy.set(x, y, tensor(x)(y))))
+    copy
   }
 
   def colorSpaces[T <: TupleDesc[_]](log: ScalaMarkdownPrintStream)(primaryImage: BufferedImage, secondaryImages: BufferedImage*) = (List(primaryImage) ++ secondaryImages).map(img ⇒ {
@@ -834,17 +887,6 @@ class WhiteboardDev extends WordSpec with MustMatchers with MarkdownReporter {
     }, width = img.getWidth * 3, height = img.getHeight() * 5)
   })
 
-  def resizeForFFT(img: BufferedImage): BufferedImage = {
-    def normalize(x: Double) = Math.pow(2.0, Math.ceil(Math.log(x) / Math.log(2))).toInt
-
-    val image = new BufferedImage(normalize(img.getWidth), normalize(img.getHeight), BufferedImage.TYPE_INT_RGB)
-    val gfx = image.getGraphics()
-    val hints = new RenderingHints(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC)
-    gfx.asInstanceOf[Graphics2D].setRenderingHints(hints)
-    gfx.drawImage(img, 0, 0, image.getWidth, image.getHeight, null)
-    image
-  }
-
   def removeGradualLighting[T <: TupleDesc[_]](log: ScalaMarkdownPrintStream)(primaryImage: BufferedImage, secondaryImages: BufferedImage*) = (List(primaryImage) ++ secondaryImages)
     .map(img ⇒ resizeForFFT(img))
     .map(img ⇒ {
@@ -858,22 +900,6 @@ class WhiteboardDev extends WordSpec with MustMatchers with MarkdownReporter {
         gfx.drawImage(display, 0, 0, null)
       }, width = img.getWidth * 1, height = img.getHeight() * 1)
     })
-
-
-  def freqFilter(bandImg: GrayF32): GrayF32 = {
-    val minWidthFreq = 32
-    val minAreaFreq = 256
-    val copy = bandImg.createSameShape()
-    val tensor: Array[Array[Float]] = (0 until bandImg.getWidth).map(x ⇒ (0 until bandImg.getHeight).map(y ⇒ bandImg.get(x, y)).toArray).toArray
-    val fft = new FloatFFT_2D(bandImg.getWidth, bandImg.getHeight)
-    fft.realForward(tensor)
-    (0 until bandImg.getWidth).foreach(x ⇒ (0 until bandImg.getHeight).foreach(y ⇒ {
-      if (!(x == 0 && y == 0) && (x < minWidthFreq && y < minWidthFreq) && ((x * y) < minAreaFreq)) tensor(x)(y) = 0.0f
-    }))
-    fft.realInverse(tensor, true)
-    (0 until bandImg.getWidth).foreach(x ⇒ (0 until bandImg.getHeight).foreach(y ⇒ copy.set(x, y, tensor(x)(y))))
-    copy
-  }
 
   def rectify[T <: TupleDesc[_]](log: ScalaMarkdownPrintStream, featureDetector: DetectDescribePoint[GrayF32, T], expand: Boolean = true)(primaryImage: BufferedImage, secondaryImages: BufferedImage*): List[BufferedImage] = {
     val (pointsA, descriptionsA) = log.code(() ⇒ {
@@ -1029,20 +1055,6 @@ class WhiteboardDev extends WordSpec with MustMatchers with MarkdownReporter {
     pairs
   }
 
-  def scale(quad: Quadrilateral_F32, size: Float) = {
-    val center = UtilPolygons2D_F32.center(quad, null)
-    new Quadrilateral_F32(
-      mix(quad.a, center, size),
-      mix(quad.b, center, size),
-      mix(quad.c, center, size),
-      mix(quad.d, center, size)
-    )
-  }
-
-  def mix(a: Point2D_F32, b: Point2D_F32, d: Float): Point2D_F32 = {
-    return new Point2D_F32(a.x * d + b.x * (1 - d), a.y * d + b.y * (1 - d))
-  }
-
   def scale(quad: Rectangle2D_F32, size: Float) = {
     val center = mix(quad.p0, quad.p1, 0.5f)
     val a = mix(quad.p0, center, size)
@@ -1052,20 +1064,8 @@ class WhiteboardDev extends WordSpec with MustMatchers with MarkdownReporter {
     )
   }
 
-  def draw(gfx: Graphics, quad: Quadrilateral_F32) = {
-    gfx.drawPolygon(
-      Array(
-        quad.b.x.toInt,
-        quad.a.x.toInt,
-        quad.c.x.toInt,
-        quad.d.x.toInt
-      ),
-      Array(
-        quad.b.y.toInt,
-        quad.a.y.toInt,
-        quad.c.y.toInt,
-        quad.d.y.toInt
-      ), 4)
+  def mix(a: Point2D_F32, b: Point2D_F32, d: Float): Point2D_F32 = {
+    return new Point2D_F32(a.x * d + b.x * (1 - d), a.y * d + b.y * (1 - d))
   }
 
   def rotate(r: Quadrilateral_F32): Quadrilateral_F32 = {

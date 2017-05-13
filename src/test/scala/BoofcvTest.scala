@@ -22,9 +22,9 @@ import java.awt.{BasicStroke, Color, Graphics2D, RenderingHints}
 import java.util
 import javax.imageio.ImageIO
 
-import boofcv.abst.feature.associate.{AssociateDescription, ScoreAssociation}
-import boofcv.abst.feature.describe.{ConfigBrief, DescribeRegionPoint}
+import boofcv.abst.feature.associate.ScoreAssociation
 import boofcv.abst.feature.describe.ConfigSurfDescribe.Stability
+import boofcv.abst.feature.describe.{ConfigBrief, DescribeRegionPoint}
 import boofcv.abst.feature.detdesc.DetectDescribePoint
 import boofcv.abst.feature.detect.interest.{ConfigFastHessian, ConfigGeneralDetector, InterestPointDetector}
 import boofcv.abst.feature.detect.line.{DetectLine, DetectLineSegment}
@@ -41,11 +41,10 @@ import boofcv.factory.feature.describe.FactoryDescribeRegionPoint
 import boofcv.factory.feature.detdesc.FactoryDetectDescribe
 import boofcv.factory.feature.detect.interest.{FactoryDetectPoint, FactoryInterestPoint}
 import boofcv.factory.feature.detect.line.{ConfigHoughFoot, ConfigHoughFootSubimage, ConfigHoughPolar, FactoryDetectLineAlgs}
-import boofcv.factory.feature.tracker.FactoryPointTracker
 import boofcv.factory.geo.{ConfigRansac, FactoryMultiViewRobust}
 import boofcv.factory.interpolate.FactoryInterpolation
 import boofcv.io.image.ConvertBufferedImage
-import boofcv.struct.feature.{AssociatedIndex, BrightFeature, TupleDesc, TupleDesc_B}
+import boofcv.struct.feature.{AssociatedIndex, BrightFeature, TupleDesc_B}
 import boofcv.struct.geo.AssociatedPair
 import boofcv.struct.image._
 import georegression.struct.homography.Homography2D_F64
@@ -68,13 +67,14 @@ class BoofcvTest extends WordSpec with MustMatchers with MarkdownReporter {
         val image1 = ImageIO.read(getClass.getClassLoader.getResourceAsStream("Whiteboard1.jpg"))
         val width = 1200
         val height = image1.getHeight * width / image1.getWidth()
+
         def fn(detector: DetectLine[GrayU8]) = {
           log.draw(gfx ⇒ {
             val found: util.List[LineParametric2D_F32] = detector.detect(ConvertBufferedImage.convertFromSingle(image1, null, classOf[GrayU8]))
             gfx.drawImage(image1, 0, 0, width, height, null)
             found.asScala.foreach(line ⇒ {
               System.out.println(line)
-              if(Math.abs(line.slope.x) > Math.abs(line.slope.y)) {
+              if (Math.abs(line.slope.x) > Math.abs(line.slope.y)) {
                 val x1 = 0
                 val y1 = (line.p.y - line.p.x * line.slope.y / line.slope.x).toInt
                 val x2 = image1.getWidth
@@ -96,6 +96,7 @@ class BoofcvTest extends WordSpec with MustMatchers with MarkdownReporter {
             })
           }, width = width, height = height)
         }
+
         val edgeThreshold: Float = 100
         val maxLines: Int = 100
         val localMaxRadius = 4
@@ -109,11 +110,11 @@ class BoofcvTest extends WordSpec with MustMatchers with MarkdownReporter {
           FactoryDetectLineAlgs.houghPolar(new ConfigHoughPolar(localMaxRadius, minCounts, 2, resolutionAngle, edgeThreshold, maxLines), classOf[GrayU8], classOf[GrayS16])
         }))
         log.h2("HoughFoot")
-        fn(log.code(()⇒{
+        fn(log.code(() ⇒ {
           FactoryDetectLineAlgs.houghFoot(new ConfigHoughFoot(localMaxRadius, minCounts, minDistanceFromOrigin, edgeThreshold, maxLines), classOf[GrayU8], classOf[GrayS16])
         }))
         log.h2("HoughFootSubimage")
-        fn(log.code(()⇒{
+        fn(log.code(() ⇒ {
           FactoryDetectLineAlgs.houghFootSub(new ConfigHoughFootSubimage(localMaxRadius, minCounts, minDistanceFromOrigin, edgeThreshold, maxLines, totalHorizontalDivisions, totalVerticalDivisions), classOf[GrayU8], classOf[GrayS16])
         }))
       })
@@ -124,6 +125,7 @@ class BoofcvTest extends WordSpec with MustMatchers with MarkdownReporter {
         val image1 = ImageIO.read(getClass.getClassLoader.getResourceAsStream("Whiteboard1.jpg"))
         val width = 1200
         val height = image1.getHeight * width / image1.getWidth()
+
         def fn(detector: DetectLineSegment[GrayF32]) = {
           log.draw(gfx ⇒ {
             val found: util.List[LineSegment2D_F32] = detector.detect(ConvertBufferedImage.convertFromSingle(image1, null, classOf[GrayF32]))
@@ -136,7 +138,8 @@ class BoofcvTest extends WordSpec with MustMatchers with MarkdownReporter {
             })
           }, width = width, height = height)
         }
-        fn(log.code(()⇒{
+
+        fn(log.code(() ⇒ {
           FactoryDetectLineAlgs.lineRansac(40, 30, 2.36, true, classOf[GrayF32], classOf[GrayF32])
         }))
       })
@@ -150,8 +153,8 @@ class BoofcvTest extends WordSpec with MustMatchers with MarkdownReporter {
             gfx.drawImage(primaryImage, 0, 0, null)
             gfx.setStroke(new BasicStroke(2))
             points.asScala.zip(descriptions.toList.asScala).foreach(x ⇒ {
-              val (pt,d) = x
-              if(d.white) {
+              val (pt, d) = x
+              if (d.white) {
                 gfx.setColor(Color.GREEN)
               } else {
                 gfx.setColor(Color.RED)
@@ -166,7 +169,7 @@ class BoofcvTest extends WordSpec with MustMatchers with MarkdownReporter {
             gfx.drawImage(primaryImage, 0, 0, null)
             gfx.setStroke(new BasicStroke(2))
             points.asScala.zip(descriptions.toList.asScala).foreach(x ⇒ {
-              val (pt,d) = x
+              val (pt, d) = x
               gfx.drawRect(pt.x.toInt - 4, pt.y.toInt - 4, 9, 9)
             })
           }, width = primaryImage.getWidth, height = primaryImage.getHeight())
@@ -176,6 +179,7 @@ class BoofcvTest extends WordSpec with MustMatchers with MarkdownReporter {
           val (pointsA, descriptionsA) = describe(featureDetector, image1)
           draw(image1, pointsA, descriptionsA)
         }
+
         def test2(image1: BufferedImage, featureDetector: DetectDescribePoint[GrayF32, TupleDesc_B]) = {
           val (pointsA, descriptionsA) = describe2(featureDetector, image1)
           draw2(image1, pointsA, descriptionsA)

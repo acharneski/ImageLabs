@@ -132,6 +132,7 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
           ColorHsv.rgbToHsv(rgb(0), rgb(1), rgb(2), hsv)
           hsv
         })
+
         def statsHsv(fn: Array[Float] ⇒ (Float, Float)): (Float, Float) = {
           val stats = hsvValues.map((hsv: Array[Float]) ⇒ {
             val (weight, value) = fn(hsv)
@@ -141,6 +142,7 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
           val stdDev = Math.sqrt(Math.abs((stats._3 / stats._1) - mean * mean)).toFloat
           (mean, stdDev)
         }
+
         // Superpixel color statistics:
         val (hueMean1, hueStdDev1) = statsHsv((hsv: Array[Float]) ⇒ {
           (hsv(2) * hsv(1) * (1 - hsv(2)), hsv(0))
@@ -194,7 +196,7 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
           var isBlack = false
           var isWhite = false
           if (lumStdDev < 1.5) {
-              isWhite = true
+            isWhite = true
           } else {
             if (hueStdDev < 0.05) {
               isColored = true
@@ -230,28 +232,21 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
       val pixels = (0 until colorizedImg.getWidth).flatMap(x ⇒
         (0 until colorizedImg.getHeight).filterNot(y ⇒
           util.Arrays.equals(colorizedImg.getRaster.getPixel(x, y, null: Array[Int]), Array(255, 255, 255))).map(y ⇒ x → y))
-      var (xmin,xmax) = (pixels.map(_._1).min, pixels.map(_._1).max)
-      var (ymin,ymax) = (pixels.map(_._2).min, pixels.map(_._2).max)
+      var (xmin, xmax) = (pixels.map(_._1).min, pixels.map(_._1).max)
+      var (ymin, ymax) = (pixels.map(_._2).min, pixels.map(_._2).max)
       val regionAspect = (xmax - xmin).toDouble / (ymax - ymin)
       val imageAspect = colorizedImg.getWidth.toDouble / colorizedImg.getHeight
-      if(regionAspect< imageAspect) {
-        val width = (colorizedImg.getWidth * (ymax-ymin))/colorizedImg.getHeight
-        xmin = Math.max(0, (xmax + xmin - width)/2)
+      if (regionAspect < imageAspect) {
+        val width = (colorizedImg.getWidth * (ymax - ymin)) / colorizedImg.getHeight
+        xmin = Math.max(0, (xmax + xmin - width) / 2)
         xmax = xmin + width
       } else {
-        val height = (colorizedImg.getHeight * (xmax-xmin))/colorizedImg.getWidth
-        ymin = Math.max(0, (ymax + ymin - height)/2)
+        val height = (colorizedImg.getHeight * (xmax - xmin)) / colorizedImg.getWidth
+        ymin = Math.max(0, (ymax + ymin - height) / 2)
         ymax = ymin + height
       }
-      gfx.drawImage(colorizedImg, 0, 0, colorizedImg.getWidth, colorizedImg.getHeight, xmin,ymin, xmax,ymax, null)
+      gfx.drawImage(colorizedImg, 0, 0, colorizedImg.getWidth, colorizedImg.getHeight, xmin, ymin, xmax, ymax, null)
     }, width = colorizedImg.getWidth, height = colorizedImg.getHeight)
-  }
-
-  private def distance(a: Array[Double], b: Array[Double]) = {
-    Math.sqrt((0 until a.length).map(i ⇒ {
-      val y = a(i) - b(i)
-      y * y
-    }).sum)
   }
 
   private def clusterAnalysis_density[T](log: ScalaMarkdownPrintStream, name: String): Unit = {
@@ -302,6 +297,12 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
 
   }
 
+  private def distance(a: Array[Double], b: Array[Double]) = {
+    Math.sqrt((0 until a.length).map(i ⇒ {
+      val y = a(i) - b(i)
+      y * y
+    }).sum)
+  }
 
   private def findSuperpixels_Hybrid(log: ScalaMarkdownPrintStream, hsv: Planar[GrayF32], rgb: Planar[GrayF32]) = {
     val finalBinaryMask = threshold(log, hsv, rgb)
@@ -311,25 +312,25 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
 
     log.p("Use threshold mask to generate a background image")
     val averageRGB = log.code(() ⇒ {
-      (0 until 3).map(b⇒ImageStatistics.mean(rgb.getBand(b)))
+      (0 until 3).map(b ⇒ ImageStatistics.mean(rgb.getBand(b)))
     })
     val maskedBackground: Planar[GrayF32] = log.code(() ⇒ {
-      val mask = BinaryImageOps.dilate8(BinaryImageOps.thin(finalBinaryMask.clone(),2,null),5,null)
+      val mask = BinaryImageOps.dilate8(BinaryImageOps.thin(finalBinaryMask.clone(), 2, null), 5, null)
       val maskedBackground: Planar[GrayF32] = rgb.clone()
       (0 until maskedBackground.getWidth).foreach(x ⇒
         (0 until maskedBackground.getHeight).foreach(y ⇒
           (0 until maskedBackground.getNumBands).foreach(b ⇒
-            if(mask.get(x,y)!=0) {
+            if (mask.get(x, y) != 0) {
               maskedBackground.getBand(b).set(x, y, averageRGB(b))
             })))
       List(150.0, 50.0, 15.0, 5.0).foreach(blurRadius ⇒ {
         val nextIteration: Planar[GrayF32] = maskedBackground.clone()
-        GBlurImageOps.gaussian(nextIteration,nextIteration, blurRadius, -1, null)
+        GBlurImageOps.gaussian(nextIteration, nextIteration, blurRadius, -1, null)
         (0 until maskedBackground.getWidth).foreach(x ⇒
           (0 until maskedBackground.getHeight).foreach(y ⇒
             (0 until maskedBackground.getNumBands).foreach(b ⇒
-              if(mask.get(x,y)!=0) {
-                maskedBackground.getBand(b).set(x, y, nextIteration.getBand(b).get(x,y))
+              if (mask.get(x, y) != 0) {
+                maskedBackground.getBand(b).set(x, y, nextIteration.getBand(b).get(x, y))
               })))
       })
       maskedBackground
@@ -344,12 +345,12 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
       (0 until maskedForground.getWidth).foreach(x ⇒
         (0 until maskedForground.getHeight).foreach(y ⇒
           (0 until maskedForground.getNumBands).foreach(b ⇒
-            if(finalBinaryMask.get(x,y)==0) {
+            if (finalBinaryMask.get(x, y) == 0) {
               maskedForground.getBand(b).set(x, y, 255.0f)
             } else {
-              val forground = maskedForground.getBand(b).get(x,y)
-              val background = maskedBackground.getBand(b).get(x,y)
-              maskedForground.getBand(b).set(x, y, forground * (255.0f  / background))
+              val forground = maskedForground.getBand(b).get(x, y)
+              val background = maskedBackground.getBand(b).get(x, y)
+              maskedForground.getBand(b).set(x, y, forground * (255.0f / background))
             })))
       maskedForground
     })

@@ -21,29 +21,34 @@ import java.awt.Color
 import java.lang
 import java.util.concurrent.TimeUnit
 
+import AutoencoderUtil._
+import com.simiacryptus.mindseye.graph.dag._
+import com.simiacryptus.mindseye.graph.{AutoencoderNetwork, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.net._
 import com.simiacryptus.mindseye.net.activation._
-import com.simiacryptus.mindseye.graph.dag._
 import com.simiacryptus.mindseye.net.loss.MeanSqLossLayer
-import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer, MappedSynapseLayer, TransposedSynapseLayer}
+import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer, TransposedSynapseLayer}
 import com.simiacryptus.mindseye.opt.{OrientationStrategy, _}
+import com.simiacryptus.util.IO
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
 import com.simiacryptus.util.text.TableOutput
-import com.simiacryptus.util.{IO, Util}
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
-import AutoencoderUtil._
-import com.simiacryptus.mindseye.graph.{AutoencoderNetwork, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 
 class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
   val inputSize = Array[Int](28, 28, 1)
   val l1normalization = 0.0
-  case class TrainingStep(sampleSize: Int, timeoutMinutes: Int, endFitness : Double, orient : OrientationStrategy, step : LineSearchStrategy)
+  val history = new mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]
+  val data: Array[Array[Tensor]] = {
+    MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
+      Array(labeledObj.data, labeledObj.data)
+    }).toList.map(x ⇒ Array(x(0), x(0))).toArray
+  }
   var schedule = List(
     TrainingStep(5000, 10, 100.0,
       new LBFGS(),
@@ -54,20 +59,27 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
       new ArmijoWolfeConditions()
     )
   )
-  val history = new mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]
   var monitor = new TrainingMonitor {
     override def log(msg: String): Unit = {
       System.err.println(msg)
     }
+
     override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
       history += currentPoint
     }
   }
 
-  val data: Array[Array[Tensor]] = {
-    MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
-      Array(labeledObj.data, labeledObj.data)
-    }).toList.map(x ⇒ Array(x(0),x(0))).toArray
+  private def initSpacial(synapse: DenseSynapseLayer, stiffness: Int = 3, radius: Double = 0.5, peak: Double = 1) = {
+    synapse.setWeights2(cvt((in: Coordinate, out: Coordinate) ⇒ {
+      val doubleCoords = (0 until in.coords.length).map(d ⇒ {
+        val from = in.coords(d) * 1.0 / synapse.inputDims(d)
+        val to = out.coords(d) * 1.0 / synapse.outputDims(d)
+        from - to
+      }).toArray
+      val dist = Math.sqrt(doubleCoords.map(x ⇒ x * x).sum)
+      val factor = (1 + Math.tanh(stiffness * (radius - dist))) / 2
+      peak * factor
+    }))
   }
 
   "Train Digit Autoencoder Network" should {
@@ -85,10 +97,10 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         val perLabel = mnist.groupBy(_.label).values.toList
         val smallDataset1 = perLabel.flatMap((_.take(10))).map(data ⇒ {
           Array(data.data, data.data)
-        }).map(x ⇒ Array(x(0),x(0))).toArray
+        }).map(x ⇒ Array(x(0), x(0))).toArray
         val smallDataset2 = perLabel.flatMap((_.drop(10).take(10))).map(data ⇒ {
           Array(data.data, data.data)
-        }).map(x ⇒ Array(x(0),x(0))).toArray
+        }).map(x ⇒ Array(x(0), x(0))).toArray
 
         val ae1 = new Object() {
           val inputNoise = new GaussianNoiseLayer().setValue(1.0)
@@ -97,15 +109,16 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
           val encoderBias = new BiasLayer(middleSize1: _*).setWeights(cvt(i ⇒ 0.0))
           val encoderActivation = new ReLuActivationLayer().freeze()
           val encodedNoise = new DropoutNoiseLayer().setValue(0.2)
-          var decoderSynapse : NNLayer = new TransposedSynapseLayer(encoderSynapse).asNewSynapseLayer()
+          var decoderSynapse: NNLayer = new TransposedSynapseLayer(encoderSynapse).asNewSynapseLayer()
           val decoderBias = new BiasLayer(inputSize: _*).setWeights(cvt(i ⇒ 0.0))
-          var decoderActivation : NNLayer = new ReLuActivationLayer().freeze()
+          var decoderActivation: NNLayer = new ReLuActivationLayer().freeze()
         }
 
         monitor = new TrainingMonitor {
           override def log(msg: String): Unit = {
             System.err.println(msg)
           }
+
           override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
             ae1.inputNoise.shuffle()
             ae1.encodedNoise.shuffle()
@@ -130,6 +143,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         })
 
         reportMatrix(log, smallDataset2, network1.encoder, network1.decoder)
+
         def trainingNetwork = new SimpleLossNetwork(network1, new MeanSqLossLayer())
 
         schedule = List(
@@ -159,8 +173,8 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         reportMatrix(log, smallDataset2, network1.encoder, network1.decoder)
 
 
-        val transformedTrainingData = network1.encoder.getLayer.eval(NNResult.batchResultArray(data.map(x⇒Array(x.head))):_*)
-          .data.map(x⇒Array(x, x))
+        val transformedTrainingData = network1.encoder.getLayer.eval(NNResult.batchResultArray(data.map(x ⇒ Array(x.head))): _*)
+          .data.map(x ⇒ Array(x, x))
 
         val ae2 = new Object() {
           val inputNoise = new GaussianNoiseLayer().setValue(0.01)
@@ -169,9 +183,9 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
           val encoderBias = new BiasLayer(middleSize2: _*).setWeights(cvt(i ⇒ 0.0))
           val encoderActivation = new ReLuActivationLayer().freeze()
           val encodedNoise = new DropoutNoiseLayer().setValue(0.05)
-          var decoderSynapse : NNLayer = new TransposedSynapseLayer(encoderSynapse).asNewSynapseLayer()
+          var decoderSynapse: NNLayer = new TransposedSynapseLayer(encoderSynapse).asNewSynapseLayer()
           val decoderBias = new BiasLayer(middleSize1: _*).setWeights(cvt(i ⇒ 0.0))
-          var decoderActivation : NNLayer = new ReLuActivationLayer().freeze()
+          var decoderActivation: NNLayer = new ReLuActivationLayer().freeze()
         }
 
         var network2 = new AutoencoderNetwork({
@@ -189,7 +203,9 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
           model.add(ae2.decoderActivation)
           model
         })
+
         def trainingNetwork2 = new SimpleLossNetwork(network2, new MeanSqLossLayer())
+
         var network3 = new AutoencoderNetwork({
           var model: PipelineNetwork = new PipelineNetwork
           model.add(network1.encoder.getLayer)
@@ -201,12 +217,14 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
           model.add(network1.decoder.getLayer)
           model
         })
+
         def trainingNetwork3 = new SimpleLossNetwork(network3, new MeanSqLossLayer())
 
         monitor = new TrainingMonitor {
           override def log(msg: String): Unit = {
             System.err.println(msg)
           }
+
           override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
             ae2.inputNoise.shuffle()
             ae2.encodedNoise.shuffle()
@@ -249,20 +267,6 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
     }
 
 
-  }
-
-
-  private def initSpacial(synapse: DenseSynapseLayer, stiffness: Int = 3, radius: Double = 0.5, peak: Double = 1) = {
-    synapse.setWeights2(cvt((in: Coordinate, out: Coordinate) ⇒ {
-      val doubleCoords = (0 until in.coords.length).map(d ⇒ {
-        val from = in.coords(d) * 1.0 / synapse.inputDims(d)
-        val to = out.coords(d) * 1.0 / synapse.outputDims(d)
-        from - to
-      }).toArray
-      val dist = Math.sqrt(doubleCoords.map(x ⇒ x * x).sum)
-      val factor = (1 + Math.tanh(stiffness * (radius - dist))) / 2
-      peak * factor
-    }))
   }
 
   private def reportMatrix(log: ScalaMarkdownPrintStream, data: Array[Array[Tensor]], encoder: DAGNode, decoder: DAGNode) = {
@@ -324,8 +328,8 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
   private def summarizeHistory(log: ScalaMarkdownPrintStream) = {
     log.eval {
-      val step = Math.max(Math.pow(10,Math.ceil(Math.log(history.size) / Math.log(10))-2), 1).toInt
-      TableOutput.create(history.filter(0==_.iteration%step).map(state ⇒
+      val step = Math.max(Math.pow(10, Math.ceil(Math.log(history.size) / Math.log(10)) - 2), 1).toInt
+      TableOutput.create(history.filter(0 == _.iteration % step).map(state ⇒
         Map[String, AnyRef](
           "iteration" → state.iteration.toInt.asInstanceOf[Integer],
           "time" → state.time.toDouble.asInstanceOf[lang.Double],
@@ -333,7 +337,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         ).asJava
       ): _*)
     }
-    if(!history.isEmpty) log.eval {
+    if (!history.isEmpty) log.eval {
       val plot: PlotCanvas = ScatterPlot.plot(history.map(item ⇒ Array[Double](
         item.iteration, Math.log(item.point.value)
       )).toArray: _*)
@@ -343,5 +347,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
       plot
     }
   }
+
+  case class TrainingStep(sampleSize: Int, timeoutMinutes: Int, endFitness: Double, orient: OrientationStrategy, step: LineSearchStrategy)
 
 }

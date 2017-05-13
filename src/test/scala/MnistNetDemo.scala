@@ -26,12 +26,11 @@ import com.simiacryptus.mindseye.net.activation.{AbsActivationLayer, SoftmaxActi
 import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.net.media.{ConvolutionSynapseLayer, MaxSubsampleLayer}
 import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer, ToeplitzSynapseLayer}
-import com.simiacryptus.mindseye.net.{SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
-import com.simiacryptus.util.{IO, Util}
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
 import com.simiacryptus.util.text.TableOutput
+import com.simiacryptus.util.{IO, Util}
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}
 
@@ -133,7 +132,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new AbsActivationLayer)
-          model.add(new MaxSubsampleLayer(2,2,1))
+          model.add(new MaxSubsampleLayer(2, 2, 1))
           model.add(new DenseSynapseLayer(middleSize2, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
@@ -157,12 +156,12 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new AbsActivationLayer)
-          model.add(new MaxSubsampleLayer(2,2,1))
+          model.add(new MaxSubsampleLayer(2, 2, 1))
           model.add(new ToeplitzSynapseLayer(middleSize2, middleSize3).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new AbsActivationLayer)
-          model.add(new MaxSubsampleLayer(2,2,1))
+          model.add(new MaxSubsampleLayer(2, 2, 1))
           model.add(new DenseSynapseLayer(middleSize4, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
@@ -179,18 +178,19 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
           trainingTimeMinutes = 60
           val middleSize = Array[Int](28, 28, 1)
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new ConvolutionSynapseLayer(Array(2,2), 2).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new ConvolutionSynapseLayer(Array(2, 2), 2).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new AbsActivationLayer)
-          model.add(new MaxSubsampleLayer(2,2,1))
-          model.add(new ConvolutionSynapseLayer(Array(2,2), 2).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new MaxSubsampleLayer(2, 2, 1))
+          model.add(new ConvolutionSynapseLayer(Array(2, 2), 2).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new AbsActivationLayer)
-          model.add(new MaxSubsampleLayer(2,2,1))
+          model.add(new MaxSubsampleLayer(2, 2, 1))
 
-          def headDims = model.eval(new Tensor(inputSize:_*)).data(0).getDims
+          def headDims = model.eval(new Tensor(inputSize: _*)).data(0).getDims
+
           model.add(new DenseSynapseLayer(headDims, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
@@ -322,8 +322,8 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
   private def summarizeHistory(log: ScalaMarkdownPrintStream, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
     log.eval {
-      val step = Math.max(Math.pow(10,Math.ceil(Math.log(history.size) / Math.log(10))-2), 1).toInt
-      TableOutput.create(history.filter(0==_.iteration%step).map(state ⇒
+      val step = Math.max(Math.pow(10, Math.ceil(Math.log(history.size) / Math.log(10)) - 2), 1).toInt
+      TableOutput.create(history.filter(0 == _.iteration % step).map(state ⇒
         Map[String, AnyRef](
           "iteration" → state.iteration.toInt.asInstanceOf[Integer],
           "time" → state.time.toDouble.asInstanceOf[lang.Double],

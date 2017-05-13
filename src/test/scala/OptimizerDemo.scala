@@ -25,7 +25,7 @@ import AutoencoderUtil._
 import com.simiacryptus.mindseye.graph.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.net._
 import com.simiacryptus.mindseye.net.activation.{ReLuActivationLayer, SoftmaxActivationLayer}
-import com.simiacryptus.mindseye.net.loss.{EntropyLossLayer, MeanSqLossLayer}
+import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.util.Util
@@ -37,25 +37,8 @@ import smile.plot.{PlotCanvas, ScatterPlot}
 
 import scala.collection.JavaConverters._
 
-object OptimizerDemo {
-
-  implicit def cvt(fn:Int⇒Double) : IntToDoubleFunction = {
-    new IntToDoubleFunction {
-      override def applyAsDouble(v : Int): Double = fn(v)
-    }
-  }
-
-  implicit def cvt[T](fn:T⇒Double) : ToDoubleFunction[T] = {
-    new ToDoubleFunction[T] {
-      override def applyAsDouble(v : T): Double = fn(v)
-    }
-  }
-
-}
-
 class OptimizerDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
-  case class TrainingStep(sampleSize: Int, timeoutMinutes: Int, terminationThreshold: Double)
   val schedule = List(
     TrainingStep(200, 5, 0.5), TrainingStep(1000, 5, 0.1)
   )
@@ -64,6 +47,50 @@ class OptimizerDemo extends WordSpec with MustMatchers with MarkdownReporter {
   val outputSize = Array[Int](10) // Array[Int](28, 28)
   val middleSize = Array[Int](28, 28, 1)
   val lossLayer = new EntropyLossLayer // new MeanSqLossLayer
+
+  def test(log: ScalaMarkdownPrintStream, optimizer: Trainable ⇒ IterativeTrainer) = {
+    log.h2("Model Problem: ")
+    val (model, trainingData) = testProblem_category(log)
+
+    log.h2("Training")
+    val history = new scala.collection.mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]()
+    val monitor = log.eval {
+      val monitor = new TrainingMonitor {
+        override def log(msg: String): Unit = {
+          System.err.println(msg)
+        }
+
+        override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
+          history += currentPoint
+        }
+      }
+      monitor
+    }
+    schedule.foreach(scheduledStep ⇒ {
+      log.h3(scheduledStep.toString)
+      log.eval {
+        System.out.println(scheduledStep)
+        val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossLayer)
+        val trainable: StochasticArrayTrainable = new StochasticArrayTrainable(trainingData.toArray, trainingNetwork, scheduledStep.sampleSize)
+        val trainer: IterativeTrainer = optimizer.apply(trainable)
+        trainer.setMonitor(monitor)
+        trainer.setTimeout(scheduledStep.timeoutMinutes, TimeUnit.MINUTES)
+        trainer.setTerminateThreshold(scheduledStep.terminationThreshold)
+        trainer.run()
+      }
+      log.eval {
+        getBlankDeltaSet(model).map.asScala.map(ent ⇒ {
+          val (layer, buffer) = ent
+          Map(
+            "layer" → layer.getClass.getSimpleName,
+            "id" → layer.getId
+          ) ++ summarize(buffer.target)
+        }).mkString("\n")
+      }
+    })
+    log.p("A summary of the training timeline: ")
+    summarizeHistory(log, history.toList)
+  }
 
   "Various Optimization Strategies" should {
 
@@ -114,64 +141,20 @@ class OptimizerDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
   }
 
-  def test(log: ScalaMarkdownPrintStream, optimizer: Trainable⇒IterativeTrainer) = {
-    log.h2("Model Problem: ")
-    val (model, trainingData) = testProblem_category(log)
-
-    log.h2("Training")
-    val history = new scala.collection.mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]()
-    val monitor = log.eval {
-      val monitor = new TrainingMonitor {
-        override def log(msg: String): Unit = {
-          System.err.println(msg)
-        }
-
-        override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
-          history += currentPoint
-        }
-      }
-      monitor
-    }
-    schedule.foreach(scheduledStep ⇒ {
-      log.h3(scheduledStep.toString)
-      log.eval {
-        System.out.println(scheduledStep)
-        val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossLayer)
-        val trainable: StochasticArrayTrainable = new StochasticArrayTrainable(trainingData.toArray, trainingNetwork, scheduledStep.sampleSize)
-        val trainer: IterativeTrainer = optimizer.apply(trainable)
-        trainer.setMonitor(monitor)
-        trainer.setTimeout(scheduledStep.timeoutMinutes, TimeUnit.MINUTES)
-        trainer.setTerminateThreshold(scheduledStep.terminationThreshold)
-        trainer.run()
-      }
-      log.eval {
-        getBlankDeltaSet(model).map.asScala.map(ent⇒{
-          val (layer, buffer) = ent
-          Map(
-            "layer" → layer.getClass.getSimpleName,
-            "id" → layer.getId
-          ) ++ summarize(buffer.target)
-        }).mkString("\n")
-      }
-    })
-    log.p("A summary of the training timeline: ")
-    summarizeHistory(log, history.toList)
-  }
-
   private def summarize(data: Array[Double]) = {
     val zeroTol = 1e-20
-    val zeros = data.map(x ⇒ if(Math.abs(x) < zeroTol) 1.0 else 0.0).sum
+    val zeros = data.map(x ⇒ if (Math.abs(x) < zeroTol) 1.0 else 0.0).sum
     Map(
       "length" → data.length,
       "sparsity" → (zeros / data.length),
       "raw" → summarize2(data),
       "abs" → summarize2(data.map(x ⇒ Math.abs(x))),
-      "log10" → summarize2(data.filter(x⇒Math.abs(x) > zeroTol).map(x ⇒ Math.log(Math.abs(x))/Math.log(10)))
+      "log10" → summarize2(data.filter(x ⇒ Math.abs(x) > zeroTol).map(x ⇒ Math.log(Math.abs(x)) / Math.log(10)))
     )
   }
 
   private def summarize2(data: Array[Double]) = {
-    if(data.isEmpty) {
+    if (data.isEmpty) {
       Map.empty
     } else {
       val sum = data.sum
@@ -187,26 +170,8 @@ class OptimizerDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
   private def getBlankDeltaSet(model: PipelineNetwork) = {
     val set = new DeltaSet()
-    model.eval(new Tensor(inputSize: _*)).accumulate(set, Array(new Tensor(outputSize:_*)))
+    model.eval(new Tensor(inputSize: _*)).accumulate(set, Array(new Tensor(outputSize: _*)))
     set
-  }
-
-  private def testProblem_autoencoder(log: ScalaMarkdownPrintStream) = {
-    log.eval {
-      val data = MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
-        Array(labeledObj.data, labeledObj.data)
-      }).toList
-
-      var model: PipelineNetwork = new PipelineNetwork
-      model.add(new DenseSynapseLayer(inputSize, middleSize)
-        .setWeights(cvt((c: Coordinate) ⇒ Util.R.get.nextGaussian * 0.001)))
-      model.add(new BiasLayer(middleSize: _*))
-      //model.add(new ReLuActivationLayer().freeze)
-      model.add(new DenseSynapseLayer(middleSize, inputSize)
-        .setWeights(cvt((c: Coordinate) ⇒ Util.R.get.nextGaussian * 0.001)))
-      model.add(new BiasLayer(outputSize: _*))
-      (model, data)
-    }
   }
 
   private def testProblem_category(log: ScalaMarkdownPrintStream) = {
@@ -229,28 +194,6 @@ class OptimizerDemo extends WordSpec with MustMatchers with MarkdownReporter {
     }
   }
 
-  private def summarizeHistory(log: ScalaMarkdownPrintStream, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
-    log.eval {
-      val step = Math.max(Math.pow(10,Math.ceil(Math.log(history.size) / Math.log(10))-2), 1).toInt
-      TableOutput.create(history.filter(0==_.iteration%step).map(state ⇒
-        Map[String, AnyRef](
-          "iteration" → state.iteration.toInt.asInstanceOf[Integer],
-          "time" → state.time.toDouble.asInstanceOf[lang.Double],
-          "fitness" → state.point.value.toDouble.asInstanceOf[lang.Double]
-        ).asJava
-      ): _*)
-    }
-    if(!history.isEmpty) log.eval {
-      val plot: PlotCanvas = ScatterPlot.plot(history.map(item ⇒ Array[Double](
-        item.iteration, Math.log(item.point.value)
-      )).toArray: _*)
-      plot.setTitle("Convergence Plot")
-      plot.setAxisLabels("Iteration", "log(Fitness)")
-      plot.setSize(600, 400)
-      plot
-    }
-  }
-
   def toOut(label: String): Int = {
     var i = 0
     while ( {
@@ -270,6 +213,64 @@ class OptimizerDemo extends WordSpec with MustMatchers with MarkdownReporter {
     val ndArray = new Tensor(max)
     ndArray.set(out, 1)
     ndArray
+  }
+
+  private def summarizeHistory(log: ScalaMarkdownPrintStream, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
+    log.eval {
+      val step = Math.max(Math.pow(10, Math.ceil(Math.log(history.size) / Math.log(10)) - 2), 1).toInt
+      TableOutput.create(history.filter(0 == _.iteration % step).map(state ⇒
+        Map[String, AnyRef](
+          "iteration" → state.iteration.toInt.asInstanceOf[Integer],
+          "time" → state.time.toDouble.asInstanceOf[lang.Double],
+          "fitness" → state.point.value.toDouble.asInstanceOf[lang.Double]
+        ).asJava
+      ): _*)
+    }
+    if (!history.isEmpty) log.eval {
+      val plot: PlotCanvas = ScatterPlot.plot(history.map(item ⇒ Array[Double](
+        item.iteration, Math.log(item.point.value)
+      )).toArray: _*)
+      plot.setTitle("Convergence Plot")
+      plot.setAxisLabels("Iteration", "log(Fitness)")
+      plot.setSize(600, 400)
+      plot
+    }
+  }
+
+  private def testProblem_autoencoder(log: ScalaMarkdownPrintStream) = {
+    log.eval {
+      val data = MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
+        Array(labeledObj.data, labeledObj.data)
+      }).toList
+
+      var model: PipelineNetwork = new PipelineNetwork
+      model.add(new DenseSynapseLayer(inputSize, middleSize)
+        .setWeights(cvt((c: Coordinate) ⇒ Util.R.get.nextGaussian * 0.001)))
+      model.add(new BiasLayer(middleSize: _*))
+      //model.add(new ReLuActivationLayer().freeze)
+      model.add(new DenseSynapseLayer(middleSize, inputSize)
+        .setWeights(cvt((c: Coordinate) ⇒ Util.R.get.nextGaussian * 0.001)))
+      model.add(new BiasLayer(outputSize: _*))
+      (model, data)
+    }
+  }
+
+  case class TrainingStep(sampleSize: Int, timeoutMinutes: Int, terminationThreshold: Double)
+
+}
+
+object OptimizerDemo {
+
+  implicit def cvt(fn: Int ⇒ Double): IntToDoubleFunction = {
+    new IntToDoubleFunction {
+      override def applyAsDouble(v: Int): Double = fn(v)
+    }
+  }
+
+  implicit def cvt[T](fn: T ⇒ Double): ToDoubleFunction[T] = {
+    new ToDoubleFunction[T] {
+      override def applyAsDouble(v: T): Double = fn(v)
+    }
   }
 
 }
