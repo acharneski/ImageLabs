@@ -17,6 +17,7 @@
  * under the License.
  */
 
+import java.io.File
 import java.lang
 import java.util.concurrent.TimeUnit
 import java.util.function.ToDoubleFunction
@@ -27,10 +28,11 @@ import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.net.media.{ConvolutionSynapseLayer, MaxSubsampleLayer}
 import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer, ToeplitzSynapseLayer}
 import com.simiacryptus.mindseye.opt._
+import com.simiacryptus.util.Util
+import com.simiacryptus.util.io.IOUtil
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
 import com.simiacryptus.util.text.TableOutput
-import com.simiacryptus.util.{IO, Util}
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}
 
@@ -203,9 +205,9 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
   }
 
-  def test(log: ScalaMarkdownPrintStream, model: PipelineNetwork) = {
+  def test(log: ScalaNotebookOutput, model: PipelineNetwork) = {
     log.h2("Data")
-    log.p("First, we load the training dataset: ")
+    log.p("First, we cache the training dataset: ")
     val trainingData: Seq[Array[Tensor]] = log.code(() ⇒ {
       MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
         Array(labeledObj.data, toOutNDArray(toOut(labeledObj.label), 10))
@@ -251,9 +253,8 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
     log.p("After training, we save the following parameterized model: ")
     log.eval {
-      val file = log.newFile("network.json")
-      IO.writeKryo(model, file)
-      IO.readKryo[PipelineNetwork](file)
+      IOUtil.writeKryo(model, log.file("network.kryo"))
+      IOUtil.readKryo[PipelineNetwork](new File("reports/MnistNetDemo/etc/network.kryo"))
     }
     log.p("A summary of the training timeline: ")
     summarizeHistory(log, history.toList)
@@ -320,7 +321,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
     }
   }
 
-  private def summarizeHistory(log: ScalaMarkdownPrintStream, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
+  private def summarizeHistory(log: ScalaNotebookOutput, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
     log.eval {
       val step = Math.max(Math.pow(10, Math.ceil(Math.log(history.size) / Math.log(10)) - 2), 1).toInt
       TableOutput.create(history.filter(0 == _.iteration % step).map(state ⇒

@@ -48,7 +48,7 @@ class OptimizerDemo extends WordSpec with MustMatchers with MarkdownReporter {
   val middleSize = Array[Int](28, 28, 1)
   val lossLayer = new EntropyLossLayer // new MeanSqLossLayer
 
-  def test(log: ScalaMarkdownPrintStream, optimizer: Trainable ⇒ IterativeTrainer) = {
+  def test(log: ScalaNotebookOutput, optimizer: Trainable ⇒ IterativeTrainer) = {
     log.h2("Model Problem: ")
     val (model, trainingData) = testProblem_category(log)
 
@@ -174,7 +174,7 @@ class OptimizerDemo extends WordSpec with MustMatchers with MarkdownReporter {
     set
   }
 
-  private def testProblem_category(log: ScalaMarkdownPrintStream) = {
+  private def testProblem_category(log: ScalaNotebookOutput) = {
     log.eval {
       val data = MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
         Array(labeledObj.data, toOutNDArray(toOut(labeledObj.label), 10))
@@ -215,7 +215,7 @@ class OptimizerDemo extends WordSpec with MustMatchers with MarkdownReporter {
     ndArray
   }
 
-  private def summarizeHistory(log: ScalaMarkdownPrintStream, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
+  private def summarizeHistory(log: ScalaNotebookOutput, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
     log.eval {
       val step = Math.max(Math.pow(10, Math.ceil(Math.log(history.size) / Math.log(10)) - 2), 1).toInt
       TableOutput.create(history.filter(0 == _.iteration % step).map(state ⇒
@@ -237,7 +237,7 @@ class OptimizerDemo extends WordSpec with MustMatchers with MarkdownReporter {
     }
   }
 
-  private def testProblem_autoencoder(log: ScalaMarkdownPrintStream) = {
+  private def testProblem_autoencoder(log: ScalaNotebookOutput) = {
     log.eval {
       val data = MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
         Array(labeledObj.data, labeledObj.data)

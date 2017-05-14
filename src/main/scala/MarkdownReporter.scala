@@ -22,15 +22,15 @@ import java.awt.{Graphics2D, RenderingHints}
 import java.io.{File, FileNotFoundException}
 import java.util.function.Supplier
 
-import com.simiacryptus.util.test.MarkdownPrintStream
+import com.simiacryptus.util.io.{MarkdownPrintStream, NotebookOutput}
 
 trait MarkdownReporter {
-  def report[T](methodName: String, fn: ScalaMarkdownPrintStream ⇒ T): T = try {
+  def report[T](methodName: String, fn: ScalaNotebookOutput ⇒ T): T = try {
     MarkdownReporter.currentMethod = methodName
     val className: String = getClass.getCanonicalName
     val path: File = new File(List("reports", className, methodName + ".md").mkString(File.separator))
     path.getParentFile.mkdirs
-    val log = new ScalaMarkdownPrintStream(path, methodName)
+    val log = new MarkdownPrintStream(path, methodName) with ScalaNotebookOutput
     log.addCopy(System.out)
     try {
       fn.apply(log)
@@ -46,8 +46,7 @@ trait MarkdownReporter {
   }
 }
 
-class ScalaMarkdownPrintStream(file: File, name: String) extends MarkdownPrintStream(file, name) {
-
+trait ScalaNotebookOutput extends NotebookOutput {
 
   def eval[T](fn: => T): T = {
     code(new Supplier[T] {

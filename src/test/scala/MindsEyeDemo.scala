@@ -57,7 +57,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         log.p("In this demo we train a simple neural network against the MNIST handwritten digit dataset")
 
         log.h2("Data")
-        log.p("First, we load the training dataset: ")
+        log.p("First, we cache the training dataset: ")
         val data: Seq[Array[Tensor]] = log.code(() ⇒ {
           MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
             Array(labeledObj.data, toOutNDArray(toOut(labeledObj.label), 10))
@@ -364,7 +364,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
           net
         }
 
-        log.p("We load an ideal training image, which we will try to reconstruct: ")
+        log.p("We cache an ideal training image, which we will try to reconstruct: ")
         val idealImage = log.eval {
           val read = ImageIO.read(getClass.getResourceAsStream("/monkey1.jpg"))
 
@@ -466,7 +466,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
     throw new RuntimeException
   }
 
-  def networkGraph(log: ScalaMarkdownPrintStream, network: DAGNetwork, width: Int = 1200) = {
+  def networkGraph(log: ScalaNotebookOutput, network: DAGNetwork, width: Int = 1200) = {
     log.eval {
       Graphviz.fromGraph(toGraph(network)).width(width).render(Format.PNG).toImage
     }
@@ -478,7 +478,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
     ndArray
   }
 
-  private def summarizeHistory(log: ScalaMarkdownPrintStream, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
+  private def summarizeHistory(log: ScalaNotebookOutput, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
     log.eval {
       val step = Math.max(Math.pow(10, Math.ceil(Math.log(history.size) / Math.log(10)) - 2), 1).toInt
       TableOutput.create(history.filter(0 == _.iteration % step).map(state ⇒

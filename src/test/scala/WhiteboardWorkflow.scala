@@ -19,7 +19,7 @@
 
 import java.awt.image.BufferedImage
 import java.awt.{BasicStroke, Color, Graphics}
-import java.io.{FileInputStream, FileOutputStream}
+import java.io.FileInputStream
 import java.nio.charset.Charset
 import java.util
 import javax.imageio.ImageIO
@@ -62,7 +62,7 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
   "Whiteboard Image Processing Demo" should {
     "Optimize whiteboard image" in {
       report("workflow", log ⇒ {
-        log.p("First, we load an photo of a whiteboard")
+        log.p("First, we cache an photo of a whiteboard")
         val sourceImage = log.code(() ⇒ {
           ImageIO.read(getClass.getClassLoader.getResourceAsStream("Whiteboard1.jpg"))
         })
@@ -116,7 +116,7 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
     return new Point2D_F32(a.x * d + b.x * (1 - d), a.y * d + b.y * (1 - d))
   }
 
-  private def colorize(log: ScalaMarkdownPrintStream, rgb: Planar[GrayF32], hsv: Planar[GrayF32], superpixels: Int, segmentation: GrayS32, name: String) = {
+  private def colorize(log: ScalaNotebookOutput, rgb: Planar[GrayF32], hsv: Planar[GrayF32], superpixels: Int, segmentation: GrayS32, name: String) = {
     log.p("For each segment, we categorize and colorize each using some logic")
     val (minHue, maxHue) = (ImageStatistics.min(hsv.getBand(0)), ImageStatistics.max(hsv.getBand(0)))
     val averageLuminosity = ImageStatistics.mean(hsv.getBand(2))
@@ -173,7 +173,7 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
       }).toArray.toMap
     })
 
-    val fileOutputStream = new FileOutputStream(log.newFile(name + ".csv"))
+    val fileOutputStream = log.file(name + ".csv")
     try {
       IOUtils.write(
         (0 until superpixels).map(i ⇒ superpixelParameters(i).mkString(",")).mkString("\n"),
@@ -249,8 +249,8 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
     }, width = colorizedImg.getWidth, height = colorizedImg.getHeight)
   }
 
-  private def clusterAnalysis_density[T](log: ScalaMarkdownPrintStream, name: String): Unit = {
-    val stream = new FileInputStream(log.newFile(name + ".csv"))
+  private def clusterAnalysis_density[T](log: ScalaNotebookOutput, name: String): Unit = {
+    val stream = new FileInputStream("reports/WhiteboardWorkflow/etc/" + name + ".csv")
     val data = try {
       IOUtils.toString(stream, Charset.forName("UTF-8")).split("\n").map(_.split(",").map(java.lang.Double.parseDouble(_)))
     } finally {
@@ -288,7 +288,7 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
       tree.setMaxDepth(3)
       new tree.Node((0 until superpixels).map(superpixelParameters(_)).toArray)
     })
-    val fileOutputStream = new FileOutputStream(log.newFile(name + "_tree.txt"))
+    val fileOutputStream = log.file(name + "_tree.txt")
     try {
       IOUtils.write(densityModel.toString(), fileOutputStream, Charset.forName("UTF-8"))
     } finally {
@@ -304,7 +304,7 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
     }).sum)
   }
 
-  private def findSuperpixels_Hybrid(log: ScalaMarkdownPrintStream, hsv: Planar[GrayF32], rgb: Planar[GrayF32]) = {
+  private def findSuperpixels_Hybrid(log: ScalaNotebookOutput, hsv: Planar[GrayF32], rgb: Planar[GrayF32]) = {
     val finalBinaryMask = threshold(log, hsv, rgb)
     val thresholdImg = log.code(() ⇒ {
       VisualizeBinaryData.renderBinary(finalBinaryMask, false, null)
@@ -372,7 +372,7 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
     (superpixels, segmentation, maskedForground)
   }
 
-  private def threshold(log: ScalaMarkdownPrintStream, hsv: Planar[GrayF32], rgb: Planar[GrayF32]) = {
+  private def threshold(log: ScalaNotebookOutput, hsv: Planar[GrayF32], rgb: Planar[GrayF32]) = {
     log.p("Dectection of markings uses the luminosity")
     val colorBand = log.code(() ⇒ {
       val bandImg: GrayF32 = hsv.getBand(2)
@@ -392,7 +392,7 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporte
   }
 
 
-  private def rectifyQuadrangle(log: ScalaMarkdownPrintStream, sourceImage: BufferedImage) = {
+  private def rectifyQuadrangle(log: ScalaNotebookOutput, sourceImage: BufferedImage) = {
     log.p("We start looking for long edges which can be used to find the board:")
     val found: util.List[LineParametric2D_F32] = log.code(() ⇒ {
       val rulerDetector: DetectLine[GrayU8] = log.code(() ⇒ {

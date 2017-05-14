@@ -549,7 +549,7 @@ class WhiteboardDev extends WordSpec with MustMatchers with MarkdownReporter {
     }).toList
   }
 
-  def optimizeQuadrangle(log: ScalaMarkdownPrintStream, image: BufferedImage, startQuad: Quadrilateral_F32) = {
+  def optimizeQuadrangle(log: ScalaNotebookOutput, image: BufferedImage, startQuad: Quadrilateral_F32) = {
     val single = ConvertBufferedImage.convertFromSingle(image, null, classOf[GrayF32])
     val shapeThresholdImage = GThresholdImageOps.threshold(single, null, ImageStatistics.mean(single), true)
     val detectShape = log.code(() ⇒ {
@@ -616,7 +616,7 @@ class WhiteboardDev extends WordSpec with MustMatchers with MarkdownReporter {
       ), 4)
   }
 
-  def apply(log: ScalaMarkdownPrintStream, op: GrayF32 ⇒ GrayU8)(primaryImage: BufferedImage, secondaryImages: BufferedImage*) = {
+  def apply(log: ScalaNotebookOutput, op: GrayF32 ⇒ GrayU8)(primaryImage: BufferedImage, secondaryImages: BufferedImage*) = {
     (List(primaryImage) ++ secondaryImages).map((img: BufferedImage) ⇒ {
       log.code(() ⇒ {
         val single = ConvertBufferedImage.convertFromSingle(img, null, classOf[GrayF32])
@@ -626,7 +626,7 @@ class WhiteboardDev extends WordSpec with MustMatchers with MarkdownReporter {
     })
   }
 
-  def applyMulti(log: ScalaMarkdownPrintStream, op: Planar[GrayF32] ⇒ GrayU8)(primaryImage: BufferedImage, secondaryImages: BufferedImage*) = {
+  def applyMulti(log: ScalaNotebookOutput, op: Planar[GrayF32] ⇒ GrayU8)(primaryImage: BufferedImage, secondaryImages: BufferedImage*) = {
     (List(primaryImage) ++ secondaryImages).map((img: BufferedImage) ⇒ {
       log.code(() ⇒ {
         val multi = ConvertBufferedImage.convertFromMulti(img, null, false, classOf[GrayF32])
@@ -636,7 +636,7 @@ class WhiteboardDev extends WordSpec with MustMatchers with MarkdownReporter {
     })
   }
 
-  def sketch[T <: TupleDesc[_]](log: ScalaMarkdownPrintStream, detector: DetectLineSegment[GrayF32])(primaryImage: BufferedImage, secondaryImages: BufferedImage*) = {
+  def sketch[T <: TupleDesc[_]](log: ScalaNotebookOutput, detector: DetectLineSegment[GrayF32])(primaryImage: BufferedImage, secondaryImages: BufferedImage*) = {
     (List(primaryImage) ++ secondaryImages).map(img ⇒ {
       val segments: util.List[LineSegment2D_F32] = detector.detect(ConvertBufferedImage.convertFromSingle(img, null, classOf[GrayF32]))
       log.draw(gfx ⇒ {
@@ -652,7 +652,7 @@ class WhiteboardDev extends WordSpec with MustMatchers with MarkdownReporter {
     })
   }
 
-  def sketchExperiment[T <: TupleDesc[_]](log: ScalaMarkdownPrintStream)(primaryImage: BufferedImage, secondaryImages: BufferedImage*) = {
+  def sketchExperiment[T <: TupleDesc[_]](log: ScalaNotebookOutput)(primaryImage: BufferedImage, secondaryImages: BufferedImage*) = {
     val detector = {
       val regionSize = 20
       val thresholdEdge = 50
@@ -699,7 +699,7 @@ class WhiteboardDev extends WordSpec with MustMatchers with MarkdownReporter {
     })
   }
 
-  def sketchExperiment2[T <: TupleDesc[_]](log: ScalaMarkdownPrintStream)(primaryImage: BufferedImage, secondaryImages: BufferedImage*) = {
+  def sketchExperiment2[T <: TupleDesc[_]](log: ScalaNotebookOutput)(primaryImage: BufferedImage, secondaryImages: BufferedImage*) = {
     val detector = {
       val regionSize = 20
       val thresholdEdge = 50
@@ -841,7 +841,7 @@ class WhiteboardDev extends WordSpec with MustMatchers with MarkdownReporter {
     copy
   }
 
-  def colorSpaces[T <: TupleDesc[_]](log: ScalaMarkdownPrintStream)(primaryImage: BufferedImage, secondaryImages: BufferedImage*) = (List(primaryImage) ++ secondaryImages).map(img ⇒ {
+  def colorSpaces[T <: TupleDesc[_]](log: ScalaNotebookOutput)(primaryImage: BufferedImage, secondaryImages: BufferedImage*) = (List(primaryImage) ++ secondaryImages).map(img ⇒ {
     log.draw(gfx ⇒ {
       import boofcv.io.image.ConvertBufferedImage
       import boofcv.struct.image.GrayF32
@@ -887,7 +887,7 @@ class WhiteboardDev extends WordSpec with MustMatchers with MarkdownReporter {
     }, width = img.getWidth * 3, height = img.getHeight() * 5)
   })
 
-  def removeGradualLighting[T <: TupleDesc[_]](log: ScalaMarkdownPrintStream)(primaryImage: BufferedImage, secondaryImages: BufferedImage*) = (List(primaryImage) ++ secondaryImages)
+  def removeGradualLighting[T <: TupleDesc[_]](log: ScalaNotebookOutput)(primaryImage: BufferedImage, secondaryImages: BufferedImage*) = (List(primaryImage) ++ secondaryImages)
     .map(img ⇒ resizeForFFT(img))
     .map(img ⇒ {
       log.draw(gfx ⇒ {
@@ -901,7 +901,7 @@ class WhiteboardDev extends WordSpec with MustMatchers with MarkdownReporter {
       }, width = img.getWidth * 1, height = img.getHeight() * 1)
     })
 
-  def rectify[T <: TupleDesc[_]](log: ScalaMarkdownPrintStream, featureDetector: DetectDescribePoint[GrayF32, T], expand: Boolean = true)(primaryImage: BufferedImage, secondaryImages: BufferedImage*): List[BufferedImage] = {
+  def rectify[T <: TupleDesc[_]](log: ScalaNotebookOutput, featureDetector: DetectDescribePoint[GrayF32, T], expand: Boolean = true)(primaryImage: BufferedImage, secondaryImages: BufferedImage*): List[BufferedImage] = {
     val (pointsA, descriptionsA) = log.code(() ⇒ {
       describe[T](featureDetector, primaryImage)
     })
