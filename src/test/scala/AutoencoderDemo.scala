@@ -54,7 +54,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
       history += currentPoint
     }
   }
-  val minutesPerStep = 20
+  val minutesPerStep = 5
 
   "Train Autoencoder Network" should {
 
@@ -69,8 +69,8 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
           new AutoencoderNetwork.RecursiveBuilder(data) {
             override protected def configure(builder: AutoencoderNetwork.Builder): AutoencoderNetwork.Builder = {
               super.configure(builder
-                .setNoise(0.1)
-                .setDropout(0.1)
+                .setNoise(10.0)
+                //.setDropout(0.1)
               )
             }
 
@@ -89,7 +89,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         }
         summarizeHistory(log)
         reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
-        reportMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder)
+        representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder)
         IO.writeKryo(autoencoder.getEncoder, log.newFile(MarkdownReporter.currentMethod + ".encoder.1.kryo.gz"))
         IO.writeKryo(autoencoder.getDecoder, log.newFile(MarkdownReporter.currentMethod + ".decoder.1.kryo.gz"))
 
@@ -98,7 +98,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         }
         summarizeHistory(log)
         reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
-        reportMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder)
+        representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder)
         IO.writeKryo(autoencoder.getEncoder, log.newFile(MarkdownReporter.currentMethod + ".encoder.2.kryo.gz"))
         IO.writeKryo(autoencoder.getDecoder, log.newFile(MarkdownReporter.currentMethod + ".decoder.2.kryo.gz"))
 
@@ -107,7 +107,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         }
         summarizeHistory(log)
         reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
-        reportMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder)
+        representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder)
         IO.writeKryo(autoencoder.getEncoder, log.newFile(MarkdownReporter.currentMethod + ".encoder.3.kryo.gz"))
         IO.writeKryo(autoencoder.getDecoder, log.newFile(MarkdownReporter.currentMethod + ".decoder.3.kryo.gz"))
 
@@ -189,7 +189,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         }
         summarizeHistory(log)
         reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
-        (0 until 3).foreach(band ⇒ reportMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder, band))
+        (0 until 3).foreach(band ⇒ representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder, band=band))
         IO.writeKryo(autoencoder.getEncoder, log.newFile(MarkdownReporter.currentMethod + ".encoder.1.kryo.gz"))
         IO.writeKryo(autoencoder.getDecoder, log.newFile(MarkdownReporter.currentMethod + ".decoder.1.kryo.gz"))
 
@@ -199,7 +199,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         }
         summarizeHistory(log)
         reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
-        (0 until 3).foreach(band ⇒ reportMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder, band))
+        (0 until 3).foreach(band ⇒ representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder, band=band))
         IO.writeKryo(autoencoder.getEncoder, log.newFile(MarkdownReporter.currentMethod + ".encoder.2.kryo.gz"))
         IO.writeKryo(autoencoder.getDecoder, log.newFile(MarkdownReporter.currentMethod + ".decoder.2.kryo.gz"))
 
@@ -209,7 +209,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         }
         summarizeHistory(log)
         reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
-        (0 until 3).foreach(band ⇒ reportMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder, band))
+        (0 until 3).foreach(band ⇒ representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder, band=band))
         IO.writeKryo(autoencoder.getEncoder, log.newFile(MarkdownReporter.currentMethod + ".encoder.3.kryo.gz"))
         IO.writeKryo(autoencoder.getDecoder, log.newFile(MarkdownReporter.currentMethod + ".decoder.3.kryo.gz"))
       })
@@ -253,50 +253,52 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
     }
   }
 
-  private def reportMatrix(log: ScalaMarkdownPrintStream, encoder: DAGNode, decoder: DAGNode, band: Int = 0) = {
+  private def representationMatrix(log: ScalaMarkdownPrintStream, encoder: DAGNode, decoder: DAGNode, band: Int = 0, probeIntensity : Double = 255.0) = {
     val inputPrototype = data.head
     val dims = inputPrototype.getDims()
-    val encoded = encoder.getLayer.eval(inputPrototype).data.head
+    val encoded: Tensor = encoder.getLayer.eval(inputPrototype).data.head
     val width = encoded.getDims()(0)
     val height = encoded.getDims()(1)
     log.draw(gfx ⇒ {
       (0 until width).foreach(x ⇒ {
         (0 until height).foreach(y ⇒ {
           encoded.fill(cvt((i: Int) ⇒ 0.0))
-          encoded.set(Array(x, y, band), 1.0)
-          val tensor = decoder.getLayer.eval(encoded).data.head
-          val sum = tensor.getData.sum
-          val min = tensor.getData.min
-          val max = tensor.getData.max
-          var getPixel: (Int, Int) ⇒ Color = null
-          val dims = tensor.getDims
-          if (3 == dims.length) {
-            if (3 == dims(2)) {
-              getPixel = (xx: Int, yy: Int) ⇒ {
-                val red: Double = 255 * (tensor.get(xx, yy, 0) - min) / (max - min)
-                val blue: Double = 255 * (tensor.get(xx, yy, 1) - min) / (max - min)
-                val green: Double = 255 * (tensor.get(xx, yy, 2) - min) / (max - min)
-                new Color(red.toInt, blue.toInt, green.toInt)
+          encoded.set(Array(x, y, band), probeIntensity)
+          val tensor: Tensor = decoder.getLayer.eval(encoded).data.head
+          val min: Double = tensor.getData.min
+          val max: Double = tensor.getData.max
+          if(min != max) {
+            var getPixel: (Int, Int) ⇒ Color = null
+            val dims = tensor.getDims
+            if (3 == dims.length) {
+              if (3 == dims(2)) {
+                getPixel = (xx: Int, yy: Int) ⇒ {
+                  val red: Double = 255 * (tensor.get(xx, yy, 0) - min) / (max - min)
+                  val blue: Double = 255 * (tensor.get(xx, yy, 1) - min) / (max - min)
+                  val green: Double = 255 * (tensor.get(xx, yy, 2) - min) / (max - min)
+                  new Color(red.toInt, blue.toInt, green.toInt)
+                }
+              } else {
+                assert(1 == dims(2))
+                getPixel = (xx: Int, yy: Int) ⇒ {
+                  val value: Double = 255 * (tensor.get(xx, yy, 0) - min) / (max - min)
+                  new Color(value.toInt, value.toInt, value.toInt)
+                }
               }
             } else {
-              assert(1 == dims(2))
+              assert(2 == dims.length)
               getPixel = (xx: Int, yy: Int) ⇒ {
                 val value: Double = 255 * (tensor.get(xx, yy) - min) / (max - min)
                 new Color(value.toInt, value.toInt, value.toInt)
               }
             }
-          } else {
-            assert(2 == dims.length)
-            getPixel = (xx: Int, yy: Int) ⇒ {
-              val value: Double = 255 * (tensor.get(xx, yy) - min) / (max - min)
-              new Color(value.toInt, value.toInt, value.toInt)
-            }
+            (0 until dims(0)).foreach(xx ⇒
+              (0 until dims(1)).foreach(yy ⇒ {
+                val pixel = getPixel(xx, yy)
+                gfx.setColor(pixel)
+                gfx.drawRect((x * dims(0)) + xx, (y * dims(1)) + yy, 1, 1)
+              }))
           }
-          (0 until dims(0)).foreach(xx ⇒
-            (0 until dims(1)).foreach(yy ⇒ {
-              gfx.setColor(getPixel(xx, yy))
-              gfx.drawRect((x * dims(0)) + xx, (y * dims(1)) + yy, 1, 1)
-            }))
         })
       })
     }, width = dims(0) * width, height = dims(1) * height)

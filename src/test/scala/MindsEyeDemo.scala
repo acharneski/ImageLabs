@@ -28,9 +28,9 @@ import javax.imageio.ImageIO
 import NetworkViz._
 import com.simiacryptus.mindseye.graph.dag._
 import com.simiacryptus.mindseye.graph.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.net.activation.{AbsActivationLayer, L1NormalizationLayer, LinearActivationLayer, SoftmaxActivationLayer}
+import com.simiacryptus.mindseye.net.activation._
 import com.simiacryptus.mindseye.net.loss.{EntropyLossLayer, MeanSqLossLayer}
-import com.simiacryptus.mindseye.net.media.{ConvolutionSynapseLayer, EntropyLayer}
+import com.simiacryptus.mindseye.net.media.ConvolutionSynapseLayer
 import com.simiacryptus.mindseye.net.reducers.SumInputsLayer
 import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.opt.{StochasticArrayTrainable, TrainingMonitor}
