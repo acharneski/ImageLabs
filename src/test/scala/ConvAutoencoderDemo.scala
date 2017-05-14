@@ -41,7 +41,7 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.Random
 
-class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
+class ConvAutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
 
   var data: Array[Tensor] = null
   val history = new mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]
@@ -54,11 +54,12 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
       history += currentPoint
     }
   }
-  val minutesPerStep = 20
+  val minutesPerStep = 5
 
   "Train Autoencoder Network" should {
 
     "MNIST" in {
+      Thread.sleep(15*1000)
       report("mnist", log ⇒ {
         data = log.eval {
           MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ labeledObj.data).toArray
@@ -66,15 +67,15 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         preview(log, 10, 10)
 
         val autoencoder = log.eval {
-          new AutoencoderNetwork.RecursiveBuilder(data) {
-            override protected def configure(builder: AutoencoderNetwork.Builder): AutoencoderNetwork.Builder = {
+          new ConvAutoencoderNetwork.RecursiveBuilder(data) {
+            override protected def configure(builder: ConvAutoencoderNetwork.Builder): ConvAutoencoderNetwork.Builder = {
               super.configure(builder
                 .setNoise(0.1)
                 .setDropout(0.1)
               )
             }
 
-            override protected def configure(trainingParameters: AutoencoderNetwork.TrainingParameters): AutoencoderNetwork.TrainingParameters = {
+            override protected def configure(trainingParameters: ConvAutoencoderNetwork.TrainingParameters): ConvAutoencoderNetwork.TrainingParameters = {
               super.configure(trainingParameters
                 .setMonitor(monitor)
                 .setSampleSize(100)
@@ -85,7 +86,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         }
         history.clear()
         log.eval {
-          autoencoder.growLayer(10, 10, 1)
+          autoencoder.growLayer(14, 14, 4)
         }
         summarizeHistory(log)
         reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
@@ -94,7 +95,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         IO.writeKryo(autoencoder.getDecoder, log.newFile(MarkdownReporter.currentMethod + ".decoder.1.kryo.gz"))
 
         log.eval {
-          autoencoder.growLayer(5, 5, 1)
+          autoencoder.growLayer(7, 7, 4)
         }
         summarizeHistory(log)
         reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
@@ -165,15 +166,15 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         preview(log, 100, 60)
 
         val autoencoder = log.eval {
-          new AutoencoderNetwork.RecursiveBuilder(data) {
-            override protected def configure(builder: AutoencoderNetwork.Builder): AutoencoderNetwork.Builder = {
+          new ConvAutoencoderNetwork.RecursiveBuilder(data) {
+            override protected def configure(builder: ConvAutoencoderNetwork.Builder): ConvAutoencoderNetwork.Builder = {
               super.configure(builder
                 .setNoise(0.01)
                 .setDropout(0.01)
               )
             }
 
-            override protected def configure(trainingParameters: AutoencoderNetwork.TrainingParameters): AutoencoderNetwork.TrainingParameters = {
+            override protected def configure(trainingParameters: ConvAutoencoderNetwork.TrainingParameters): ConvAutoencoderNetwork.TrainingParameters = {
               super.configure(trainingParameters
                 .setMonitor(monitor)
                 .setSampleSize(1000)

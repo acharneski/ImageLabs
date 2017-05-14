@@ -26,9 +26,6 @@ import guru.nidi.graphviz.model.{Link, LinkSource, MutableNode}
 
 import scala.collection.JavaConverters._
 
-/**
-  * Created by Andrew Charneski on 5/4/2017.
-  */
 object NetworkViz {
 
   def getNodes(node: DAGNode): List[DAGNode] = node match {

@@ -21,7 +21,7 @@ import java.lang
 import java.util.concurrent.TimeUnit
 import java.util.function.{IntToDoubleFunction, ToDoubleFunction}
 
-import AutoencoderUtil._
+import Java8Util._
 import com.simiacryptus.mindseye.graph.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.net._
 import com.simiacryptus.mindseye.net.activation.{ReLuActivationLayer, SoftmaxActivationLayer}

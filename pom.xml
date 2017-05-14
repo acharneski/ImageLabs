@@ -141,7 +141,6 @@
             <groupId>guru.nidi</groupId>
             <artifactId>graphviz-java</artifactId>
             <version>0.1.4</version>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.github.haifengl</groupId>

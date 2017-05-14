@@ -19,10 +19,7 @@
 
 import java.util.function.{IntToDoubleFunction, ToDoubleBiFunction, ToDoubleFunction}
 
-/**
-  * Created by Andrew Charneski on 5/12/2017.
-  */
-object AutoencoderUtil {
+object Java8Util {
 
   implicit def cvt(fn: Int ⇒ Double): IntToDoubleFunction = {
     new IntToDoubleFunction {
