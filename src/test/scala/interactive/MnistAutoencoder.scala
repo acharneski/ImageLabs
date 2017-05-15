@@ -56,15 +56,18 @@ object MnistAutoencoder extends ServiceNotebook {
 
 private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNotebookOutput) {
   def kryo = new KryoReflectionFactorySupport()
+  val originalStdOut = System.out
 
   var data: Array[Tensor] = null
   val history = new mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]
-  val minutesPerStep = 5
+  val minutesPerStep = 10
   val logOut = new TeeOutputStream(log.file("log.txt"), true)
-  val logPrintStream = new PrintStream(logOut)
-  var monitor = new TrainingMonitor {
+  val monitor = new TrainingMonitor {
+    val logPrintStream = new PrintStream(logOut)
     override def log(msg: String): Unit = {
-      logPrintStream.println(msg);
+      //if(!msg.trim.isEmpty) {}
+      logPrintStream.println(msg)
+      originalStdOut.println(msg)
     }
 
     override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
@@ -77,7 +80,7 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
     log.p("View the convergence history: <a href='/history.html'>/history.html</a>")
     server.addHandler("history.html", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
-        summarizeHistory(log, history.toList)
+        summarizeHistory(log, history.toList.toArray)
       })
     }))
 
@@ -97,15 +100,15 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
       new AutoencoderNetwork.RecursiveBuilder(data) {
         override protected def configure(builder: AutoencoderNetwork.Builder): AutoencoderNetwork.Builder = {
           super.configure(builder
-            .setNoise(10.0)
-            //.setDropout(0.1)
+            .setNoise(0.01)
+            .setDropout(0.05)
           )
         }
 
         override protected def configure(trainingParameters: AutoencoderNetwork.TrainingParameters): AutoencoderNetwork.TrainingParameters = {
           super.configure(trainingParameters
             .setMonitor(monitor)
-            .setSampleSize(100)
+            .setSampleSize(1000)
             .setTimeoutMinutes(minutesPerStep)
           )
         }
@@ -132,7 +135,7 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
       autoencoder.growLayer(10, 10, 1)
     }
 
-    summarizeHistory(log)
+    summarizeHistory(log, history.toArray)
     reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
     representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder)
     IOUtil.writeKryo(autoencoder.getEncoder, log.file(ReportNotebook.currentMethod + ".encoder.1.kryo.gz"))
@@ -141,7 +144,7 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
     log.eval {
       autoencoder.growLayer(5, 5, 1)
     }
-    summarizeHistory(log)
+    summarizeHistory(log, history.toArray)
     reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
     representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder)
     IOUtil.writeKryo(autoencoder.getEncoder, log.file(ReportNotebook.currentMethod + ".encoder.2.kryo.gz"))
@@ -150,7 +153,7 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
     log.eval {
       autoencoder.tune()
     }
-    summarizeHistory(log)
+    summarizeHistory(log, history.toArray)
     reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
     representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder)
     IOUtil.writeKryo(autoencoder.getEncoder, log.file(ReportNotebook.currentMethod + ".encoder.3.kryo.gz"))
@@ -343,29 +346,6 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
     }
   }
 
-  private def summarizeHistory(log: ScalaNotebookOutput) = {
-    if (!history.isEmpty) {
-      log.eval {
-        val plot: PlotCanvas = ScatterPlot.plot(history.map(item ⇒ Array[Double](
-          item.iteration, Math.log(item.point.value)
-        )).toArray: _*)
-        plot.setTitle("Convergence Plot")
-        plot.setAxisLabels("Iteration", "log(Fitness)")
-        plot.setSize(600, 400)
-        plot
-      }
-      log.eval {
-        val step = Math.max(Math.pow(10, Math.ceil(Math.log(history.size) / Math.log(10)) - 2), 1).toInt
-        TableOutput.create(history.filter(0 == _.iteration % step).map(state ⇒
-          Map[String, AnyRef](
-            "iteration" → state.iteration.toInt.asInstanceOf[Integer],
-            "time" → state.time.toDouble.asInstanceOf[lang.Double],
-            "fitness" → state.point.value.toDouble.asInstanceOf[lang.Double]
-          ).asJava
-        ): _*)
-      }
-    }
-  }
 
   private def writeMislassificationMatrix(log: HtmlNotebookOutput, categorizationMatrix: Map[Int, Map[Int, Int]]) = {
     log.out("<table>")
@@ -403,8 +383,17 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
     ndArray
   }
 
-  private def summarizeHistory(log: ScalaNotebookOutput, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
+  private def summarizeHistory(log: ScalaNotebookOutput, history: Array[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
     if(!history.isEmpty) {
+      log.eval {
+        val plot: PlotCanvas = ScatterPlot.plot(history.map(item ⇒ Array[Double](
+          item.iteration, Math.log(item.point.value)
+        )).toArray: _*)
+        plot.setTitle("Convergence Plot")
+        plot.setAxisLabels("Iteration", "log(Fitness)")
+        plot.setSize(600, 400)
+        plot
+      }
       log.eval {
         val step = Math.max(Math.pow(10, Math.ceil(Math.log(history.size) / Math.log(10)) - 2), 1).toInt
         TableOutput.create(history.filter(0 == _.iteration % step).map(state ⇒
@@ -414,15 +403,6 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
             "fitness" → state.point.value.toDouble.asInstanceOf[lang.Double]
           ).asJava
         ): _*)
-      }
-      log.eval {
-        val plot: PlotCanvas = ScatterPlot.plot(history.map(item ⇒ Array[Double](
-          item.iteration, Math.log(item.point.value)
-        )).toArray: _*)
-        plot.setTitle("Convergence Plot")
-        plot.setAxisLabels("Iteration", "log(Fitness)")
-        plot.setSize(600, 400)
-        plot
       }
     }
   }

@@ -58,12 +58,12 @@ class AutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook {
       history += currentPoint
     }
   }
-  val minutesPerStep = 5
+  val minutesPerStep = 20
 
   "Train Autoencoder Network" should {
 
     "MNIST" in {
-      report("mnist", log ⇒ {
+      report("mnist_sparse", log ⇒ {
         data = log.eval {
           MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ labeledObj.data).toArray
         }
@@ -73,8 +73,8 @@ class AutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook {
           new AutoencoderNetwork.RecursiveBuilder(data) {
             override protected def configure(builder: AutoencoderNetwork.Builder): AutoencoderNetwork.Builder = {
               super.configure(builder
-                .setNoise(10.0)
-                //.setDropout(0.1)
+                .setNoise(0.1)
+                .setDropout(0.05)
               )
             }
 
@@ -159,7 +159,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook {
       })
     }
 
-    "Monkey" in {
+    "Monkey2" in {
       report("monkey", log ⇒ {
         data = log.eval {
           var data = ImageTiles.tilesRgb(ImageIO.read(getClass.getClassLoader.getResourceAsStream("monkey1.jpg")), 10, 10, 10, 10)
