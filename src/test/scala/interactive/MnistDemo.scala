@@ -114,13 +114,13 @@ object MnistDemo extends ServiceNotebook {
       model
     }
     log.p("We can visualize this network as a graph: ")
-    networkGraph(log, model, 800)
+    networkGraph(log, model, 800, 600)
     log.p("We encapsulate our model network within a supervisory network that applies a loss function: ")
     val trainingNetwork: SupervisedNetwork = log.eval {
       new SimpleLossNetwork(model, new EntropyLossLayer)
     }
     log.p("With a the following component graph: ")
-    networkGraph(log, trainingNetwork, 600)
+    networkGraph(log, trainingNetwork, 800, 600)
     log.p("Note that this visualization does not expand DAGNetworks recursively")
 
     log.h2("Training")
@@ -251,9 +251,9 @@ object MnistDemo extends ServiceNotebook {
     throw new RuntimeException
   }
 
-  def networkGraph(log: ScalaNotebookOutput, network: DAGNetwork, width: Int = 1200) = {
+  def networkGraph(log: ScalaNotebookOutput, network: DAGNetwork, width: Int = 1200, height: Int = 1000) = {
     log.eval {
-      Graphviz.fromGraph(toGraph(network)).width(width).render(Format.PNG).toImage
+      Graphviz.fromGraph(toGraph(network)).height(height).width(width).render(Format.PNG).toImage
     }
   }
 

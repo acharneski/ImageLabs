@@ -33,7 +33,7 @@ trait ServiceNotebook {
     val path = new File(Util.mkString(File.separator, "www", UUID.randomUUID.toString))
     path.mkdirs
     val logFile = new File(path, "index.html")
-    val server = new StreamNanoHTTPD(1080, "text/html", logFile).init()
+    val server = new StreamNanoHTTPD(0x1FF + (Math.random() * 0x700).toInt, "text/html", logFile).init()
     val log = new HtmlNotebookOutput(path, server.dataReciever) with ScalaNotebookOutput
     log.addCopy(System.out)
     try {
