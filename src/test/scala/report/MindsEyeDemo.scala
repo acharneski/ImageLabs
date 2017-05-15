@@ -188,7 +188,6 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
             categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0)
           }).sum.toDouble * 100.0 / categorizationMatrix.values.flatMap(_.values).sum
         }
-        Thread.sleep(100000)
       })
     }
 
