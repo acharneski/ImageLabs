@@ -17,12 +17,13 @@
  * under the License.
  */
 
+package report
+
 import java.awt.Color
 import java.lang
 import java.util.concurrent.TimeUnit
 import javax.imageio.ImageIO
 
-import Java8Util._
 import com.simiacryptus.mindseye.graph._
 import com.simiacryptus.mindseye.graph.dag._
 import com.simiacryptus.mindseye.net.activation.SoftmaxActivationLayer
@@ -37,12 +38,14 @@ import com.simiacryptus.util.text.TableOutput
 import de.javakaffee.kryoserializers.KryoReflectionFactorySupport
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}
+import util.Java8Util._
+import util.{ReportNotebook, ScalaNotebookOutput}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.Random
 
-class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
+class AutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook {
 
   var data: Array[Tensor] = null
   val history = new mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]
@@ -91,8 +94,8 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         summarizeHistory(log)
         reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
         representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder)
-        IOUtil.writeKryo(autoencoder.getEncoder, log.file(MarkdownReporter.currentMethod + ".encoder.1.kryo.gz"))
-        IOUtil.writeKryo(autoencoder.getDecoder, log.file(MarkdownReporter.currentMethod + ".decoder.1.kryo.gz"))
+        IOUtil.writeKryo(autoencoder.getEncoder, log.file(ReportNotebook.currentMethod + ".encoder.1.kryo.gz"))
+        IOUtil.writeKryo(autoencoder.getDecoder, log.file(ReportNotebook.currentMethod + ".decoder.1.kryo.gz"))
 
         log.eval {
           autoencoder.growLayer(5, 5, 1)
@@ -100,8 +103,8 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         summarizeHistory(log)
         reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
         representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder)
-        IOUtil.writeKryo(autoencoder.getEncoder, log.file(MarkdownReporter.currentMethod + ".encoder.2.kryo.gz"))
-        IOUtil.writeKryo(autoencoder.getDecoder, log.file(MarkdownReporter.currentMethod + ".decoder.2.kryo.gz"))
+        IOUtil.writeKryo(autoencoder.getEncoder, log.file(ReportNotebook.currentMethod + ".encoder.2.kryo.gz"))
+        IOUtil.writeKryo(autoencoder.getDecoder, log.file(ReportNotebook.currentMethod + ".decoder.2.kryo.gz"))
 
         log.eval {
           autoencoder.tune()
@@ -109,8 +112,8 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         summarizeHistory(log)
         reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
         representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder)
-        IOUtil.writeKryo(autoencoder.getEncoder, log.file(MarkdownReporter.currentMethod + ".encoder.3.kryo.gz"))
-        IOUtil.writeKryo(autoencoder.getDecoder, log.file(MarkdownReporter.currentMethod + ".decoder.3.kryo.gz"))
+        IOUtil.writeKryo(autoencoder.getEncoder, log.file(ReportNotebook.currentMethod + ".encoder.3.kryo.gz"))
+        IOUtil.writeKryo(autoencoder.getDecoder, log.file(ReportNotebook.currentMethod + ".decoder.3.kryo.gz"))
 
 
         val trainingData: Seq[Array[Tensor]] = MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
@@ -191,8 +194,8 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         summarizeHistory(log)
         reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
         (0 until 3).foreach(band ⇒ representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder, band=band))
-        IOUtil.writeKryo(autoencoder.getEncoder, log.file(MarkdownReporter.currentMethod + ".encoder.1.kryo.gz"))
-        IOUtil.writeKryo(autoencoder.getDecoder, log.file(MarkdownReporter.currentMethod + ".decoder.1.kryo.gz"))
+        IOUtil.writeKryo(autoencoder.getEncoder, log.file(ReportNotebook.currentMethod + ".encoder.1.kryo.gz"))
+        IOUtil.writeKryo(autoencoder.getDecoder, log.file(ReportNotebook.currentMethod + ".decoder.1.kryo.gz"))
 
         history.clear()
         log.eval {
@@ -201,8 +204,8 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         summarizeHistory(log)
         reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
         (0 until 3).foreach(band ⇒ representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder, band=band))
-        IOUtil.writeKryo(autoencoder.getEncoder, log.file(MarkdownReporter.currentMethod + ".encoder.2.kryo.gz"))
-        IOUtil.writeKryo(autoencoder.getDecoder, log.file(MarkdownReporter.currentMethod + ".decoder.2.kryo.gz"))
+        IOUtil.writeKryo(autoencoder.getEncoder, log.file(ReportNotebook.currentMethod + ".encoder.2.kryo.gz"))
+        IOUtil.writeKryo(autoencoder.getDecoder, log.file(ReportNotebook.currentMethod + ".decoder.2.kryo.gz"))
 
         history.clear()
         log.eval {
@@ -211,8 +214,8 @@ class AutoencoderDemo extends WordSpec with MustMatchers with MarkdownReporter {
         summarizeHistory(log)
         reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
         (0 until 3).foreach(band ⇒ representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder, band=band))
-        IOUtil.writeKryo(autoencoder.getEncoder, log.file(MarkdownReporter.currentMethod + ".encoder.3.kryo.gz"))
-        IOUtil.writeKryo(autoencoder.getDecoder, log.file(MarkdownReporter.currentMethod + ".decoder.3.kryo.gz"))
+        IOUtil.writeKryo(autoencoder.getEncoder, log.file(ReportNotebook.currentMethod + ".encoder.3.kryo.gz"))
+        IOUtil.writeKryo(autoencoder.getDecoder, log.file(ReportNotebook.currentMethod + ".decoder.3.kryo.gz"))
       })
     }
 

@@ -17,6 +17,8 @@
  * under the License.
  */
 
+package report
+
 import java.io.File
 import java.lang
 import java.util.concurrent.TimeUnit
@@ -35,10 +37,11 @@ import com.simiacryptus.util.test.MNIST
 import com.simiacryptus.util.text.TableOutput
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}
+import util.{ReportNotebook, ScalaNotebookOutput}
 
 import scala.collection.JavaConverters._
 
-class MnistNetDemo extends WordSpec with MustMatchers with MarkdownReporter {
+class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
 
   val terminationThreshold = 0.01
   val inputSize = Array[Int](28, 28, 1)

@@ -17,7 +17,11 @@
  * under the License.
  */
 
+package report
+
 import java.awt.{Color, Graphics}
+
+import util.ReportNotebook
 import java.util
 import javax.imageio.ImageIO
 
@@ -36,7 +40,7 @@ import org.scalatest.{MustMatchers, WordSpec}
 
 import scala.collection.JavaConverters._
 
-class Subtasks extends WordSpec with MustMatchers with MarkdownReporter {
+class Subtasks extends WordSpec with MustMatchers with ReportNotebook {
 
   def pairs[T](list: List[T]): List[(T, T)] = {
     (0 until list.size - 1).flatMap(i ⇒ {

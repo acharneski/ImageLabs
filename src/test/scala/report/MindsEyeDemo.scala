@@ -17,15 +17,19 @@
  * under the License.
  */
 
+package report
+
 import java.awt.geom.AffineTransform
 import java.awt.image.{AffineTransformOp, BufferedImage}
 import java.awt.{Color, Graphics2D}
 import java.util.concurrent.TimeUnit
 import java.util.function.{DoubleSupplier, ToDoubleFunction}
+
+import util.NetworkViz._
+import util.{ReportNotebook, ScalaNotebookOutput}
 import java.{lang, util}
 import javax.imageio.ImageIO
 
-import NetworkViz._
 import com.simiacryptus.mindseye.graph.dag._
 import com.simiacryptus.mindseye.graph.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.net.activation._
@@ -45,7 +49,7 @@ import smile.plot.{PlotCanvas, ScatterPlot}
 import scala.collection.JavaConverters._
 import scala.util.Random
 
-class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
+class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
 
 
   "MindsEye Demo" should {
@@ -96,12 +100,14 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
         log.h2("Training")
         log.p("We train using a standard iterative L-BFGS strategy: ")
         val history = new scala.collection.mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]()
+        val _log = log
         val trainer = log.eval {
           val trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
           val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
           trainer.setMonitor(new TrainingMonitor {
             override def log(msg: String): Unit = {
-              System.err.println(msg)
+              //System.err.println(msg)
+              _log.p(msg)
             }
 
             override def onStepComplete(currentPoint: com.simiacryptus.mindseye.opt.IterativeTrainer.Step): Unit = {
@@ -182,7 +188,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with MarkdownReporter {
             categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0)
           }).sum.toDouble * 100.0 / categorizationMatrix.values.flatMap(_.values).sum
         }
-
+        Thread.sleep(100000)
       })
     }
 

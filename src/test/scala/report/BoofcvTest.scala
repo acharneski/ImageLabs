@@ -17,10 +17,14 @@
  * under the License.
  */
 
+package report
+
 import java.awt.image.BufferedImage
 import java.awt.{BasicStroke, Color, Graphics2D, RenderingHints}
-import java.util
 import javax.imageio.ImageIO
+
+import util._
+import java.util
 
 import boofcv.abst.feature.associate.ScoreAssociation
 import boofcv.abst.feature.describe.ConfigSurfDescribe.Stability
@@ -57,7 +61,7 @@ import org.scalatest.{MustMatchers, WordSpec}
 
 import scala.collection.JavaConverters._
 
-class BoofcvTest extends WordSpec with MustMatchers with MarkdownReporter {
+class BoofcvTest extends WordSpec with MustMatchers with ReportNotebook {
 
 
   "BoofCV" should {

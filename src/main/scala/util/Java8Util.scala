@@ -17,7 +17,9 @@
  * under the License.
  */
 
-import java.util.function.{IntToDoubleFunction, ToDoubleBiFunction, ToDoubleFunction}
+package util
+
+import java.util.function.{Consumer, Function, IntToDoubleFunction, ToDoubleBiFunction, ToDoubleFunction}
 
 object Java8Util {
 
@@ -33,9 +35,21 @@ object Java8Util {
     }
   }
 
-  implicit def cvt[T](fn: (T, T) ⇒ Double): ToDoubleBiFunction[T, T] = {
-    new ToDoubleBiFunction[T, T] {
-      override def applyAsDouble(v: T, u: T): Double = fn(v, u)
+  implicit def cvt[T](fn: T ⇒ Unit): Consumer[T] = {
+    new Consumer[T] {
+      override def accept(t: T): Unit = fn(t)
+    }
+  }
+
+  implicit def cvt[T,U](fn: T ⇒ U): Function[T, U] = {
+    new Function[T, U] {
+      override def apply(v1: T): U = fn(v1)
+    }
+  }
+
+  implicit def cvt[T,U](fn: (T, U) ⇒ Double): ToDoubleBiFunction[T, U] = {
+    new ToDoubleBiFunction[T, U] {
+      override def applyAsDouble(v: T, u: U): Double = fn(v, u)
     }
   }
 

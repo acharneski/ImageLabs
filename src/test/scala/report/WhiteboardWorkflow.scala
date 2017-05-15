@@ -17,10 +17,14 @@
  * under the License.
  */
 
+package report
+
 import java.awt.image.BufferedImage
 import java.awt.{BasicStroke, Color, Graphics}
 import java.io.FileInputStream
 import java.nio.charset.Charset
+
+import util.{ReportNotebook, ScalaNotebookOutput}
 import java.util
 import javax.imageio.ImageIO
 
@@ -56,7 +60,7 @@ import org.scalatest.{MustMatchers, WordSpec}
 
 import scala.collection.JavaConverters._
 
-class WhiteboardWorkflow extends WordSpec with MustMatchers with MarkdownReporter {
+class WhiteboardWorkflow extends WordSpec with MustMatchers with ReportNotebook {
 
 
   "Whiteboard Image Processing Demo" should {

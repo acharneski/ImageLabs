@@ -17,6 +17,8 @@
  * under the License.
  */
 
+package util
+
 import java.util.UUID
 
 import com.simiacryptus.mindseye.graph.dag.{DAGNetwork, DAGNode, InnerNode}

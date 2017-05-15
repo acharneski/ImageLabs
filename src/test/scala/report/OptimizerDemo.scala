@@ -17,12 +17,15 @@
  * under the License.
  */
 
+package report
+
 import java.lang
 import java.util.concurrent.TimeUnit
 import java.util.function.{IntToDoubleFunction, ToDoubleFunction}
 
-import Java8Util._
 import com.simiacryptus.mindseye.graph.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import util.Java8Util._
+import util.{ReportNotebook, ScalaNotebookOutput}
 import com.simiacryptus.mindseye.net._
 import com.simiacryptus.mindseye.net.activation.{ReLuActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
@@ -37,7 +40,7 @@ import smile.plot.{PlotCanvas, ScatterPlot}
 
 import scala.collection.JavaConverters._
 
-class OptimizerDemo extends WordSpec with MustMatchers with MarkdownReporter {
+class OptimizerDemo extends WordSpec with MustMatchers with ReportNotebook {
 
   val schedule = List(
     TrainingStep(200, 5, 0.5), TrainingStep(1000, 5, 0.1)
