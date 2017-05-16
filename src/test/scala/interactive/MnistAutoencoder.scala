@@ -100,8 +100,8 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
       new AutoencoderNetwork.RecursiveBuilder(data) {
         override protected def configure(builder: AutoencoderNetwork.Builder): AutoencoderNetwork.Builder = {
           super.configure(builder
-            .setNoise(0.01)
-            .setDropout(0.05)
+            .setNoise(0.0)
+            .setDropout(0.1)
           )
         }
 
