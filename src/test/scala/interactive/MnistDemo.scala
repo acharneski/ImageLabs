@@ -19,16 +19,18 @@
 
 package interactive
 
-import java.io.PrintStream
+import java.io.{ByteArrayOutputStream, PrintStream}
 import java.lang
 import java.util.concurrent.{Semaphore, TimeUnit}
 import java.util.function.ToDoubleFunction
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.simiacryptus.mindseye.graph.dag._
 import com.simiacryptus.mindseye.graph.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.net.activation._
 import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer}
+import com.simiacryptus.mindseye.net.util.{MonitoredObject, MonitoringWrapper}
 import com.simiacryptus.mindseye.opt.{IterativeTrainer, StochasticArrayTrainable, TrainingMonitor}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, MarkdownNotebookOutput, TeeOutputStream}
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
@@ -39,21 +41,24 @@ import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
 import guru.nidi.graphviz.engine.{Format, Graphviz}
 import smile.plot.{PlotCanvas, ScatterPlot}
-import util._
 import util.NetworkViz._
+import util._
+
 import scala.collection.JavaConverters._
 
 object MnistDemo extends ServiceNotebook {
 
   def main(args: Array[String]): Unit = {
-    report(main)
+    report(new MnistDemo().run)
     System.exit(0)
   }
+}
+class MnistDemo {
 
-  def main(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNotebookOutput) {
+  def run(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNotebookOutput) {
     val inputSize = Array[Int](28, 28, 1)
     val outputSize = Array[Int](10)
-    log.p("In this demo we train a simple neural network against the MNIST handwritten digit dataset")
+    log.p("In this demo we newTrainer a simple neural network against the MNIST handwritten digit dataset")
 
     log.h2("Data")
     log.p("First, we cache the training dataset: ")
@@ -74,7 +79,7 @@ object MnistDemo extends ServiceNotebook {
           ).asJava): _*)
         }
       })
-    }))
+    }), false)
 
     val history = new scala.collection.mutable.ArrayBuffer[IterativeTrainer.Step]()
     log.p("View the convergence history: <a href='/history.html'>/history.html</a>")
@@ -82,7 +87,7 @@ object MnistDemo extends ServiceNotebook {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         summarizeHistory(log, history.toList)
       })
-    }))
+    }), false)
 
     log.p("View the log: <a href='/log'>/log</a>")
     val logOut = new TeeOutputStream(log.file("log.txt"), true)
@@ -101,14 +106,23 @@ object MnistDemo extends ServiceNotebook {
       }
     }
 
+    val monitoringRoot = new MonitoredObject()
+    log.p("<p><a href='/netmon.json'>Network Monitoring</a></p>")
+    server.addHandler("netmon.json", "application/json", Java8Util.cvt(out ⇒ {
+      val mapper = new ObjectMapper().enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL)
+      val buffer = new ByteArrayOutputStream()
+      mapper.writeValue(buffer, monitoringRoot.getMetrics)
+      out.write(buffer.toByteArray)
+    }), false)
+
 
     log.h2("Model")
-    log.p("Here we define the logic network that we are about to train: ")
+    log.p("Here we define the logic network that we are about to newTrainer: ")
     var model: PipelineNetwork = log.eval {
       var model: PipelineNetwork = new PipelineNetwork
-      model.add(new DenseSynapseLayer(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+      model.add(new MonitoringWrapper(new DenseSynapseLayer(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
         override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.0
-      }))
+      })).addTo(monitoringRoot,"synapse1"))
       model.add(new BiasLayer(outputSize: _*))
       model.add(new SoftmaxActivationLayer)
       model
@@ -124,7 +138,7 @@ object MnistDemo extends ServiceNotebook {
     log.p("Note that this visualization does not expand DAGNetworks recursively")
 
     log.h2("Training")
-    log.p("We train using a standard iterative L-BFGS strategy: ")
+    log.p("We newTrainer using a standard iterative L-BFGS strategy: ")
     val trainer = log.eval {
       val trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
@@ -206,7 +220,7 @@ object MnistDemo extends ServiceNotebook {
         log.h1("OK")
         onExit.release(1)
       })
-    }))
+    }), false)
     onExit.acquire()
   }
 

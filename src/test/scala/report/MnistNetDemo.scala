@@ -217,7 +217,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
       }).toList
     })
     log.h2("Training")
-    log.p("We encapsulate our model network within a supervisory network that applies a loss function, then train using a standard iterative L-BFGS strategy: ")
+    log.p("We encapsulate our model network within a supervisory network that applies a loss function, then newTrainer using a standard iterative L-BFGS strategy: ")
     val history = new scala.collection.mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]()
     val monitor = log.eval {
       val monitor = new TrainingMonitor {

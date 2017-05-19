@@ -24,8 +24,8 @@ import java.io.PrintStream
 import java.lang
 import java.util.concurrent.{Semaphore, TimeUnit}
 
-import com.simiacryptus.mindseye.graph.dag._
 import com.simiacryptus.mindseye.graph.{AutoencoderNetwork, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.net.NNLayer
 import com.simiacryptus.mindseye.net.activation._
 import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.net.synapse.DenseSynapseLayer
@@ -82,7 +82,7 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         summarizeHistory(log, history.toList.toArray)
       })
-    }))
+    }), false)
 
     log.p("View the log: <a href='/log'>/log</a>")
     server.addHandler2("log", Java8Util.cvt((session : IHTTPSession)⇒{
@@ -123,14 +123,14 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
       })
-    }))
+    }), false)
 
     log.p("<a href='/representationMatrix.html'>Representation Matrix</a>")
     server.addHandler("representationMatrix.html", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder)
       })
-    }))
+    }), false)
 
 
     log.eval {
@@ -209,7 +209,7 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
         log.h1("OK")
         onExit.release(1)
       })
-    }))
+    }), false)
     onExit.acquire()
   }
 
@@ -241,10 +241,10 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
     }
   }
 
-  private def representationMatrix(log: ScalaNotebookOutput, encoder: DAGNode, decoder: DAGNode, band: Int = 0, probeIntensity : Double = 255.0) = {
+  private def representationMatrix(log: ScalaNotebookOutput, encoder: NNLayer, decoder: NNLayer, band: Int = 0, probeIntensity : Double = 255.0) = {
     val inputPrototype = data.head
     val dims = inputPrototype.getDims()
-    val encoded: Tensor = encoder.getLayer.eval(inputPrototype).data.head
+    val encoded: Tensor = encoder.eval(inputPrototype).data.head
     val width = encoded.getDims()(0)
     val height = encoded.getDims()(1)
     log.draw(gfx ⇒ {
@@ -252,7 +252,7 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
         (0 until height).foreach(y ⇒ {
           encoded.fill(cvt((i: Int) ⇒ 0.0))
           encoded.set(Array(x, y, band), probeIntensity)
-          val tensor: Tensor = decoder.getLayer.eval(encoded).data.head
+          val tensor: Tensor = decoder.eval(encoded).data.head
           val min: Double = tensor.getData.min
           val max: Double = tensor.getData.max
           if(min != max) {
@@ -334,12 +334,12 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
     }, width = dims(0) * width, height = dims(1) * height)
   }
 
-  private def reportTable(log: ScalaNotebookOutput, encoder: DAGNode, decoder: DAGNode) = {
+  private def reportTable(log: ScalaNotebookOutput, encoder: NNLayer, decoder: NNLayer) = {
     log.eval {
       TableOutput.create(data.take(20).map(testObj ⇒ {
         var evalModel: PipelineNetwork = new PipelineNetwork
-        evalModel.add(encoder.getLayer)
-        evalModel.add(decoder.getLayer)
+        evalModel.add(encoder)
+        evalModel.add(decoder)
         val result = evalModel.eval(testObj).data.head
         Map[String, AnyRef](
           "Input" → log.image(testObj.toImage(), "Input"),

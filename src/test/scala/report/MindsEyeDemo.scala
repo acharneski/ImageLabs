@@ -58,7 +58,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
       report("mnist_simple", log ⇒ {
         val inputSize = Array[Int](28, 28, 1)
         val outputSize = Array[Int](10)
-        log.p("In this demo we train a simple neural network against the MNIST handwritten digit dataset")
+        log.p("In this demo we newTrainer a simple neural network against the MNIST handwritten digit dataset")
 
         log.h2("Data")
         log.p("First, we cache the training dataset: ")
@@ -77,7 +77,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
         }
 
         log.h2("Model")
-        log.p("Here we define the logic network that we are about to train: ")
+        log.p("Here we define the logic network that we are about to newTrainer: ")
         var model: PipelineNetwork = log.eval {
           var model: PipelineNetwork = new PipelineNetwork
           model.add(new DenseSynapseLayer(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
@@ -98,7 +98,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
         log.p("Note that this visualization does not expand DAGNetworks recursively")
 
         log.h2("Training")
-        log.p("We train using a standard iterative L-BFGS strategy: ")
+        log.p("We newTrainer using a standard iterative L-BFGS strategy: ")
         val history = new scala.collection.mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]()
         val _log = log
         val trainer = log.eval {
@@ -385,7 +385,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
           scale(read, 0.5)
         }
 
-        log.p("Next we run this ideal image through our constructed filter to create a blurred image: ")
+        log.p("Next we train this ideal image through our constructed filter to create a blurred image: ")
         val idealImageTensor: Tensor = Tensor.fromRGB(idealImage)
         val blurredImage: Tensor = log.eval {
           blurFilter.eval(Array(Array(idealImageTensor))).data.head

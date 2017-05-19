@@ -20,15 +20,17 @@
 package interactive
 
 import java.awt.Color
-import java.io.PrintStream
+import java.io.{ByteArrayOutputStream, PrintStream}
 import java.lang
 import java.util.concurrent.{Semaphore, TimeUnit}
 
-import com.simiacryptus.mindseye.graph.dag._
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.simiacryptus.mindseye.graph.{ConvAutoencoderNetwork, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.net.NNLayer
 import com.simiacryptus.mindseye.net.activation._
 import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.net.synapse.DenseSynapseLayer
+import com.simiacryptus.mindseye.net.util.MonitoredObject
 import com.simiacryptus.mindseye.opt.{IterativeTrainer, LBFGS, StochasticArrayTrainable, TrainingMonitor}
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.{HtmlNotebookOutput, TeeOutputStream}
@@ -83,12 +85,25 @@ class ConvMnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         summarizeHistory(log, history.toList.toArray)
       })
-    }))
+    }), false)
 
     log.p("View the log: <a href='/log'>/log</a>")
     server.addHandler2("log", Java8Util.cvt((session : IHTTPSession)⇒{
       NanoHTTPD.newChunkedResponse(NanoHTTPD.Response.Status.OK, "text/plain", logOut.newInputStream())
     }))
+
+
+    val monitoringRoot = new MonitoredObject()
+    log.p("<p><a href='/netmon.json'>Network Monitoring</a></p>")
+    server.addHandler("netmon.json", "application/json", Java8Util.cvt(out ⇒ {
+      val mapper = new ObjectMapper() // .enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL)
+      val buffer = new ByteArrayOutputStream()
+      mapper.writeValue(buffer, monitoringRoot.getMetrics)
+      buffer.flush()
+      out.write(buffer.toByteArray)
+    }), false)
+
+
     log.out("<hr/>");
 
     data = log.eval {
@@ -111,12 +126,13 @@ class ConvMnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with
         override protected def configure(trainingParameters: ConvAutoencoderNetwork.TrainingParameters): ConvAutoencoderNetwork.TrainingParameters = {
           super.configure(trainingParameters
             .setMonitor(monitor)
-            .setSampleSize(1000)
+            .setSampleSize(100)
             .setTimeoutMinutes(minutesPerStep)
           )
         }
       }
     }
+    monitoringRoot.addObj("autoencoder", autoencoder)
 
 
     log.p("<a href='/reportTable.html'>Autorecognition Sample</a>")
@@ -124,18 +140,18 @@ class ConvMnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
       })
-    }))
+    }), false)
 
     log.p("<a href='/representationMatrix.html'>Representation Matrix</a>")
     server.addHandler("representationMatrix.html", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder)
       })
-    }))
+    }), false)
 
 
     log.eval {
-      autoencoder.growLayer(28, 28, 1)
+      autoencoder.growLayer(28, 28, 10)
     }
     summarizeHistory(log, history.toArray)
     reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
@@ -188,7 +204,7 @@ class ConvMnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with
         log.h1("OK")
         onExit.release(1)
       })
-    }))
+    }), false)
     onExit.acquire()
   }
 
@@ -220,55 +236,60 @@ class ConvMnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with
     }
   }
 
-  private def representationMatrix(log: ScalaNotebookOutput, encoder: DAGNode, decoder: DAGNode, band: Int = 0, probeIntensity : Double = 255.0) = {
+  private def representationMatrix(log: ScalaNotebookOutput, encoder: NNLayer, decoder: NNLayer, probeIntensity : Double = 255.0) = {
     val inputPrototype = data.head
     val dims = inputPrototype.getDims()
-    val encoded: Tensor = encoder.getLayer.eval(inputPrototype).data.head
-    val width = encoded.getDims()(0)
-    val height = encoded.getDims()(1)
-    log.draw(gfx ⇒ {
-      (0 until width).foreach(x ⇒ {
-        (0 until height).foreach(y ⇒ {
-          encoded.fill(cvt((i: Int) ⇒ 0.0))
-          encoded.set(Array(x, y, band), probeIntensity)
-          val tensor: Tensor = decoder.getLayer.eval(encoded).data.head
-          val min: Double = tensor.getData.min
-          val max: Double = tensor.getData.max
-          if(min != max) {
-            var getPixel: (Int, Int) ⇒ Color = null
-            val dims = tensor.getDims
-            if (3 == dims.length) {
-              if (3 == dims(2)) {
-                getPixel = (xx: Int, yy: Int) ⇒ {
-                  val red: Double = 255 * (tensor.get(xx, yy, 0) - min) / (max - min)
-                  val blue: Double = 255 * (tensor.get(xx, yy, 1) - min) / (max - min)
-                  val green: Double = 255 * (tensor.get(xx, yy, 2) - min) / (max - min)
-                  new Color(red.toInt, blue.toInt, green.toInt)
+    val encoded: Tensor = encoder.eval(inputPrototype).data.head
+    val representationDimensions = encoded.getDims()
+    val width = representationDimensions(0)
+    val height = representationDimensions(1)
+    val bands = if(representationDimensions.length < 3) List(0) else (0 until representationDimensions(2))
+    bands.foreach(band ⇒ {
+      log.p("Representation Band " + band)
+      log.draw(gfx ⇒ {
+        (0 until width).foreach(x ⇒ {
+          (0 until height).foreach(y ⇒ {
+            encoded.fill(cvt((i: Int) ⇒ 0.0))
+            encoded.set(Array(x, y, band), probeIntensity)
+            val tensor: Tensor = decoder.eval(encoded).data.head
+            val min: Double = tensor.getData.min
+            val max: Double = tensor.getData.max
+            if(min != max) {
+              var getPixel: (Int, Int) ⇒ Color = null
+              val dims = tensor.getDims
+              if (3 == dims.length) {
+                if (3 == dims(2)) {
+                  getPixel = (xx: Int, yy: Int) ⇒ {
+                    val red: Double = 255 * (tensor.get(xx, yy, 0) - min) / (max - min)
+                    val blue: Double = 255 * (tensor.get(xx, yy, 1) - min) / (max - min)
+                    val green: Double = 255 * (tensor.get(xx, yy, 2) - min) / (max - min)
+                    new Color(red.toInt, blue.toInt, green.toInt)
+                  }
+                } else {
+                  assert(1 == dims(2))
+                  getPixel = (xx: Int, yy: Int) ⇒ {
+                    val value: Double = 255 * (tensor.get(xx, yy, 0) - min) / (max - min)
+                    new Color(value.toInt, value.toInt, value.toInt)
+                  }
                 }
               } else {
-                assert(1 == dims(2))
+                assert(2 == dims.length)
                 getPixel = (xx: Int, yy: Int) ⇒ {
-                  val value: Double = 255 * (tensor.get(xx, yy, 0) - min) / (max - min)
+                  val value: Double = 255 * (tensor.get(xx, yy) - min) / (max - min)
                   new Color(value.toInt, value.toInt, value.toInt)
                 }
               }
-            } else {
-              assert(2 == dims.length)
-              getPixel = (xx: Int, yy: Int) ⇒ {
-                val value: Double = 255 * (tensor.get(xx, yy) - min) / (max - min)
-                new Color(value.toInt, value.toInt, value.toInt)
-              }
+              (0 until dims(0)).foreach(xx ⇒
+                (0 until dims(1)).foreach(yy ⇒ {
+                  val pixel = getPixel(xx, yy)
+                  gfx.setColor(pixel)
+                  gfx.drawRect((x * dims(0)) + xx, (y * dims(1)) + yy, 1, 1)
+                }))
             }
-            (0 until dims(0)).foreach(xx ⇒
-              (0 until dims(1)).foreach(yy ⇒ {
-                val pixel = getPixel(xx, yy)
-                gfx.setColor(pixel)
-                gfx.drawRect((x * dims(0)) + xx, (y * dims(1)) + yy, 1, 1)
-              }))
-          }
+          })
         })
-      })
-    }, width = dims(0) * width, height = dims(1) * height)
+      }, width = dims(0) * width, height = dims(1) * height)
+    })
   }
 
   private def preview(log: ScalaNotebookOutput, width: Int, height: Int) = {
@@ -313,12 +334,12 @@ class ConvMnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with
     }, width = dims(0) * width, height = dims(1) * height)
   }
 
-  private def reportTable(log: ScalaNotebookOutput, encoder: DAGNode, decoder: DAGNode) = {
+  private def reportTable(log: ScalaNotebookOutput, encoder: NNLayer, decoder: NNLayer) = {
     log.eval {
       TableOutput.create(data.take(20).map(testObj ⇒ {
         var evalModel: PipelineNetwork = new PipelineNetwork
-        evalModel.add(encoder.getLayer)
-        evalModel.add(decoder.getLayer)
+        evalModel.add(encoder)
+        evalModel.add(decoder)
         val result = evalModel.eval(testObj).data.head
         Map[String, AnyRef](
           "Input" → log.image(testObj.toImage(), "Input"),

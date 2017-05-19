@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit
 import javax.imageio.ImageIO
 
 import com.simiacryptus.mindseye.graph._
-import com.simiacryptus.mindseye.graph.dag._
+import com.simiacryptus.mindseye.net.NNLayer
 import com.simiacryptus.mindseye.net.activation.SoftmaxActivationLayer
 import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.net.synapse.DenseSynapseLayer
@@ -258,10 +258,10 @@ class ConvAutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook
     }
   }
 
-  private def reportMatrix(log: ScalaNotebookOutput, encoder: DAGNode, decoder: DAGNode, band: Int = 0) = {
+  private def reportMatrix(log: ScalaNotebookOutput, encoder: NNLayer, decoder: NNLayer, band: Int = 0) = {
     val inputPrototype = data.head
     val dims = inputPrototype.getDims()
-    val encoded = encoder.getLayer.eval(inputPrototype).data.head
+    val encoded = encoder.eval(inputPrototype).data.head
     val width = encoded.getDims()(0)
     val height = encoded.getDims()(1)
     log.draw(gfx ⇒ {
@@ -269,7 +269,7 @@ class ConvAutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook
         (0 until height).foreach(y ⇒ {
           encoded.fill(cvt((i: Int) ⇒ 0.0))
           encoded.set(Array(x, y, band), 1.0)
-          val tensor = decoder.getLayer.eval(encoded).data.head
+          val tensor = decoder.eval(encoded).data.head
           val sum = tensor.getData.sum
           val min = tensor.getData.min
           val max = tensor.getData.max
@@ -349,12 +349,12 @@ class ConvAutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook
     }, width = dims(0) * width, height = dims(1) * height)
   }
 
-  private def reportTable(log: ScalaNotebookOutput, encoder: DAGNode, decoder: DAGNode) = {
+  private def reportTable(log: ScalaNotebookOutput, encoder: NNLayer, decoder: NNLayer) = {
     log.eval {
       TableOutput.create(data.take(20).map(testObj ⇒ {
         var evalModel: PipelineNetwork = new PipelineNetwork
-        evalModel.add(encoder.getLayer)
-        evalModel.add(decoder.getLayer)
+        evalModel.add(encoder)
+        evalModel.add(decoder)
         val result = evalModel.eval(testObj).data.head
         Map[String, AnyRef](
           "Input" → log.image(testObj.toImage(), "Input"),
