@@ -25,7 +25,7 @@ import java.lang
 import java.util.concurrent.{Semaphore, TimeUnit}
 
 import com.simiacryptus.mindseye.graph.dag._
-import com.simiacryptus.mindseye.graph.{AutoencoderNetwork, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.graph.{ConvAutoencoderNetwork, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.net.activation._
 import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.net.synapse.DenseSynapseLayer
@@ -46,21 +46,22 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.Random
 
-object MnistAutoencoder extends ServiceNotebook {
+
+object ConvMnistAutoencoder extends ServiceNotebook {
 
   def main(args: Array[String]): Unit = {
-    report((server,log)⇒new MnistAutoencoder(server,log).run())
+    report((server,log)⇒new ConvMnistAutoencoder(server,log).run())
     System.exit(0)
   }
 }
 
-private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNotebookOutput) {
+class ConvMnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNotebookOutput) {
   def kryo = new KryoReflectionFactorySupport()
   val originalStdOut = System.out
 
   var data: Array[Tensor] = null
   val history = new mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]
-  val minutesPerStep = 10
+  val minutesPerStep = 240
   val logOut = new TeeOutputStream(log.file("log.txt"), true)
   val monitor = new TrainingMonitor {
     val logPrintStream = new PrintStream(logOut)
@@ -99,15 +100,15 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
     var noise = 10.0
     var dropout = 0.5
     val autoencoder = log.eval {
-      new AutoencoderNetwork.RecursiveBuilder(data) {
-        override protected def configure(builder: AutoencoderNetwork.Builder): AutoencoderNetwork.Builder = {
+      new ConvAutoencoderNetwork.RecursiveBuilder(data) {
+        override protected def configure(builder: ConvAutoencoderNetwork.Builder): ConvAutoencoderNetwork.Builder = {
           super.configure(builder
             .setNoise(noise)
             .setDropout(dropout)
           )
         }
 
-        override protected def configure(trainingParameters: AutoencoderNetwork.TrainingParameters): AutoencoderNetwork.TrainingParameters = {
+        override protected def configure(trainingParameters: ConvAutoencoderNetwork.TrainingParameters): ConvAutoencoderNetwork.TrainingParameters = {
           super.configure(trainingParameters
             .setMonitor(monitor)
             .setSampleSize(1000)
@@ -134,29 +135,7 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
 
 
     log.eval {
-      autoencoder.growLayer(20, 20, 1)
-    }
-    summarizeHistory(log, history.toArray)
-    reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
-    representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder)
-
-    log.eval {
-      noise = 0
-      autoencoder.growLayer(10, 10, 1)
-    }
-    summarizeHistory(log, history.toArray)
-    reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
-    representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder)
-
-    log.eval {
-      autoencoder.growLayer(5, 5, 1)
-    }
-    summarizeHistory(log, history.toArray)
-    reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
-    representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder)
-
-    log.eval {
-      autoencoder.tune()
+      autoencoder.growLayer(28, 28, 1)
     }
     summarizeHistory(log, history.toArray)
     reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
