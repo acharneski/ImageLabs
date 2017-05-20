@@ -167,7 +167,7 @@ class Cifar10Demo {
     log.h2("Training")
     log.p("We newTrainer using a standard iterative L-BFGS strategy: ")
     val trainer = log.eval {
-      val trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 100)
+      val trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
       trainer.setMonitor(monitor)
       trainer.setTimeout(5, TimeUnit.MINUTES)
