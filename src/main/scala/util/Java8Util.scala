@@ -19,13 +19,25 @@
 
 package util
 
-import java.util.function.{Consumer, Function, IntToDoubleFunction, ToDoubleBiFunction, ToDoubleFunction}
+import java.util.function.{Consumer, DoubleSupplier, Function, IntToDoubleFunction, Supplier, ToDoubleBiFunction, ToDoubleFunction}
 
 object Java8Util {
 
   implicit def cvt(fn: Int ⇒ Double): IntToDoubleFunction = {
     new IntToDoubleFunction {
       override def applyAsDouble(v: Int): Double = fn(v)
+    }
+  }
+
+  implicit def cvt[T <: AnyRef](fn: () ⇒ T): Supplier[T] = {
+    new Supplier[T] {
+      override def get(): T = fn.apply()
+    }
+  }
+
+  implicit def cvt[T <: AnyRef](fn: () ⇒ Double): DoubleSupplier = {
+    new DoubleSupplier {
+      override def getAsDouble: Double = fn.apply()
     }
   }
 
