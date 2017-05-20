@@ -25,10 +25,10 @@ import java.util.concurrent.{Semaphore, TimeUnit}
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.simiacryptus.mindseye.graph.dag._
-import com.simiacryptus.mindseye.graph.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.graph.{InceptionLayer, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.net.activation._
 import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.net.media.{ImgConvolutionSynapseLayer, MaxSubsampleLayer}
+import com.simiacryptus.mindseye.net.media.MaxSubsampleLayer
 import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.net.util.{MonitoredObject, MonitoringWrapper}
 import com.simiacryptus.mindseye.opt.{IterativeTrainer, StochasticArrayTrainable, TrainingMonitor}
@@ -122,12 +122,20 @@ class ConvMnistDemo {
     var model: PipelineNetwork = log.eval {
       val inputSize1 = Array[Int](28, 28, 1)
       val inputSize2 = Array[Int](28, 28, 4)
-      val inputSize3 = Array[Int](12, 12, 4)
+      val inputSize3 = Array[Int](14, 14, 4)
       val outputSize = Array[Int](10)
       var model: PipelineNetwork = new PipelineNetwork
 
-      model.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5,5,4)
-        .setWeights(Java8Util.cvt(_⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"conv1"))
+//      model.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5,5,4)
+//        .setWeights(Java8Util.cvt(_⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"conv1"))
+
+      model.add(new MonitoringWrapper(new InceptionLayer(Array(
+        Array(Array(5,5,1)),
+        Array(Array(3,3,3))
+      ))).addTo(monitoringRoot,"inception1"))
+      //  .setWeights(Java8Util.cvt(_⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"conv1"))
+
+
       model.add(new MaxSubsampleLayer(2,2,1))
       model.add(new MonitoringWrapper(new DenseSynapseLayer(inputSize3, outputSize)
         .setWeights(Java8Util.cvt(()⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"synapse1"))
@@ -147,7 +155,7 @@ class ConvMnistDemo {
       val trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
       trainer.setMonitor(monitor)
-      trainer.setTimeout(120, TimeUnit.MINUTES)
+      trainer.setTimeout(5, TimeUnit.MINUTES)
       trainer.setTerminateThreshold(0.0)
       trainer
     }
