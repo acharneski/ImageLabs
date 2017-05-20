@@ -251,18 +251,7 @@ class MnistDemo {
   }
 
   def toOut(label: String): Int = {
-    var i = 0
-    while ( {
-      i < 10
-    }) {
-      if (label == "[" + i + "]") return i
-
-      {
-        i += 1;
-        i - 1
-      }
-    }
-    throw new RuntimeException
+    (0 until 10).find(label == "[" + _ + "]").get
   }
 
   def networkGraph(log: ScalaNotebookOutput, network: DAGNetwork, width: Int = 1200, height: Int = 1000) = {
