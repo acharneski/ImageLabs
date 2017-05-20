@@ -19,17 +19,25 @@
 
 package interactive
 
+import java.awt.{Graphics2D, RenderingHints}
+import java.awt.image.BufferedImage
 import java.io.{ByteArrayOutputStream, PrintStream}
 import java.lang
-import java.util.concurrent.Semaphore
+import java.util.concurrent.{Semaphore, TimeUnit}
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.simiacryptus.mindseye.net.util.MonitoredObject
-import com.simiacryptus.mindseye.opt.{IterativeTrainer, TrainingMonitor}
-import com.simiacryptus.util.StreamNanoHTTPD
+import com.simiacryptus.mindseye.graph.{InceptionLayer, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.net.activation.SoftmaxActivationLayer
+import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
+import com.simiacryptus.mindseye.net.media.MaxSubsampleLayer
+import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer}
+import com.simiacryptus.mindseye.net.util.{MonitoredObject, MonitoringWrapper}
+import com.simiacryptus.mindseye.opt.{IterativeTrainer, StochasticArrayTrainable, TrainingMonitor}
+import com.simiacryptus.util.{StreamNanoHTTPD, Util}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, TeeOutputStream}
+import com.simiacryptus.util.lang.SupplierWeakCache
 import com.simiacryptus.util.ml.Tensor
-import com.simiacryptus.util.test.Caltech101
+import com.simiacryptus.util.test.{Caltech101, LabeledObject}
 import com.simiacryptus.util.text.TableOutput
 import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
@@ -37,6 +45,7 @@ import smile.plot.{PlotCanvas, ScatterPlot}
 import util._
 
 import scala.collection.JavaConverters._
+import scala.util.Random
 
 
 object Caltech101Demo extends ServiceNotebook {
@@ -74,6 +83,7 @@ class Caltech101Demo {
     }))
     val monitor = new TrainingMonitor {
       override def log(msg: String): Unit = {
+        System.err.println(msg);
         logPrintStream.println(msg);
       }
 
@@ -85,15 +95,36 @@ class Caltech101Demo {
 
 
     log.h2("Data")
-    val trainingData = log.eval {
-      Caltech101.trainingDataStream().iterator().asScala.toStream
+    val rawData: Stream[LabeledObject[SupplierWeakCache[BufferedImage]]] = log.eval {
+      Random.shuffle(Caltech101.trainingDataStream().iterator().asScala.toStream)
     }
-    val categories = log.eval {
-      val list = trainingData.map(_.label).distinct
+    val categories = {
+      val list = rawData.map(_.label).distinct
       list.zip(0 until list.size).toMap
     }
-    val data: Stream[Array[Tensor]] = trainingData.map(labeledObj ⇒ {
-      Array(labeledObj.data.get(), toOutNDArray(categories(labeledObj.label), categories.size))
+    log.p("<ol>"+categories.toList.sortBy(_._2).map(x⇒"<li>"+x+"</li>").mkString("\n")+"</ol>")
+
+    def normalize(img : BufferedImage) = {
+      val aspect = img.getWidth * 1.0 / img.getHeight
+      val scale = 256.0 / Math.min(img.getWidth, img.getHeight)
+      val normalizedImage = new BufferedImage(256, 256, BufferedImage.TYPE_INT_ARGB)
+      val graphics = normalizedImage.getGraphics.asInstanceOf[Graphics2D]
+      graphics.asInstanceOf[Graphics2D].setRenderingHints(new RenderingHints(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC))
+      if(aspect > 1.0) {
+        graphics.drawImage(img, 128-(aspect * 128).toInt, 0, (scale * img.getWidth).toInt, (scale * img.getHeight).toInt, null)
+      } else {
+        graphics.drawImage(img, 0, 128-(128 / aspect).toInt, (scale * img.getWidth).toInt, (scale * img.getHeight).toInt, null)
+      }
+      normalizedImage
+    }
+    val whitelist = Set("octopus","lobster")//,"dolphin"
+
+
+    val tensors: List[LabeledObject[Tensor]] = rawData.filter(x⇒whitelist.contains(x.label)).map(_.map(Java8Util.cvt(x⇒Tensor.fromRGB(normalize(x.get()))))).toList
+    val trainingData: List[LabeledObject[Tensor]] = tensors.take(100).toList
+    val validationStream: List[LabeledObject[Tensor]] = tensors.reverse.take(100).toList
+    val data: List[Array[Tensor]] = trainingData.map((labeledObj: LabeledObject[Tensor]) ⇒ {
+      Array(labeledObj.data, toOutNDArray(categories(labeledObj.label), categories.size))
     })
 
     log.eval {
@@ -103,6 +134,107 @@ class Caltech101Demo {
       ).asJava): _*)
     }
 
+    log.h2("Model")
+    log.p("Here we define the logic network that we are about to newTrainer: ")
+    var model: PipelineNetwork = log.eval {
+      val outputSize = Array[Int](categories.size)
+      var model: PipelineNetwork = new PipelineNetwork
+      model.add(new MonitoringWrapper(new InceptionLayer(Array(
+        Array(Array(5,5,3)),
+        Array(Array(3,3,9))
+      ))).addTo(monitoringRoot,"inception1"))
+      model.add(new MaxSubsampleLayer(2,2,1))
+      model.add(new MonitoringWrapper(new InceptionLayer(Array(
+        Array(Array(5,5,4)),
+        Array(Array(3,3,16))
+      ))).addTo(monitoringRoot,"inception2"))
+      model.add(new MaxSubsampleLayer(2,2,1))
+      model.add(new MonitoringWrapper(new DenseSynapseLayer(Array[Int](64, 64, 5), outputSize)
+        .setWeights(Java8Util.cvt(()⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"synapse1"))
+      model.add(new BiasLayer(outputSize: _*))
+      model.add(new SoftmaxActivationLayer)
+      model
+    }
+
+    log.p("We encapsulate our model network within a supervisory network that applies a loss function: ")
+    val trainingNetwork: SupervisedNetwork = log.eval {
+      new SimpleLossNetwork(model, new EntropyLossLayer)
+    }
+
+    log.h2("Training")
+    log.p("We newTrainer using a standard iterative L-BFGS strategy: ")
+    val trainer = log.eval {
+      val trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
+      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
+      trainer.setMonitor(monitor)
+      trainer.setTimeout(5, TimeUnit.MINUTES)
+      trainer.setTerminateThreshold(0.0)
+      trainer
+    }
+    log.eval {
+      trainer.run()
+    }
+    log.p("After training, we have the following parameterized model: ")
+    log.eval {
+      model.toString
+    }
+    log.p("A summary of the training timeline: ")
+    summarizeHistory(log, history.toList)
+
+    log.h2("Validation")
+    log.p("Here we examine a sample of validation rows, randomly selected: ")
+    log.eval {
+      TableOutput.create(validationStream.take(10).map(testObj ⇒ {
+        val result = model.eval(testObj.data).data.head
+        Map[String, AnyRef](
+          "Input" → log.image(testObj.data.toRgbImage(), testObj.label),
+          "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[Integer],
+          "Actual Label" → testObj.label,
+          "Network Output" → result
+        ).asJava
+      }): _*)
+    }
+    log.p("Validation rows that are mispredicted are also sampled: ")
+    log.eval {
+      TableOutput.create(validationStream.filterNot(testObj ⇒ {
+        val result = model.eval(testObj.data).data.head
+        val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
+        val actual = categories(testObj.label)
+        prediction == actual
+      }).take(10).map(testObj ⇒ {
+        val result = model.eval(testObj.data).data.head
+        Map[String, AnyRef](
+          "Input" → log.image(testObj.data.toRgbImage(), testObj.label),
+          "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[Integer],
+          "Actual Label" → testObj.label,
+          "Network Output" → result
+        ).asJava
+      }): _*)
+    }
+    log.p("To summarize the accuracy of the model, we calculate several summaries: ")
+    log.p("The (mis)categorization matrix displays a count matrix for every actual/predicted category: ")
+    val categorizationMatrix: Map[Int, Map[Int, Int]] = log.eval {
+      validationStream.map(testObj ⇒ {
+        val result = model.eval(testObj.data).data.head
+        val prediction: Int = (0 until categories.size).maxBy(i ⇒ result.get(i))
+        val actual: Int = categories(testObj.label)
+        actual → prediction
+      }).groupBy(_._1).mapValues(_.groupBy(_._2).mapValues(_.size))
+    }
+    writeMislassificationMatrix(log, categorizationMatrix, categories.size)
+    log.out("")
+    log.p("The accuracy, summarized per category: ")
+    log.eval {
+      (0 until categories.size).map(actual ⇒ {
+        actual → (categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0) * 100.0 / categorizationMatrix.getOrElse(actual, Map.empty).values.sum)
+      }).toMap
+    }
+    log.p("The accuracy, summarized over the entire validation set: ")
+    log.eval {
+      (0 until categories.size).map(actual ⇒ {
+        categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0)
+      }).sum.toDouble * 100.0 / categorizationMatrix.values.flatMap(_.values).sum
+    }
 
     log.out("<hr/>")
     logOut.close()
@@ -141,10 +273,29 @@ class Caltech101Demo {
     }
   }
 
+  def toOut(label: String, max:Int): Int = {
+    (0 until max).find(label == "[" + _ + "]").get
+  }
+
   def toOutNDArray(out: Int, max: Int): Tensor = {
     val ndArray = new Tensor(max)
     ndArray.set(out, 1)
     ndArray
+  }
+
+  private def writeMislassificationMatrix(log: HtmlNotebookOutput, categorizationMatrix: Map[Int, Map[Int, Int]], max : Int) = {
+    log.out("<table>")
+    log.out("<tr>")
+    log.out((List("Actual \\ Predicted | ") ++ (0 until max).map("<td>"+_+"</td>")).mkString(""))
+    log.out("</tr>")
+    (0 to 9).foreach(actual ⇒ {
+      log.out("<tr>")
+      log.out(s"<td>$actual</td>" + (0 until max).map(prediction ⇒ {
+        categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(prediction, 0)
+      }).map("<td>"+_+"</td>").mkString(""))
+      log.out("</tr>")
+    })
+    log.out("</table>")
   }
 
 }

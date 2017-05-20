@@ -33,13 +33,13 @@ trait ScalaNotebookOutput extends NotebookOutput {
   def eval[T](fn: => T): T = {
     code(new Supplier[T] {
       override def get(): T = fn
-    }, 8 * 1024, 3)
+    }, 8 * 1024, 4)
   }
 
   def code[T](fn: () => T): T = {
     code(new Supplier[T] {
       override def get(): T = fn()
-    }, 8 * 1024, 3)
+    }, 8 * 1024, 4)
   }
 
   def draw[T](fn: (Graphics2D) ⇒ Unit, width: Int = 600, height: Int = 400): BufferedImage = {
@@ -51,7 +51,7 @@ trait ScalaNotebookOutput extends NotebookOutput {
         fn(graphics)
         image
       }
-    }, 8 * 1024, 3)
+    }, 8 * 1024, 4)
   }
 
 }

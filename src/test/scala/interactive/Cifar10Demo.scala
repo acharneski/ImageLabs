@@ -92,10 +92,10 @@ class Cifar10Demo {
 
 
     log.h2("Data")
-    val rawData = Random.shuffle(CIFAR10.trainingDataStream().iterator().asScala.toStream.take(100000))
-    val trainingData = rawData.take(10000).toList
-    val validationStream = rawData.drop(trainingData.size).take(1000).toList
-    val data = trainingData.map((labeledObj: LabeledObject[Tensor]) ⇒ {
+    val rawData: Stream[LabeledObject[Tensor]] = Random.shuffle(CIFAR10.trainingDataStream().iterator().asScala.toStream.take(100000))
+    val trainingData: List[LabeledObject[Tensor]] = rawData.take(10000).toList
+    val validationStream: List[LabeledObject[Tensor]] = rawData.drop(trainingData.size).take(1000).toList
+    val data: List[Array[Tensor]] = trainingData.map((labeledObj: LabeledObject[Tensor]) ⇒ {
       Array(labeledObj.data, toOutNDArray(toOut(labeledObj.label), 10))
     })
     CIFAR10.halt()
@@ -116,24 +116,6 @@ class Cifar10Demo {
         "Input1 (as String)" → testObj(0).toString
       ).asJava): _*)
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     log.h2("Model")
     log.p("Here we define the logic network that we are about to newTrainer: ")
@@ -190,7 +172,7 @@ class Cifar10Demo {
       TableOutput.create(validationStream.take(10).map(testObj ⇒ {
         val result = model.eval(testObj.data).data.head
         Map[String, AnyRef](
-          "Input" → log.image(testObj.data.toGrayImage(), testObj.label),
+          "Input" → log.image(testObj.data.toRgbImage(), testObj.label),
           "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[Integer],
           "Actual Label" → testObj.label,
           "Network Output" → result
@@ -207,7 +189,7 @@ class Cifar10Demo {
       }).take(10).map(testObj ⇒ {
         val result = model.eval(testObj.data).data.head
         Map[String, AnyRef](
-          "Input" → log.image(testObj.data.toGrayImage(), testObj.label),
+          "Input" → log.image(testObj.data.toRgbImage(), testObj.label),
           "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[Integer],
           "Actual Label" → testObj.label,
           "Network Output" → result
@@ -238,25 +220,6 @@ class Cifar10Demo {
         categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0)
       }).sum.toDouble * 100.0 / categorizationMatrix.values.flatMap(_.values).sum
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     log.out("<hr/>")
     logOut.close()
