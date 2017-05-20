@@ -28,6 +28,8 @@ import com.simiacryptus.mindseye.net.util.MonitoredObject
 import com.simiacryptus.mindseye.opt.{IterativeTrainer, TrainingMonitor}
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.{HtmlNotebookOutput, TeeOutputStream}
+import com.simiacryptus.util.ml.Tensor
+import com.simiacryptus.util.test.Caltech101
 import com.simiacryptus.util.text.TableOutput
 import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
@@ -82,6 +84,25 @@ class Caltech101Demo {
     log.out("<hr/>")
 
 
+    log.h2("Data")
+    val trainingData = log.eval {
+      Caltech101.trainingDataStream().iterator().asScala.toStream
+    }
+    val categories = log.eval {
+      val list = trainingData.map(_.label).distinct
+      list.zip(0 until list.size).toMap
+    }
+    val data: Stream[Array[Tensor]] = trainingData.map(labeledObj ⇒ {
+      Array(labeledObj.data.get(), toOutNDArray(categories(labeledObj.label), categories.size))
+    })
+
+    log.eval {
+      TableOutput.create(data.take(10).map(testObj ⇒ Map[String, AnyRef](
+        "Input1 (as Image)" → log.image(testObj(0).toRgbImage(), testObj(0).toString),
+        "Input2 (as String)" → testObj(1).toString
+      ).asJava): _*)
+    }
+
 
     log.out("<hr/>")
     logOut.close()
@@ -118,6 +139,12 @@ class Caltech101Demo {
         plot
       }
     }
+  }
+
+  def toOutNDArray(out: Int, max: Int): Tensor = {
+    val ndArray = new Tensor(max)
+    ndArray.set(out, 1)
+    ndArray
   }
 
 }
