@@ -21,22 +21,28 @@ package interactive
 
 import java.io.{ByteArrayOutputStream, PrintStream}
 import java.lang
-import java.util.concurrent.Semaphore
+import java.util.concurrent.{Semaphore, TimeUnit}
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.simiacryptus.mindseye.net.util.MonitoredObject
-import com.simiacryptus.mindseye.opt.{IterativeTrainer, TrainingMonitor}
-import com.simiacryptus.util.StreamNanoHTTPD
+import com.simiacryptus.mindseye.graph.{InceptionLayer, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.net.activation.SoftmaxActivationLayer
+import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
+import com.simiacryptus.mindseye.net.media.MaxSubsampleLayer
+import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer}
+import com.simiacryptus.mindseye.net.util.{MonitoredObject, MonitoringWrapper}
+import com.simiacryptus.mindseye.opt.{IterativeTrainer, StochasticArrayTrainable, TrainingMonitor}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, TeeOutputStream}
 import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.test.{CIFAR10, LabeledObject}
 import com.simiacryptus.util.text.TableOutput
+import com.simiacryptus.util.{StreamNanoHTTPD, Util}
 import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
 import smile.plot.{PlotCanvas, ScatterPlot}
 import util._
 
 import scala.collection.JavaConverters._
+import scala.util.Random
 
 
 object Cifar10Demo extends ServiceNotebook {
@@ -74,6 +80,7 @@ class Cifar10Demo {
     }))
     val monitor = new TrainingMonitor {
       override def log(msg: String): Unit = {
+        System.err.println(msg);
         logPrintStream.println(msg);
       }
 
@@ -85,12 +92,14 @@ class Cifar10Demo {
 
 
     log.h2("Data")
-    val trainingData = log.eval {
-      CIFAR10.trainingDataStream().iterator().asScala.toStream
-    }
+    val rawData = Random.shuffle(CIFAR10.trainingDataStream().iterator().asScala.toStream.take(100000))
+    val trainingData = rawData.take(10000).toList
+    val validationStream = rawData.drop(trainingData.size).take(1000).toList
     val data = trainingData.map((labeledObj: LabeledObject[Tensor]) ⇒ {
       Array(labeledObj.data, toOutNDArray(toOut(labeledObj.label), 10))
     })
+    CIFAR10.halt()
+    System.gc()
 
     log.eval {
       TableOutput.create(data.take(10).map(testObj ⇒ Map[String, AnyRef](
@@ -109,6 +118,146 @@ class Cifar10Demo {
     }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    log.h2("Model")
+    log.p("Here we define the logic network that we are about to newTrainer: ")
+    var model: PipelineNetwork = log.eval {
+      val outputSize = Array[Int](10)
+      var model: PipelineNetwork = new PipelineNetwork
+
+      //      model.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5,5,4)
+      //        .setWeights(Java8Util.cvt(_⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"conv1"))
+
+      model.add(new MonitoringWrapper(new InceptionLayer(Array(
+        Array(Array(5,5,3)),
+        Array(Array(3,3,9))
+      ))).addTo(monitoringRoot,"inception1"))
+      //  .setWeights(Java8Util.cvt(_⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"conv1"))
+
+
+      model.add(new MaxSubsampleLayer(2,2,1))
+      model.add(new MonitoringWrapper(new DenseSynapseLayer(Array[Int](16, 16, 4), outputSize)
+        .setWeights(Java8Util.cvt(()⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"synapse1"))
+      model.add(new BiasLayer(outputSize: _*))
+      model.add(new SoftmaxActivationLayer)
+      model
+    }
+
+    log.p("We encapsulate our model network within a supervisory network that applies a loss function: ")
+    val trainingNetwork: SupervisedNetwork = log.eval {
+      new SimpleLossNetwork(model, new EntropyLossLayer)
+    }
+
+    log.h2("Training")
+    log.p("We newTrainer using a standard iterative L-BFGS strategy: ")
+    val trainer = log.eval {
+      val trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 100)
+      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
+      trainer.setMonitor(monitor)
+      trainer.setTimeout(5, TimeUnit.MINUTES)
+      trainer.setTerminateThreshold(0.0)
+      trainer
+    }
+    log.eval {
+      trainer.run()
+    }
+    log.p("After training, we have the following parameterized model: ")
+    log.eval {
+      model.toString
+    }
+    log.p("A summary of the training timeline: ")
+    summarizeHistory(log, history.toList)
+
+    log.h2("Validation")
+    log.p("Here we examine a sample of validation rows, randomly selected: ")
+    log.eval {
+      TableOutput.create(validationStream.take(10).map(testObj ⇒ {
+        val result = model.eval(testObj.data).data.head
+        Map[String, AnyRef](
+          "Input" → log.image(testObj.data.toGrayImage(), testObj.label),
+          "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[Integer],
+          "Actual Label" → testObj.label,
+          "Network Output" → result
+        ).asJava
+      }): _*)
+    }
+    log.p("Validation rows that are mispredicted are also sampled: ")
+    log.eval {
+      TableOutput.create(validationStream.filterNot(testObj ⇒ {
+        val result = model.eval(testObj.data).data.head
+        val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
+        val actual = toOut(testObj.label)
+        prediction == actual
+      }).take(10).map(testObj ⇒ {
+        val result = model.eval(testObj.data).data.head
+        Map[String, AnyRef](
+          "Input" → log.image(testObj.data.toGrayImage(), testObj.label),
+          "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[Integer],
+          "Actual Label" → testObj.label,
+          "Network Output" → result
+        ).asJava
+      }): _*)
+    }
+    log.p("To summarize the accuracy of the model, we calculate several summaries: ")
+    log.p("The (mis)categorization matrix displays a count matrix for every actual/predicted category: ")
+    val categorizationMatrix: Map[Int, Map[Int, Int]] = log.eval {
+      validationStream.map(testObj ⇒ {
+        val result = model.eval(testObj.data).data.head
+        val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
+        val actual: Int = toOut(testObj.label)
+        actual → prediction
+      }).groupBy(_._1).mapValues(_.groupBy(_._2).mapValues(_.size))
+    }
+    writeMislassificationMatrix(log, categorizationMatrix)
+    log.out("")
+    log.p("The accuracy, summarized per category: ")
+    log.eval {
+      (0 to 9).map(actual ⇒ {
+        actual → (categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0) * 100.0 / categorizationMatrix.getOrElse(actual, Map.empty).values.sum)
+      }).toMap
+    }
+    log.p("The accuracy, summarized over the entire validation set: ")
+    log.eval {
+      (0 to 9).map(actual ⇒ {
+        categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0)
+      }).sum.toDouble * 100.0 / categorizationMatrix.values.flatMap(_.values).sum
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     log.out("<hr/>")
     logOut.close()
     val onExit = new Semaphore(0)
@@ -120,6 +269,21 @@ class Cifar10Demo {
       })
     }), false)
     onExit.acquire()
+  }
+
+  private def writeMislassificationMatrix(log: HtmlNotebookOutput, categorizationMatrix: Map[Int, Map[Int, Int]]) = {
+    log.out("<table>")
+    log.out("<tr>")
+    log.out((List("Actual \\ Predicted | ") ++ (0 to 9)).map("<td>"+_+"</td>").mkString(""))
+    log.out("</tr>")
+    (0 to 9).foreach(actual ⇒ {
+      log.out("<tr>")
+      log.out(s"<td>$actual</td>" + (0 to 9).map(prediction ⇒ {
+        categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(prediction, 0)
+      }).map("<td>"+_+"</td>").mkString(""))
+      log.out("</tr>")
+    })
+    log.out("</table>")
   }
 
   private def summarizeHistory(log: ScalaNotebookOutput, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
