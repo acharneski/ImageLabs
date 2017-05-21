@@ -19,12 +19,13 @@
 
 package interactive
 
-import java.awt.{Graphics2D, RenderingHints}
 import java.awt.image.BufferedImage
+import java.awt.{Graphics2D, RenderingHints}
 import java.io.{ByteArrayOutputStream, PrintStream}
 import java.lang
 import java.util.concurrent.{Semaphore, TimeUnit}
 
+import _root_.util._
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.simiacryptus.mindseye.graph.{InceptionLayer, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.net.activation.SoftmaxActivationLayer
@@ -32,30 +33,34 @@ import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.net.media.MaxSubsampleLayer
 import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.net.util.{MonitoredObject, MonitoringWrapper}
-import com.simiacryptus.mindseye.opt.{IterativeTrainer, StochasticArrayTrainable, TrainingMonitor}
-import com.simiacryptus.util.{StreamNanoHTTPD, Util}
+import com.simiacryptus.mindseye.opt.{IterativeTrainer, TrainingMonitor}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, TeeOutputStream}
 import com.simiacryptus.util.lang.SupplierWeakCache
 import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.test.{Caltech101, LabeledObject}
 import com.simiacryptus.util.text.TableOutput
+import com.simiacryptus.util.{StreamNanoHTTPD, Util}
 import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
+import org.apache.spark.rdd.RDD
+import org.apache.spark.{SparkConf, SparkContext}
 import smile.plot.{PlotCanvas, ScatterPlot}
-import util._
 
 import scala.collection.JavaConverters._
 import scala.util.Random
 
 
-object Caltech101Demo extends ServiceNotebook {
+object SparkDemo extends ServiceNotebook {
 
   def main(args: Array[String]): Unit = {
-    report(new Caltech101Demo().run)
+    val conf = new SparkConf().setAppName("SparkDemo").setMaster("local")
+    val sparkContext: SparkContext = new SparkContext(conf)
+    report(new SparkDemo(sparkContext).run)
     System.exit(0)
   }
 }
-class Caltech101Demo {
+
+class SparkDemo(sparkContext: SparkContext) {
 
   def run(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNotebookOutput) {
     val inputSize = Array[Int](256, 256, 3)
@@ -162,9 +167,11 @@ class Caltech101Demo {
     }
 
     log.h2("Training")
-    log.p("We newTrainer using a standard iterative L-BFGS strategy: ")
+
+
     val trainer = log.eval {
-      val trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
+      val trainingDataRDD: RDD[Array[Tensor]] = sparkContext.makeRDD(data,8)
+      val trainable = new SparkTrainable(trainingDataRDD, trainingNetwork)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
       trainer.setMonitor(monitor)
       trainer.setTimeout(5, TimeUnit.MINUTES)
