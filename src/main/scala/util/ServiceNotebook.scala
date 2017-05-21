@@ -29,11 +29,13 @@ import com.simiacryptus.util.{StreamNanoHTTPD, Util}
   * Created by Andrew Charneski on 5/14/2017.
   */
 trait ServiceNotebook {
-  def report[T](fn: (StreamNanoHTTPD, HtmlNotebookOutput with ScalaNotebookOutput) ⇒ T): T = try {
+  def report[T](fn: (StreamNanoHTTPD, HtmlNotebookOutput with ScalaNotebookOutput) ⇒ T,
+                port: Int = 0x1FF + (Math.random() * 0x700).toInt): T = try {
     val path = new File(Util.mkString(File.separator, "www", UUID.randomUUID.toString))
     path.mkdirs
     val logFile = new File(path, "index.html")
-    val server = new StreamNanoHTTPD(0x1FF + (Math.random() * 0x700).toInt, "text/html", logFile).init()
+    //val port: Int = 0x1FF + (Math.random() * 0x700).toInt
+    val server = new StreamNanoHTTPD(port, "text/html", logFile).init()
     val log = new HtmlNotebookOutput(path, server.dataReciever) with ScalaNotebookOutput
     log.addCopy(System.out)
     try {

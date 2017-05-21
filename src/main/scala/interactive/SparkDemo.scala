@@ -42,8 +42,9 @@ import com.simiacryptus.util.text.TableOutput
 import com.simiacryptus.util.{StreamNanoHTTPD, Util}
 import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
+import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.sql.SparkSession
 import smile.plot.{PlotCanvas, ScatterPlot}
 
 import scala.collection.JavaConverters._
@@ -53,10 +54,11 @@ import scala.util.Random
 object SparkDemo extends ServiceNotebook {
 
   def main(args: Array[String]): Unit = {
-    val conf = new SparkConf().setAppName("SparkDemo").setMaster("local")
-    val sparkContext: SparkContext = new SparkContext(conf)
-    report(new SparkDemo(sparkContext).run)
-    System.exit(0)
+    val sparkSession = SparkSession.builder
+      .appName("Spark MindsEye Demo")
+      .getOrCreate()
+    report(new SparkDemo(sparkSession.sparkContext).run, 1337)
+    sparkSession.stop()
   }
 }
 
@@ -174,7 +176,7 @@ class SparkDemo(sparkContext: SparkContext) {
       val trainable = new SparkTrainable(trainingDataRDD, trainingNetwork)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
       trainer.setMonitor(monitor)
-      trainer.setTimeout(5, TimeUnit.MINUTES)
+      trainer.setTimeout(30, TimeUnit.MINUTES)
       trainer.setTerminateThreshold(0.0)
       trainer
     }

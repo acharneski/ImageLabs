@@ -35,6 +35,8 @@
     <properties>
         <github.project>image-labs</github.project>
         <github.path></github.path>
+        <scala.mjversion>2.11</scala.mjversion>
+        <scala.version>2.11.11</scala.version>
     </properties>
     <distributionManagement>
         <site>
@@ -79,11 +81,13 @@
             <groupId>org.georegression</groupId>
             <artifactId>georegression</artifactId>
             <version>0.12</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.boofcv</groupId>
             <artifactId>all</artifactId>
             <version>0.26</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.scalatest</groupId>
@@ -95,11 +99,13 @@
             <groupId>org.scala-lang</groupId>
             <artifactId>scala-library</artifactId>
             <version>${scala.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.scala-lang</groupId>
             <artifactId>scala-compiler</artifactId>
             <version>${scala.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.scala-lang.modules</groupId>
@@ -126,6 +132,7 @@
             <artifactId>JTransforms</artifactId>
             <version>3.1</version>
             <classifier>with-dependencies</classifier>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.github.haifengl</groupId>
@@ -169,8 +176,37 @@
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-core_2.11</artifactId>
             <version>2.1.1</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-sql_2.11</artifactId>
+            <version>2.1.1</version>
+            <scope>provided</scope>
         </dependency>
 
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <configuration>
+                    <descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                    </descriptorRefs>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>make-assembly</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>
