@@ -54,8 +54,13 @@ import scala.util.Random
 object SparkDemo extends ServiceNotebook {
 
   def main(args: Array[String]): Unit = {
-    val sparkSession = SparkSession.builder
+    var builder = SparkSession.builder
       .appName("Spark MindsEye Demo")
+    builder = args match {
+      case Array(masterUrl) ⇒ builder.master(masterUrl)
+      case _ ⇒ builder
+    }
+    val sparkSession = builder
       .getOrCreate()
     report(new SparkDemo(sparkSession.sparkContext).run, 1337)
     sparkSession.stop()
@@ -173,7 +178,7 @@ class SparkDemo(sparkContext: SparkContext) {
 
     val trainer = log.eval {
       val trainingDataRDD: RDD[Array[Tensor]] = sparkContext.makeRDD(data,8)
-      val trainable = new SparkTrainable(trainingDataRDD, trainingNetwork)
+      val trainable = new com.simiacryptus.mindseye.opt.SparkTrainable(trainingDataRDD, trainingNetwork)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
       trainer.setMonitor(monitor)
       trainer.setTimeout(30, TimeUnit.MINUTES)
