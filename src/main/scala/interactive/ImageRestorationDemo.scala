@@ -34,7 +34,7 @@ import com.simiacryptus.mindseye.net.media.MaxSubsampleLayer
 import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.net.util.{MonitoredObject, MonitoringWrapper}
 import com.simiacryptus.mindseye.opt.{IterativeTrainer, TrainingMonitor}
-import com.simiacryptus.util.io.{HtmlNotebookOutput, TeeOutputStream}
+import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil, TeeOutputStream}
 import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.test.ImageTiles.ImageTensorLoader
 import com.simiacryptus.util.test.LabeledObject
@@ -60,51 +60,44 @@ object ImageRestorationDemo extends ServiceNotebook {
 //    val sparkSession = builder
 //      .getOrCreate()
 //    sparkSession.sparkContext
-    report(new ImageRestorationDemo().run, 1338)
 //    sparkSession.stop()
+
+    args match {
+      case Array(source) ⇒ new ImageRestorationDemo(source)
+      case _ ⇒ new ImageRestorationDemo("E:\\testImages\\256_ObjectCategories")
+    }
+
   }
 }
 
-class ImageRestorationDemo() {
+class ImageRestorationDemo(source : String) {
 
-  def run(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNotebookOutput) {
-    val inputSize = Array[Int](256, 256, 3)
-    log.h1("Caltech 101")
+  def run(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) {
     val history = new scala.collection.mutable.ArrayBuffer[IterativeTrainer.Step]()
-    log.p("View the convergence history: <a href='/history.html'>/history.html</a>")
-    server.addHandler("history.html", "text/html", Java8Util.cvt(out ⇒ {
-      Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
+    out.p("View the convergence history: <a href='/history.html'>/history.html</a>")
+    server.addHandler("history.html", "text/html", Java8Util.cvt(o ⇒ {
+      Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(log ⇒ {
         summarizeHistory(log, history.toList)
       })
     }), false)
     val monitoringRoot = new MonitoredObject()
-    log.p("<a href='/netmon.json'>Network Monitoring</a>")
+    out.p("<a href='/netmon.json'>Network Monitoring</a>")
     server.addHandler("netmon.json", "application/json", Java8Util.cvt(out ⇒ {
       val mapper = new ObjectMapper().enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL)
       val buffer = new ByteArrayOutputStream()
       mapper.writeValue(buffer, monitoringRoot.getMetrics)
       out.write(buffer.toByteArray)
     }), false)
-    log.p("View the log: <a href='/log'>/log</a>")
-    val logOut = new TeeOutputStream(log.file("log.txt"), true)
+    out.p("View the log: <a href='/log'>/log</a>")
+    val logOut = new TeeOutputStream(out.file("log.txt"), true)
     val logPrintStream = new PrintStream(logOut)
     server.addHandler2("log", Java8Util.cvt((session : IHTTPSession)⇒{
       NanoHTTPD.newChunkedResponse(NanoHTTPD.Response.Status.OK, "text/plain", logOut.newInputStream())
     }))
-    val monitor = new TrainingMonitor {
-      override def log(msg: String): Unit = {
-        System.err.println(msg);
-        logPrintStream.println(msg);
-      }
-
-      override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
-        history += currentPoint
-      }
-    }
-    log.out("<hr/>")
+    out.out("<hr/>")
 
 
-    log.h2("Data")
+    out.h2("Data")
 
     def corrupt(imgTensor : Tensor) : Tensor = {
       def resize(source: BufferedImage, size:Int) = {
@@ -117,7 +110,7 @@ class ImageRestorationDemo() {
       Tensor.fromRGB(resize(resize(imgTensor.toRgbImage, 64), 256))
     }
 
-    val loader = new ImageTensorLoader(new File("E:\\testImages\\256_ObjectCategories"), 256, 256, 126, 126, 10, 10)
+    val loader = new ImageTensorLoader(new File(source), 256, 256, 126, 126, 10, 10)
     val rawData: List[LabeledObject[Tensor]] = loader
       .stream().iterator().asScala.toStream.flatMap(tile⇒List(
       new LabeledObject[Tensor](tile,"original"),
@@ -126,7 +119,7 @@ class ImageRestorationDemo() {
     loader.stop();
 
     val categories: Map[String, Int] = Map("original"→0, "corrupt"→1)
-    log.p("<ol>"+categories.toList.sortBy(_._2).map(x⇒"<li>"+x+"</li>").mkString("\n")+"</ol>")
+    out.p("<ol>"+categories.toList.sortBy(_._2).map(x⇒"<li>"+x+"</li>").mkString("\n")+"</ol>")
 
     val tensors: List[LabeledObject[Tensor]] = Random.shuffle(rawData)
     val trainingData: List[LabeledObject[Tensor]] = tensors.take(100).toList
@@ -135,16 +128,16 @@ class ImageRestorationDemo() {
       Array(labeledObj.data, toOutNDArray(categories(labeledObj.label), categories.size))
     })
 
-    log.eval {
+    out.eval {
       TableOutput.create(data.take(10).map(testObj ⇒ Map[String, AnyRef](
-        "Input1 (as Image)" → log.image(testObj(0).toRgbImage(), testObj(0).toString),
+        "Input1 (as Image)" → out.image(testObj(0).toRgbImage(), testObj(0).toString),
         "Input2 (as String)" → testObj(1).toString
       ).asJava): _*)
     }
 
-    log.h2("Model")
-    log.p("Here we define the logic network that we are about to newTrainer: ")
-    var model: PipelineNetwork = log.eval {
+    out.h2("Model")
+    out.p("Here we define the logic network that we are about to newTrainer: ")
+    var model: PipelineNetwork = out.eval {
       val outputSize = Array[Int](categories.size)
       var model: PipelineNetwork = new PipelineNetwork
       model.add(new MonitoringWrapper(new InceptionLayer(Array(
@@ -163,16 +156,20 @@ class ImageRestorationDemo() {
       model.add(new SoftmaxActivationLayer)
       model
     }
+    out.h2("Training")
+    val monitor = new TrainingMonitor {
+      override def log(msg: String): Unit = {
+        System.err.println(msg);
+        logPrintStream.println(msg);
+      }
 
-    log.p("We encapsulate our model network within a supervisory network that applies a loss function: ")
-    val trainingNetwork: SupervisedNetwork = log.eval {
-      new SimpleLossNetwork(model, new EntropyLossLayer)
+      override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
+        history += currentPoint
+        IOUtil.writeKryo(model, out.file("model_checkpoint_" + (currentPoint.iteration % 5)+ ".kryo"))
+      }
     }
-
-    log.h2("Training")
-
-
-    val trainer = log.eval {
+    val trainer = out.eval {
+      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
       //val trainable = new com.simiacryptus.mindseye.opt.SparkTrainable(sparkContext.makeRDD(data, 8), trainingNetwork)
       val trainable = new com.simiacryptus.mindseye.opt.StochasticArrayTrainable(data.toArray, trainingNetwork, 10)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
@@ -181,77 +178,19 @@ class ImageRestorationDemo() {
       trainer.setTerminateThreshold(0.0)
       trainer
     }
-    log.eval {
+    out.eval {
       trainer.run()
     }
-    log.p("After training, we have the following parameterized model: ")
-    log.eval {
-      model.toString
-    }
-    log.p("A summary of the training timeline: ")
-    summarizeHistory(log, history.toList)
+    IOUtil.writeKryo(model, out.file("model_final.kryo"))
+    summarizeHistory(out, history.toList)
 
-    log.h2("Validation")
-    log.p("Here we examine a sample of validation rows, randomly selected: ")
-    log.eval {
-      TableOutput.create(validationStream.take(10).map(testObj ⇒ {
-        val result = model.eval(testObj.data).data.head
-        Map[String, AnyRef](
-          "Input" → log.image(testObj.data.toRgbImage(), testObj.label),
-          "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[Integer],
-          "Actual Label" → testObj.label,
-          "Network Output" → result
-        ).asJava
-      }): _*)
-    }
-    log.p("Validation rows that are mispredicted are also sampled: ")
-    log.eval {
-      TableOutput.create(validationStream.filterNot(testObj ⇒ {
-        val result = model.eval(testObj.data).data.head
-        val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
-        val actual = categories(testObj.label)
-        prediction == actual
-      }).take(10).map(testObj ⇒ {
-        val result = model.eval(testObj.data).data.head
-        Map[String, AnyRef](
-          "Input" → log.image(testObj.data.toRgbImage(), testObj.label),
-          "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[Integer],
-          "Actual Label" → testObj.label,
-          "Network Output" → result
-        ).asJava
-      }): _*)
-    }
-    log.p("To summarize the accuracy of the model, we calculate several summaries: ")
-    log.p("The (mis)categorization matrix displays a count matrix for every actual/predicted category: ")
-    val categorizationMatrix: Map[Int, Map[Int, Int]] = log.eval {
-      validationStream.map(testObj ⇒ {
-        val result = model.eval(testObj.data).data.head
-        val prediction: Int = (0 until categories.size).maxBy(i ⇒ result.get(i))
-        val actual: Int = categories(testObj.label)
-        actual → prediction
-      }).groupBy(_._1).mapValues(_.groupBy(_._2).mapValues(_.size))
-    }
-    writeMislassificationMatrix(log, categorizationMatrix, categories.size)
-    log.out("")
-    log.p("The accuracy, summarized per category: ")
-    log.eval {
-      (0 until categories.size).map(actual ⇒ {
-        actual → (categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0) * 100.0 / categorizationMatrix.getOrElse(actual, Map.empty).values.sum)
-      }).toMap
-    }
-    log.p("The accuracy, summarized over the entire validation set: ")
-    log.eval {
-      (0 until categories.size).map(actual ⇒ {
-        categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0)
-      }).sum.toDouble * 100.0 / categorizationMatrix.values.flatMap(_.values).sum
-    }
 
-    log.out("<hr/>")
+    out.out("<hr/>")
     logOut.close()
     val onExit = new Semaphore(0)
-    log.p("To exit the sever: <a href='/exit'>/exit</a>")
-    server.addHandler("exit", "text/html", Java8Util.cvt(out ⇒ {
-      Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
+    out.p("To exit the sever: <a href='/exit'>/exit</a>")
+    server.addHandler("exit", "text/html", Java8Util.cvt(o ⇒ {
+      Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(log ⇒ {
         log.h1("OK")
         onExit.release(1)
       })
