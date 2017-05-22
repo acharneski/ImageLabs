@@ -31,10 +31,9 @@ import com.simiacryptus.mindseye.net.activation.SoftmaxActivationLayer
 import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.net.synapse.DenseSynapseLayer
 import com.simiacryptus.mindseye.opt._
-import com.simiacryptus.util.ImageTiles
 import com.simiacryptus.util.io.IOUtil
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
-import com.simiacryptus.util.test.MNIST
+import com.simiacryptus.util.test.{ImageTiles, MNIST}
 import com.simiacryptus.util.text.TableOutput
 import de.javakaffee.kryoserializers.KryoReflectionFactorySupport
 import org.scalatest.{MustMatchers, WordSpec}

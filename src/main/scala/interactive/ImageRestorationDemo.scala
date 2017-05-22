@@ -21,7 +21,7 @@ package interactive
 
 import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
-import java.io.{ByteArrayOutputStream, PrintStream}
+import java.io.{ByteArrayOutputStream, File, PrintStream}
 import java.lang
 import java.util.concurrent.{Semaphore, TimeUnit}
 
@@ -35,39 +35,37 @@ import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.net.util.{MonitoredObject, MonitoringWrapper}
 import com.simiacryptus.mindseye.opt.{IterativeTrainer, TrainingMonitor}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, TeeOutputStream}
-import com.simiacryptus.util.lang.SupplierWeakCache
 import com.simiacryptus.util.ml.Tensor
-import com.simiacryptus.util.test.{Caltech101, LabeledObject}
+import com.simiacryptus.util.test.ImageTiles.ImageTensorLoader
+import com.simiacryptus.util.test.LabeledObject
 import com.simiacryptus.util.text.TableOutput
 import com.simiacryptus.util.{StreamNanoHTTPD, Util}
 import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
-import org.apache.spark.SparkContext
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.SparkSession
 import smile.plot.{PlotCanvas, ScatterPlot}
 
 import scala.collection.JavaConverters._
 import scala.util.Random
 
 
-object SparkDemo extends ServiceNotebook {
+object ImageRestorationDemo extends ServiceNotebook {
 
   def main(args: Array[String]): Unit = {
-    var builder = SparkSession.builder
-      .appName("Spark MindsEye Demo")
-    builder = args match {
-      case Array(masterUrl) ⇒ builder.master(masterUrl)
-      case _ ⇒ builder
-    }
-    val sparkSession = builder
-      .getOrCreate()
-    report(new SparkDemo(sparkSession.sparkContext).run, 1337)
-    sparkSession.stop()
+//    var builder = SparkSession.builder
+//      .appName("Spark MindsEye Demo")
+//    builder = args match {
+//      case Array(masterUrl) ⇒ builder.master(masterUrl)
+//      case _ ⇒ builder
+//    }
+//    val sparkSession = builder
+//      .getOrCreate()
+//    sparkSession.sparkContext
+    report(new ImageRestorationDemo().run, 1338)
+//    sparkSession.stop()
   }
 }
 
-class SparkDemo(sparkContext: SparkContext) {
+class ImageRestorationDemo() {
 
   def run(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNotebookOutput) {
     val inputSize = Array[Int](256, 256, 3)
@@ -107,32 +105,30 @@ class SparkDemo(sparkContext: SparkContext) {
 
 
     log.h2("Data")
-    val rawData: Stream[LabeledObject[SupplierWeakCache[BufferedImage]]] = log.eval {
-      Random.shuffle(Caltech101.trainingDataStream().iterator().asScala.toStream)
+
+    def corrupt(imgTensor : Tensor) : Tensor = {
+      def resize(source: BufferedImage, size:Int) = {
+        val image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB)
+        val graphics = image.getGraphics.asInstanceOf[Graphics2D]
+        graphics.asInstanceOf[Graphics2D].setRenderingHints(new RenderingHints(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC))
+        graphics.drawImage(source, 0, 0, size, size, null)
+        image
+      }
+      Tensor.fromRGB(resize(resize(imgTensor.toRgbImage, 64), 256))
     }
-    val categories = {
-      val list = rawData.map(_.label).distinct
-      list.zip(0 until list.size).toMap
-    }
+
+    val loader = new ImageTensorLoader(new File("E:\\testImages\\256_ObjectCategories"), 256, 256, 126, 126, 10, 10)
+    val rawData: List[LabeledObject[Tensor]] = loader
+      .stream().iterator().asScala.toStream.flatMap(tile⇒List(
+      new LabeledObject[Tensor](tile,"original"),
+      new LabeledObject[Tensor](corrupt(tile),"corrupt")
+    )).take(1000).toList;
+    loader.stop();
+
+    val categories: Map[String, Int] = Map("original"→0, "corrupt"→1)
     log.p("<ol>"+categories.toList.sortBy(_._2).map(x⇒"<li>"+x+"</li>").mkString("\n")+"</ol>")
 
-    def normalize(img : BufferedImage) = {
-      val aspect = img.getWidth * 1.0 / img.getHeight
-      val scale = 256.0 / Math.min(img.getWidth, img.getHeight)
-      val normalizedImage = new BufferedImage(256, 256, BufferedImage.TYPE_INT_ARGB)
-      val graphics = normalizedImage.getGraphics.asInstanceOf[Graphics2D]
-      graphics.asInstanceOf[Graphics2D].setRenderingHints(new RenderingHints(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC))
-      if(aspect > 1.0) {
-        graphics.drawImage(img, 128-(aspect * 128).toInt, 0, (scale * img.getWidth).toInt, (scale * img.getHeight).toInt, null)
-      } else {
-        graphics.drawImage(img, 0, 128-(128 / aspect).toInt, (scale * img.getWidth).toInt, (scale * img.getHeight).toInt, null)
-      }
-      normalizedImage
-    }
-    val whitelist = Set("octopus","lobster")//,"dolphin"
-
-
-    val tensors: List[LabeledObject[Tensor]] = rawData.filter(x⇒whitelist.contains(x.label)).map(_.map(Java8Util.cvt(x⇒Tensor.fromRGB(normalize(x.get()))))).toList
+    val tensors: List[LabeledObject[Tensor]] = Random.shuffle(rawData)
     val trainingData: List[LabeledObject[Tensor]] = tensors.take(100).toList
     val validationStream: List[LabeledObject[Tensor]] = tensors.reverse.take(100).toList
     val data: List[Array[Tensor]] = trainingData.map((labeledObj: LabeledObject[Tensor]) ⇒ {
@@ -177,8 +173,8 @@ class SparkDemo(sparkContext: SparkContext) {
 
 
     val trainer = log.eval {
-      val trainingDataRDD: RDD[Array[Tensor]] = sparkContext.makeRDD(data,8)
-      val trainable = new com.simiacryptus.mindseye.opt.SparkTrainable(trainingDataRDD, trainingNetwork)
+      //val trainable = new com.simiacryptus.mindseye.opt.SparkTrainable(sparkContext.makeRDD(data, 8), trainingNetwork)
+      val trainable = new com.simiacryptus.mindseye.opt.StochasticArrayTrainable(data.toArray, trainingNetwork, 10)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
       trainer.setMonitor(monitor)
       trainer.setTimeout(30, TimeUnit.MINUTES)
