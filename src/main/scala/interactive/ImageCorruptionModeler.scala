@@ -165,8 +165,8 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
   }
 
   def runLocal(): Unit = {
-    //run((data, network) ⇒ new StochasticArrayTrainable(data.toArray, network, 10))
-    run((data,network)⇒new ArrayTrainable(data.toArray, network))
+    run((data, network) ⇒ new StochasticArrayTrainable(data.toArray, network, 100))
+    //run((data,network)⇒new ArrayTrainable(data.toArray, network))
   }
 
   private def loadData(out: HtmlNotebookOutput with ScalaNotebookOutput) = {
@@ -175,9 +175,10 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
       new LabeledObject[Tensor](tile, "original")
     ) ++ corruptors.map(e ⇒ {
       new LabeledObject[Tensor](e._2(tile), e._1)
-    })).take(100).toList
+    })).take(1000).toList
     loader.stop()
-    val categories: Map[String, Int] = Map("original" → 0, "corrupt" → 1)
+    val labels = List("original") ++ corruptors.keys.toList.sorted
+    val categories: Map[String, Int] = labels.zipWithIndex.toMap
     out.p("<ol>" + categories.toList.sortBy(_._2).map(x ⇒ "<li>" + x + "</li>").mkString("\n") + "</ol>")
     val data: List[Array[Tensor]] = rawData.map((labeledObj: LabeledObject[Tensor]) ⇒ {
       Array(labeledObj.data, toOutNDArray(categories(labeledObj.label), categories.size))
