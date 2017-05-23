@@ -26,6 +26,7 @@ import java.lang
 import java.util.concurrent.{Semaphore, TimeUnit}
 
 import _root_.util._
+import com.aparapi.internal.kernel.KernelManager
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.simiacryptus.mindseye.graph.{InceptionLayer, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.net.activation.SoftmaxActivationLayer
@@ -225,6 +226,11 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     })
   }), false)
   val monitoringRoot = new MonitoredObject()
+  monitoringRoot.addField("openCL",Java8Util.cvt(()⇒{
+    val sb = new java.lang.StringBuilder()
+    KernelManager.instance().reportDeviceUsage(sb,true)
+    sb.toString()
+  }))
   server.addHandler("netmon.json", "application/json", cvt(out ⇒ {
     val mapper = new ObjectMapper().enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL)
     val buffer = new ByteArrayOutputStream()
