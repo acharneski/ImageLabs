@@ -85,7 +85,7 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
     }), false)
 
     log.p("View the log: <a href='/log'>/log</a>")
-    server.addHandler2("log", Java8Util.cvt((session : IHTTPSession)⇒{
+    server.addSessionHandler("log", Java8Util.cvt((session : IHTTPSession)⇒{
       NanoHTTPD.newChunkedResponse(NanoHTTPD.Response.Status.OK, "text/plain", logOut.newInputStream())
     }))
     log.out("<hr/>");

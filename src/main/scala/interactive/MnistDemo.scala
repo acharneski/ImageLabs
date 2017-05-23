@@ -92,7 +92,7 @@ class MnistDemo {
     log.p("View the log: <a href='/log'>/log</a>")
     val logOut = new TeeOutputStream(log.file("log.txt"), true)
     val logPrintStream = new PrintStream(logOut)
-    server.addHandler2("log", Java8Util.cvt((session : IHTTPSession)⇒{
+    server.addSessionHandler("log", Java8Util.cvt((session : IHTTPSession)⇒{
       NanoHTTPD.newChunkedResponse(NanoHTTPD.Response.Status.OK, "text/plain", logOut.newInputStream())
     }))
 
