@@ -30,7 +30,7 @@ import com.simiacryptus.util.{StreamNanoHTTPD, Util}
   */
 trait ServiceNotebook {
   def report[T](fn: (StreamNanoHTTPD, HtmlNotebookOutput with ScalaNotebookOutput) ⇒ T,
-                port: Int = 0x1FF + (Math.random() * 0x700).toInt): T = try {
+                port: Int = 1024 + (Math.random() * 0x700).toInt): T = try {
     val path = new File(Util.mkString(File.separator, "www", UUID.randomUUID.toString))
     path.mkdirs
     val logFile = new File(path, "index.html")

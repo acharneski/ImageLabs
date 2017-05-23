@@ -21,7 +21,7 @@ package interactive
 
 import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
-import java.io.{ByteArrayOutputStream, File, FileOutputStream, PrintStream}
+import java.io._
 import java.lang
 import java.util.concurrent.{Semaphore, TimeUnit}
 
@@ -29,41 +29,40 @@ import _root_.util._
 import com.aparapi.internal.kernel.KernelManager
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.simiacryptus.mindseye.graph.{InceptionLayer, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.net.activation.SoftmaxActivationLayer
-import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.net.media.MaxSubsampleLayer
-import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer}
+import com.simiacryptus.mindseye.net.activation.ReLuActivationLayer
+import com.simiacryptus.mindseye.net.loss.MeanSqLossLayer
+import com.simiacryptus.mindseye.net.media.ImgConvolutionSynapseLayer
+import com.simiacryptus.mindseye.net.synapse.BiasLayer
 import com.simiacryptus.mindseye.net.util.{MonitoredObject, MonitoringWrapper}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil, TeeOutputStream}
 import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.test.ImageTiles.ImageTensorLoader
-import com.simiacryptus.util.test.LabeledObject
 import com.simiacryptus.util.text.TableOutput
 import com.simiacryptus.util.{StreamNanoHTTPD, Util}
 import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
 import org.apache.spark.sql.SparkSession
 import smile.plot.{PlotCanvas, ScatterPlot}
-import util.Java8Util._
+import util.Java8Util.cvt
 
 import scala.collection.JavaConverters._
+import scala.util.Random
 
-
-object ImageCorruptionModeler extends ServiceNotebook {
+object ImageOracleModeler extends ServiceNotebook {
 
   def main(args: Array[String]): Unit = {
 
     report((server, out) ⇒ args match {
-      case Array(source, master) ⇒ new ImageCorruptionModeler(source, server, out).runSpark(master)
-      case Array(source) ⇒ new ImageCorruptionModeler(source, server, out).runLocal()
-      case _ ⇒ new ImageCorruptionModeler("E:\\testImages\\256_ObjectCategories", server, out).runLocal()
+      case Array(source, master) ⇒ new ImageOracleModeler(source, server, out).runSpark(master)
+      case Array(source) ⇒ new ImageOracleModeler(source, server, out).runLocal()
+      case _ ⇒ new ImageOracleModeler("E:\\testImages\\256_ObjectCategories", server, out).runLocal()
     })
 
   }
 }
 
-class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) {
+class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) {
 
   val corruptors = Map[String, Tensor ⇒ Tensor](
     "resample4x" → (imgTensor ⇒ {
@@ -71,51 +70,34 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     })
   )
 
-  private def corruptionDetectionModel(categoryCount: Int, monitoringRoot: MonitoredObject) = {
-    val outputSize = Array[Int](categoryCount)
+  private def corruptionDetectionModel(monitoringRoot: MonitoredObject) = {
     var network: PipelineNetwork = new PipelineNetwork
-    // 64 x 64 x 3 (RGB)
+
+    network.add(new BiasLayer(64,64,3))
     network.add(new MonitoringWrapper(new InceptionLayer(Array(
       Array(Array(5, 5, 3)),
       Array(Array(3, 3, 9))
     )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
       .addTo(monitoringRoot, "inception_1"))
-    network.add(new MaxSubsampleLayer(2, 2, 1))
-    // 32 x 32 x 4
+    network.add(new ReLuActivationLayer())
+
     network.add(new MonitoringWrapper(new InceptionLayer(Array(
       Array(Array(5, 5, 4)),
       Array(Array(3, 3, 16))
     )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
       .addTo(monitoringRoot, "inception_2"))
-    network.add(new MaxSubsampleLayer(2, 2, 1))
-    // 16 x 16 x 5
+    network.add(new ReLuActivationLayer())
+
     network.add(new MonitoringWrapper(new InceptionLayer(Array(
       Array(Array(5, 5, 5)),
       Array(Array(3, 3, 25))
     )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
       .addTo(monitoringRoot, "inception_3"))
-    network.add(new MaxSubsampleLayer(2, 2, 1))
-    // 8 x 8 x 6
-    network.add(new MonitoringWrapper(new InceptionLayer(Array(
-      Array(Array(5, 5, 12)),
-      Array(Array(3, 3, 36))
-    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-      .addTo(monitoringRoot, "inception_4"))
-    network.add(new MaxSubsampleLayer(2, 2, 1))
-    // 4 x 4 x 8
-    network.add(new MonitoringWrapper(new InceptionLayer(Array(
-      Array(Array(5, 5, 64)),
-      Array(Array(3, 3, 64))
-    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-      .addTo(monitoringRoot, "inception_5"))
-    network.add(new MaxSubsampleLayer(2, 2, 1))
-    // 2 x 2 x 16
-    network.add(new MonitoringWrapper(
-      new DenseSynapseLayer(Array[Int](2,2,16), outputSize)
-      .setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-      .addTo(monitoringRoot, "final_dense"))
-    network.add(new BiasLayer(outputSize: _*))
-    network.add(new SoftmaxActivationLayer)
+    network.add(new ReLuActivationLayer())
+
+    network.add(new ImgConvolutionSynapseLayer(1,1,18))
+    network.add(new ReLuActivationLayer())
+    network.add(new BiasLayer(64,64,3))
     network
   }
 
@@ -141,7 +123,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
       }
     }
     val trainer = out.eval {
-      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
+      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new MeanSqLossLayer)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFactory(data, trainingNetwork))
       trainer.setMonitor(monitor)
       trainer.setTimeout(72, TimeUnit.HOURS)
@@ -169,29 +151,37 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     //run((data,network)⇒new ArrayTrainable(data.toArray, network))
   }
 
-  private def loadData(out: HtmlNotebookOutput with ScalaNotebookOutput) = {
+  private def loadData(out: HtmlNotebookOutput with ScalaNotebookOutput, model: PipelineNetwork) = {
     out.p("Loading data from " + source)
     val loader = new ImageTensorLoader(new File(source), 64, 64, 64, 64, 10, 10)
-    val rawData: List[LabeledObject[Tensor]] = loader.stream().iterator().asScala.toStream.flatMap(tile ⇒ List(
-      new LabeledObject[Tensor](tile, "original")
-    ) ++ corruptors.map(e ⇒ {
-      new LabeledObject[Tensor](e._2(tile), e._1)
+    val data: List[Array[Tensor]] = loader.stream().iterator().asScala.toStream.flatMap(tile ⇒ corruptors.map(e ⇒ {
+      Array(e._2(tile), tile)
     })).take(1000).toList
     loader.stop()
-    val labels = List("original") ++ corruptors.keys.toList.sorted
-    val categories: Map[String, Int] = labels.zipWithIndex.toMap
-    out.p("<ol>" + categories.toList.sortBy(_._2).map(x ⇒ "<li>" + x + "</li>").mkString("\n") + "</ol>")
-    val data: List[Array[Tensor]] = rawData.map((labeledObj: LabeledObject[Tensor]) ⇒ {
-      Array(labeledObj.data, toOutNDArray(categories(labeledObj.label), categories.size))
-    })
     out.eval {
-      TableOutput.create(rawData.take(100).map(testObj ⇒ Map[String, AnyRef](
-        "Image" → out.image(testObj.data.toRgbImage(), testObj.data.toString),
-        "Label" → testObj.label
+      TableOutput.create(Random.shuffle(data).take(100).map(testObj ⇒ Map[String, AnyRef](
+        "Original" → out.image(testObj(1).toRgbImage(), ""),
+        "Distorted" → out.image(testObj(0).toRgbImage(), "")
       ).asJava): _*)
     }
+    out.p("<a href='test.html'>Test Reconstruction</a>")
+    server.addHandler("test.html", "text/html", cvt(o ⇒ {
+      Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(out ⇒ {
+        try {
+          out.eval {
+            TableOutput.create(Random.shuffle(data).take(100).map(testObj ⇒ Map[String, AnyRef](
+              "Original" → out.image(testObj(1).toRgbImage(), ""),
+              "Distorted" → out.image(testObj(0).toRgbImage(), ""),
+              "Reconstructed" → out.image(model.eval(testObj(0)).data.head.toRgbImage(), "")
+            ).asJava): _*)
+          }
+        } catch {
+          case e : Throwable ⇒ e.printStackTrace()
+        }
+      })
+    }), false)
     out.p("Loading data complete")
-    (categories, data)
+    data
   }
 
   def run(executor: (List[Array[Tensor]], SupervisedNetwork) ⇒ Trainable): Unit = {
@@ -199,8 +189,8 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     out.p("<a href='/netmon.json'>Network Monitoring</a>")
     out.p("View the log: <a href='/log'>/log</a>")
     out.out("<hr/>")
-    val (categories: Map[String, Int], data: List[Array[Tensor]]) = loadData(out)
-    var model: PipelineNetwork = corruptionDetectionModel(categories.size, monitoringRoot)
+    var model: PipelineNetwork = corruptionDetectionModel(monitoringRoot)
+    val data: List[Array[Tensor]] = loadData(out, model)
     train(data, model, executor)
     IOUtil.writeKryo(model, out.file("model_final.kryo"))
     summarizeHistory(out, history.toList)
