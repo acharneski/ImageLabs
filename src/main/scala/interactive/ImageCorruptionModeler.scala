@@ -170,6 +170,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
   }
 
   private def loadData(out: HtmlNotebookOutput with ScalaNotebookOutput) = {
+    out.p("Loading data from " + source)
     val loader = new ImageTensorLoader(new File(source), 256, 256, 256, 256, 10, 10)
     val rawData: List[LabeledObject[Tensor]] = loader.stream().iterator().asScala.toStream.flatMap(tile ⇒ List(
       new LabeledObject[Tensor](tile, "original")
@@ -189,6 +190,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
         "Label" → testObj.label
       ).asJava): _*)
     }
+    out.p("Loading data complete")
     (categories, data)
   }
 
