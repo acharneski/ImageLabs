@@ -66,7 +66,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
 
   val corruptors = Map[String, Tensor ⇒ Tensor](
     "resample4x" → (imgTensor ⇒ {
-      Tensor.fromRGB(resize(resize(imgTensor.toRgbImage, 64), 256))
+      Tensor.fromRGB(resize(resize(imgTensor.toRgbImage, 16), 64))
     })
   )
 
@@ -110,7 +110,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     network.add(new MaxSubsampleLayer(2, 2, 1))
     // 8 x 8 x 16
     network.add(new MonitoringWrapper(
-      new DenseSynapseLayer(Array[Int](8,8,16), outputSize)
+      new DenseSynapseLayer(Array[Int](2,2,16), outputSize)
       .setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
       .addTo(monitoringRoot, "final_dense"))
     network.add(new BiasLayer(outputSize: _*))
@@ -171,7 +171,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
 
   private def loadData(out: HtmlNotebookOutput with ScalaNotebookOutput) = {
     out.p("Loading data from " + source)
-    val loader = new ImageTensorLoader(new File(source), 256, 256, 256, 256, 10, 10)
+    val loader = new ImageTensorLoader(new File(source), 64, 64, 64, 64, 10, 10)
     val rawData: List[LabeledObject[Tensor]] = loader.stream().iterator().asScala.toStream.flatMap(tile ⇒ List(
       new LabeledObject[Tensor](tile, "original")
     ) ++ corruptors.map(e ⇒ {
@@ -185,7 +185,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
       Array(labeledObj.data, toOutNDArray(categories(labeledObj.label), categories.size))
     })
     out.eval {
-      TableOutput.create(rawData.take(10).map(testObj ⇒ Map[String, AnyRef](
+      TableOutput.create(rawData.take(100).map(testObj ⇒ Map[String, AnyRef](
         "Image" → out.image(testObj.data.toRgbImage(), testObj.data.toString),
         "Label" → testObj.label
       ).asJava): _*)
