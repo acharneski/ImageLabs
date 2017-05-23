@@ -29,11 +29,11 @@ import _root_.util._
 import com.aparapi.internal.kernel.KernelManager
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.simiacryptus.mindseye.graph.{InceptionLayer, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.net.activation.ReLuActivationLayer
+import com.simiacryptus.mindseye.net.activation.{MaxDropoutNoiseLayer, ReLuActivationLayer}
 import com.simiacryptus.mindseye.net.loss.MeanSqLossLayer
 import com.simiacryptus.mindseye.net.media.ImgConvolutionSynapseLayer
 import com.simiacryptus.mindseye.net.synapse.ImgBandBiasLayer
-import com.simiacryptus.mindseye.net.util.{MonitoredObject, MonitoringWrapper}
+import com.simiacryptus.mindseye.net.util.{MonitoredObject, MonitoringSynapse, MonitoringWrapper}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil, TeeOutputStream}
 import com.simiacryptus.util.ml.Tensor
@@ -74,16 +74,22 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
   def encoderModel(monitoringRoot: MonitoredObject) = {
     var network: PipelineNetwork = new PipelineNetwork
 
+    network.add(new MonitoringSynapse().addTo(monitoringRoot, "input"))
     network.add(new ImgBandBiasLayer(64,64,3))
+    network.add(new MonitoringSynapse().addTo(monitoringRoot, "bias"))
+    network.add(new ImgConvolutionSynapseLayer(3,3,9).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.1)))
+    network.add(new MonitoringSynapse().addTo(monitoringRoot, "pre-inception"))
     network.add(new MonitoringWrapper(new InceptionLayer(Array(
-      Array(Array(5, 5, 3)),
-      Array(Array(3, 3, 9))
-    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
+      Array(Array(1, 1, 18)),
+      Array(Array(3, 3, 12)),
+      Array(Array(5, 5, 6))
+    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.1)))
       .addTo(monitoringRoot, "inception_1"))
-    network.add(new ImgBandBiasLayer(2,2,1))
-    network.add(new ReLuActivationLayer())
-    //network.add(new MaxDropoutNoiseLayer(2,2,1))
-
+    //network.add(new ImgBandBiasLayer(2,2,1))
+    network.add(new MonitoringSynapse().addTo(monitoringRoot, "pre-dropout"))
+    //network.add(new ReLuActivationLayer())
+    network.add(new MaxDropoutNoiseLayer(2,2,1))
+    network.add(new MonitoringSynapse().addTo(monitoringRoot, "encoded"))
     network
   }
 
@@ -91,13 +97,14 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
     var network: PipelineNetwork = new PipelineNetwork
 
     network.add(new MonitoringWrapper(new InceptionLayer(Array(
-      Array(Array(5, 5, 4)),
-      Array(Array(3, 3, 16))
-    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
+      Array(Array(1, 1, 144)),
+      Array(Array(3, 3, 24)),
+      Array(Array(5, 5, 12))
+    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.1)))
       .addTo(monitoringRoot, "inception_2"))
-    network.add(new ImgConvolutionSynapseLayer(1,1,15))
+    network.add(new ImgBandBiasLayer(64,64,15))
+    network.add(new ImgConvolutionSynapseLayer(1,1,45))
     network.add(new ReLuActivationLayer())
-    network.add(new ImgBandBiasLayer(64,64,3))
 
     network
   }
@@ -106,7 +113,7 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
   def autoencoderModel(monitoringRoot: MonitoredObject) = {
     var network: PipelineNetwork = new PipelineNetwork
     network.add(new MonitoringWrapper(encoderModel(monitoringRoot)).addTo(monitoringRoot, "encoder"))
-    network.add(new MonitoringWrapper(decoderModel(monitoringRoot)).addTo(monitoringRoot, "encoder"))
+    network.add(new MonitoringWrapper(decoderModel(monitoringRoot)).addTo(monitoringRoot, "decoder"))
     network
   }
 

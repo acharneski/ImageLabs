@@ -33,7 +33,7 @@ import com.simiacryptus.mindseye.net.activation.ReLuActivationLayer
 import com.simiacryptus.mindseye.net.loss.MeanSqLossLayer
 import com.simiacryptus.mindseye.net.media.ImgConvolutionSynapseLayer
 import com.simiacryptus.mindseye.net.synapse.ImgBandBiasLayer
-import com.simiacryptus.mindseye.net.util.{MonitoredObject, MonitoringWrapper}
+import com.simiacryptus.mindseye.net.util.{MonitoredObject, MonitoringSynapse, MonitoringWrapper}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil, TeeOutputStream}
 import com.simiacryptus.util.ml.Tensor
@@ -82,6 +82,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
       .addTo(monitoringRoot, "inception_1"))
     network.add(new ImgBandBiasLayer(64,64,6))
     network.add(new ReLuActivationLayer())
+    network.add(new MonitoringSynapse().addTo(monitoringRoot, "activationLayer1"))
 
     network.add(new MonitoringWrapper(new InceptionLayer(Array(
       Array(Array(1, 1, 36)),
@@ -91,15 +92,17 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
       .addTo(monitoringRoot, "inception_2"))
     network.add(new ImgBandBiasLayer(64,64,9))
     network.add(new ReLuActivationLayer())
+    network.add(new MonitoringSynapse().addTo(monitoringRoot, "activationLayer2"))
 
     network.add(new MonitoringWrapper(new InceptionLayer(Array(
       Array(Array(1, 1, 81)),
-      Array(Array(2, 2, 18)),
+      Array(Array(3, 3, 18)),
       Array(Array(5, 5, 9))
     )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
       .addTo(monitoringRoot, "inception_3"))
     network.add(new ImgBandBiasLayer(64,64,12))
     network.add(new ReLuActivationLayer())
+    network.add(new MonitoringSynapse().addTo(monitoringRoot, "activationLayer3"))
 
     network.add(new ImgConvolutionSynapseLayer(1,1,36))
     network.add(new ReLuActivationLayer())
