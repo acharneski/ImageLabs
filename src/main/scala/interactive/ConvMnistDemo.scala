@@ -30,13 +30,13 @@ import com.simiacryptus.mindseye.net.activation._
 import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.net.media.MaxSubsampleLayer
 import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer}
-import com.simiacryptus.mindseye.net.util.{MonitoredObject, MonitoringWrapper}
+import com.simiacryptus.mindseye.net.util.MonitoringWrapper
 import com.simiacryptus.mindseye.opt.{IterativeTrainer, StochasticArrayTrainable, TrainingMonitor}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, MarkdownNotebookOutput, TeeOutputStream}
 import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.test.MNIST
 import com.simiacryptus.util.text.TableOutput
-import com.simiacryptus.util.{StreamNanoHTTPD, Util}
+import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
 import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
 import guru.nidi.graphviz.engine.{Format, Graphviz}

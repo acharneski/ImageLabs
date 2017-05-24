@@ -33,13 +33,13 @@ import com.simiacryptus.mindseye.net.activation.{MaxDropoutNoiseLayer, ReLuActiv
 import com.simiacryptus.mindseye.net.loss.MeanSqLossLayer
 import com.simiacryptus.mindseye.net.media.ImgConvolutionSynapseLayer
 import com.simiacryptus.mindseye.net.synapse.ImgBandBiasLayer
-import com.simiacryptus.mindseye.net.util.{MonitoredObject, MonitoringSynapse, MonitoringWrapper}
+import com.simiacryptus.mindseye.net.util.{MonitoringSynapse, MonitoringWrapper}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil, TeeOutputStream}
 import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.test.ImageTiles.ImageTensorLoader
 import com.simiacryptus.util.text.TableOutput
-import com.simiacryptus.util.{StreamNanoHTTPD, Util}
+import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
 import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
 import org.apache.spark.sql.SparkSession

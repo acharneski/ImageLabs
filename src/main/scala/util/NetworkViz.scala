@@ -22,7 +22,6 @@ package util
 import java.util.UUID
 
 import com.simiacryptus.mindseye.graph.dag.{DAGNetwork, DAGNode, InnerNode}
-import com.simiacryptus.mindseye.net.util.VerboseWrapper
 import guru.nidi.graphviz.attribute.RankDir
 import guru.nidi.graphviz.model.{Link, LinkSource, MutableNode}
 
@@ -41,7 +40,6 @@ object NetworkViz {
       node.getId() → guru.nidi.graphviz.model.Factory.mutNode((node match {
         case n: InnerNode ⇒
           n.layer match {
-            case _ if (n.layer.isInstanceOf[VerboseWrapper]) ⇒ n.layer.asInstanceOf[VerboseWrapper].inner.getClass.getSimpleName
             case _ ⇒ n.layer.getClass.getSimpleName
           }
         case _ ⇒ node.getClass.getSimpleName
