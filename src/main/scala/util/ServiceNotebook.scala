@@ -25,9 +25,6 @@ import java.util.UUID
 import com.simiacryptus.util.io.HtmlNotebookOutput
 import com.simiacryptus.util.{StreamNanoHTTPD, Util}
 
-/**
-  * Created by Andrew Charneski on 5/14/2017.
-  */
 trait ServiceNotebook {
   def report[T](fn: (StreamNanoHTTPD, HtmlNotebookOutput with ScalaNotebookOutput) ⇒ T,
                 port: Int = 1024 + (Math.random() * 0x700).toInt): T = try {
@@ -35,6 +32,7 @@ trait ServiceNotebook {
     path.mkdirs
     val logFile = new File(path, "index.html")
     //val port: Int = 0x1FF + (Math.random() * 0x700).toInt
+    println(s"Starting service on port $port")
     val server = new StreamNanoHTTPD(port, "text/html", logFile).init()
     val log = new HtmlNotebookOutput(path, server.dataReciever) with ScalaNotebookOutput
     log.addCopy(System.out)
