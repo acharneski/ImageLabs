@@ -25,13 +25,16 @@ import java.util.concurrent.{Semaphore, TimeUnit}
 import java.util.function.ToDoubleFunction
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.simiacryptus.mindseye.graph.dag._
-import com.simiacryptus.mindseye.graph.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.net.activation._
-import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer}
-import com.simiacryptus.mindseye.net.util.MonitoringWrapper
-import com.simiacryptus.mindseye.opt.{IterativeTrainer, StochasticArrayTrainable, TrainingMonitor}
+import com.simiacryptus.mindseye.network.graph._
+import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.layers.NNLayer
+import com.simiacryptus.mindseye.layers.activation._
+import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
+import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
+import com.simiacryptus.mindseye.layers.util.MonitoringWrapper
+import com.simiacryptus.mindseye.opt.region.{LayerTrustRegion, SingleOrthant, TrustRegion}
+import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
+import com.simiacryptus.mindseye.opt.{IterativeTrainer, TrainingMonitor}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, MarkdownNotebookOutput, TeeOutputStream}
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
@@ -98,7 +101,8 @@ class MnistDemo {
 
     val monitor = new TrainingMonitor {
       override def log(msg: String): Unit = {
-        logPrintStream.println(msg);
+        println(msg)
+        logPrintStream.println(msg)
       }
 
       override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
@@ -143,6 +147,14 @@ class MnistDemo {
       val trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
       trainer.setMonitor(monitor)
+      trainer.setOrientation(new LayerTrustRegion() {
+        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
+          case _:MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
+          //case _:DenseSynapseLayer ⇒ new GrowthSphere().setGrowthFactor(2.0).setMinRadius(1.0)
+          case _:DenseSynapseLayer ⇒ new SingleOrthant()
+          case _ ⇒ null
+        }
+      });
       trainer.setTimeout(1, TimeUnit.MINUTES)
       trainer.setTerminateThreshold(0.0)
       trainer

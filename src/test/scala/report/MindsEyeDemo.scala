@@ -30,14 +30,15 @@ import util.{ReportNotebook, ScalaNotebookOutput}
 import java.{lang, util}
 import javax.imageio.ImageIO
 
-import com.simiacryptus.mindseye.graph.dag._
-import com.simiacryptus.mindseye.graph.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.net.activation._
-import com.simiacryptus.mindseye.net.loss.{EntropyLossLayer, MeanSqLossLayer}
-import com.simiacryptus.mindseye.net.media.ImgConvolutionSynapseLayer
-import com.simiacryptus.mindseye.net.reducers.SumInputsLayer
-import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer}
-import com.simiacryptus.mindseye.opt.{StochasticArrayTrainable, TrainingMonitor}
+import com.simiacryptus.mindseye.network.graph._
+import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.layers.activation._
+import com.simiacryptus.mindseye.layers.loss.{EntropyLossLayer, MeanSqLossLayer}
+import com.simiacryptus.mindseye.layers.media.ImgConvolutionSynapseLayer
+import com.simiacryptus.mindseye.layers.reducers.SumInputsLayer
+import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
+import com.simiacryptus.mindseye.opt.TrainingMonitor
+import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
 import com.simiacryptus.util.Util
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST

@@ -24,14 +24,15 @@ import java.lang
 import java.util.concurrent.{Semaphore, TimeUnit}
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.simiacryptus.mindseye.graph.dag._
-import com.simiacryptus.mindseye.graph.{InceptionLayer, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.net.activation._
-import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.net.media.MaxSubsampleLayer
-import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer}
-import com.simiacryptus.mindseye.net.util.MonitoringWrapper
-import com.simiacryptus.mindseye.opt.{IterativeTrainer, StochasticArrayTrainable, TrainingMonitor}
+import com.simiacryptus.mindseye.network.graph._
+import com.simiacryptus.mindseye.network.{InceptionLayer, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.layers.activation._
+import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
+import com.simiacryptus.mindseye.layers.media.MaxSubsampleLayer
+import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
+import com.simiacryptus.mindseye.layers.util.MonitoringWrapper
+import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
+import com.simiacryptus.mindseye.opt.{IterativeTrainer, TrainingMonitor}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, MarkdownNotebookOutput, TeeOutputStream}
 import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.test.MNIST

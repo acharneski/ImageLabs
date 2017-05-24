@@ -28,13 +28,14 @@ import java.util.concurrent.{Semaphore, TimeUnit}
 import _root_.util._
 import com.aparapi.internal.kernel.KernelManager
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.simiacryptus.mindseye.graph.{InceptionLayer, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.net.activation.ReLuActivationLayer
-import com.simiacryptus.mindseye.net.loss.MeanSqLossLayer
-import com.simiacryptus.mindseye.net.media.ImgConvolutionSynapseLayer
-import com.simiacryptus.mindseye.net.synapse.ImgBandBiasLayer
-import com.simiacryptus.mindseye.net.util.{MonitoringSynapse, MonitoringWrapper}
+import com.simiacryptus.mindseye.network.{InceptionLayer, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.layers.activation.ReLuActivationLayer
+import com.simiacryptus.mindseye.layers.loss.MeanSqLossLayer
+import com.simiacryptus.mindseye.layers.media.ImgConvolutionSynapseLayer
+import com.simiacryptus.mindseye.layers.synapse.ImgBandBiasLayer
+import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
 import com.simiacryptus.mindseye.opt._
+import com.simiacryptus.mindseye.opt.trainable.{SparkTrainable, StochasticArrayTrainable, Trainable}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil, TeeOutputStream}
 import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.test.ImageTiles.ImageTensorLoader

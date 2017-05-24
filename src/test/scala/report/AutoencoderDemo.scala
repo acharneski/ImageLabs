@@ -24,13 +24,14 @@ import java.lang
 import java.util.concurrent.TimeUnit
 import javax.imageio.ImageIO
 
-import com.simiacryptus.mindseye.graph._
-import com.simiacryptus.mindseye.graph.dag._
-import com.simiacryptus.mindseye.net.NNLayer
-import com.simiacryptus.mindseye.net.activation.SoftmaxActivationLayer
-import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.net.synapse.DenseSynapseLayer
+import com.simiacryptus.mindseye.network._
+import com.simiacryptus.mindseye.network.graph._
+import com.simiacryptus.mindseye.layers.NNLayer
+import com.simiacryptus.mindseye.layers.activation.SoftmaxActivationLayer
+import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
+import com.simiacryptus.mindseye.layers.synapse.DenseSynapseLayer
 import com.simiacryptus.mindseye.opt._
+import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
 import com.simiacryptus.util.io.IOUtil
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.{ImageTiles, MNIST}

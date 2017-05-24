@@ -24,12 +24,13 @@ import java.io.PrintStream
 import java.lang
 import java.util.concurrent.{Semaphore, TimeUnit}
 
-import com.simiacryptus.mindseye.graph.{AutoencoderNetwork, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.net.NNLayer
-import com.simiacryptus.mindseye.net.activation._
-import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.net.synapse.DenseSynapseLayer
-import com.simiacryptus.mindseye.opt.{IterativeTrainer, LBFGS, StochasticArrayTrainable, TrainingMonitor}
+import com.simiacryptus.mindseye.network.{AutoencoderNetwork, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.layers.NNLayer
+import com.simiacryptus.mindseye.layers.activation._
+import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
+import com.simiacryptus.mindseye.layers.synapse.DenseSynapseLayer
+import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
+import com.simiacryptus.mindseye.opt.{IterativeTrainer, LBFGS, TrainingMonitor}
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.{HtmlNotebookOutput, TeeOutputStream}
 import com.simiacryptus.util.ml.{Coordinate, Tensor}

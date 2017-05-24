@@ -21,7 +21,7 @@ package util
 
 import java.util.UUID
 
-import com.simiacryptus.mindseye.graph.dag.{DAGNetwork, DAGNode, InnerNode}
+import com.simiacryptus.mindseye.network.graph.{DAGNetwork, DAGNode, InnerNode}
 import guru.nidi.graphviz.attribute.RankDir
 import guru.nidi.graphviz.model.{Link, LinkSource, MutableNode}
 

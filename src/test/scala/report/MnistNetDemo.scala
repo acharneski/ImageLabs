@@ -24,12 +24,13 @@ import java.lang
 import java.util.concurrent.TimeUnit
 import java.util.function.ToDoubleFunction
 
-import com.simiacryptus.mindseye.graph.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.net.activation.{AbsActivationLayer, SoftmaxActivationLayer}
-import com.simiacryptus.mindseye.net.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.net.media.{ImgConvolutionSynapseLayer, MaxSubsampleLayer}
-import com.simiacryptus.mindseye.net.synapse.{BiasLayer, DenseSynapseLayer, ToeplitzSynapseLayer}
+import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, SoftmaxActivationLayer}
+import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
+import com.simiacryptus.mindseye.layers.media.{ImgConvolutionSynapseLayer, MaxSubsampleLayer}
+import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer, ToeplitzSynapseLayer}
 import com.simiacryptus.mindseye.opt._
+import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
 import com.simiacryptus.util.Util
 import com.simiacryptus.util.io.IOUtil
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
