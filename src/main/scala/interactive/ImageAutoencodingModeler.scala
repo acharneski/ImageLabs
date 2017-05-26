@@ -31,8 +31,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.simiacryptus.mindseye.network.{InceptionLayer, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.layers.activation.{MaxDropoutNoiseLayer, ReLuActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.MeanSqLossLayer
-import com.simiacryptus.mindseye.layers.media.ImgConvolutionSynapseLayer
-import com.simiacryptus.mindseye.layers.synapse.ImgBandBiasLayer
+import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.trainable.{SparkTrainable, StochasticArrayTrainable, Trainable}

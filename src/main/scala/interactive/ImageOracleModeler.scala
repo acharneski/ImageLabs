@@ -28,13 +28,14 @@ import java.util.concurrent.{Semaphore, TimeUnit}
 import _root_.util._
 import com.aparapi.internal.kernel.KernelManager
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.simiacryptus.mindseye.network.{InceptionLayer, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.layers.NNLayer
 import com.simiacryptus.mindseye.layers.activation.ReLuActivationLayer
 import com.simiacryptus.mindseye.layers.loss.MeanSqLossLayer
-import com.simiacryptus.mindseye.layers.media.ImgConvolutionSynapseLayer
-import com.simiacryptus.mindseye.layers.synapse.ImgBandBiasLayer
+import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
+import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
+import com.simiacryptus.mindseye.opt.region.{LayerTrustRegion, LinearSumConstraint, TrustRegion}
 import com.simiacryptus.mindseye.opt.trainable.{SparkTrainable, StochasticArrayTrainable, Trainable}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil, TeeOutputStream}
 import com.simiacryptus.util.ml.Tensor
@@ -74,40 +75,54 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
   private def corruptionDetectionModel(monitoringRoot: MonitoredObject) = {
     var network: PipelineNetwork = new PipelineNetwork
 
-    network.add(new ImgBandBiasLayer(64,64,3))
-    network.add(new MonitoringWrapper(new InceptionLayer(Array(
-      Array(Array(1, 1, 9)),
-      Array(Array(3, 3, 6)),
-      Array(Array(5, 5, 3))
-    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-      .addTo(monitoringRoot, "inception_1"))
-    network.add(new ImgBandBiasLayer(64,64,6))
+//    network.add(new MonitoringWrapper(new InceptionLayer(Array(
+//      Array(Array(1, 1, 9)),
+//      Array(Array(3, 3, 6)),
+//      Array(Array(5, 5, 3))
+//    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
+//      .addTo(monitoringRoot, "inception_1"))
+//    network.add(new ImgBandBiasLayer(64,64,6))
+//    network.add(new ReLuActivationLayer())
+//    network.add(new MonitoringSynapse().addTo(monitoringRoot, "activationLayer1"))
+
+//    network.add(new MonitoringWrapper(new InceptionLayer(Array(
+//      Array(Array(1, 1, 36)),
+//      Array(Array(3, 3, 12)),
+//      Array(Array(5, 5, 6))
+//    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
+//      .addTo(monitoringRoot, "inception_2"))
+//    network.add(new ImgBandBiasLayer(64,64,9))
+//    network.add(new ReLuActivationLayer())
+//    network.add(new MonitoringSynapse().addTo(monitoringRoot, "activationLayer2"))
+
+//    network.add(new MonitoringWrapper(new InceptionLayer(Array(
+//      Array(Array(1, 1, 81)),
+//      Array(Array(3, 3, 18)),
+//      Array(Array(5, 5, 9))
+//    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
+//      .addTo(monitoringRoot, "inception_3"))
+//    network.add(new ImgBandBiasLayer(64,64,12))
+//    network.add(new ReLuActivationLayer())
+//    network.add(new MonitoringSynapse().addTo(monitoringRoot, "activationLayer3"))
+
+    network.add(new MonitoringWrapper(
+      new ImgBandBiasLayer(64,64,3))
+      .addTo(monitoringRoot, "Bias1"));
+    network.add(new MonitoringSynapse().addTo(monitoringRoot, "input"))
+
+    network.add(new MonitoringWrapper(
+      new ImgConvolutionSynapseLayer(3,3,18).setWeights(Java8Util.cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
+      .addTo(monitoringRoot, "Conv1"))
     network.add(new ReLuActivationLayer())
     network.add(new MonitoringSynapse().addTo(monitoringRoot, "activationLayer1"))
-
-    network.add(new MonitoringWrapper(new InceptionLayer(Array(
-      Array(Array(1, 1, 36)),
-      Array(Array(3, 3, 12)),
-      Array(Array(5, 5, 6))
-    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-      .addTo(monitoringRoot, "inception_2"))
-    network.add(new ImgBandBiasLayer(64,64,9))
+    network.add(new MonitoringWrapper(
+      new ImgConvolutionSynapseLayer(1,1,18).setWeights(Java8Util.cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
+      .addTo(monitoringRoot, "Conv2"))
     network.add(new ReLuActivationLayer())
     network.add(new MonitoringSynapse().addTo(monitoringRoot, "activationLayer2"))
-
-    network.add(new MonitoringWrapper(new InceptionLayer(Array(
-      Array(Array(1, 1, 81)),
-      Array(Array(3, 3, 18)),
-      Array(Array(5, 5, 9))
-    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-      .addTo(monitoringRoot, "inception_3"))
-    network.add(new ImgBandBiasLayer(64,64,12))
-    network.add(new ReLuActivationLayer())
-    network.add(new MonitoringSynapse().addTo(monitoringRoot, "activationLayer3"))
-
-    network.add(new ImgConvolutionSynapseLayer(1,1,36))
-    network.add(new ReLuActivationLayer())
-    network.add(new ImgBandBiasLayer(64,64,3))
+    network.add(new MonitoringWrapper(
+      new ImgBandBiasLayer(64,64,3))
+      .addTo(monitoringRoot, "Bias2"))
     network
   }
 
@@ -134,10 +149,21 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     }
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new MeanSqLossLayer)
-      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFactory(data, trainingNetwork))
+      val inner = executorFactory(data, trainingNetwork)
+      val normalized = new L12Normalizer(inner).setFactor_L1(0.01)
+      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(72, TimeUnit.HOURS)
-      trainer.setOrientation(new LBFGS().setMinHistory(10).setMaxHistory(20))
+      trainer.setOrientation(new LayerTrustRegion(new LBFGS().setMinHistory(10).setMaxHistory(20)) {
+        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
+          case _:MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
+          //case _:ImgConvolutionSynapseLayer ⇒ new GrowthSphere().setGrowthFactor(1.0).setMinRadius(0.0)
+          case _:ImgConvolutionSynapseLayer ⇒ new LinearSumConstraint
+          //case _:DenseSynapseLayer ⇒ new SingleOrthant()
+          case _ ⇒ null
+        }
+      })
+      trainer.setScaling(new ArmijoWolfeConditions().setMaxAlpha(5))
       trainer.setTerminateThreshold(0.0)
       trainer
     }
