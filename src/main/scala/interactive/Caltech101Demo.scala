@@ -63,14 +63,14 @@ class Caltech101Demo {
     log.h1("Caltech 101")
     val history = new scala.collection.mutable.ArrayBuffer[IterativeTrainer.Step]()
     log.p("View the convergence history: <a href='/history.html'>/history.html</a>")
-    server.addHandler("history.html", "text/html", Java8Util.cvt(out ⇒ {
+    server.addAsyncHandler("history.html", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         summarizeHistory(log, history.toList)
       })
     }), false)
     val monitoringRoot = new MonitoredObject()
     log.p("<a href='/netmon.json'>Network Monitoring</a>")
-    server.addHandler("netmon.json", "application/json", Java8Util.cvt(out ⇒ {
+    server.addAsyncHandler("netmon.json", "application/json", Java8Util.cvt(out ⇒ {
       val mapper = new ObjectMapper().enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL)
       val buffer = new ByteArrayOutputStream()
       mapper.writeValue(buffer, monitoringRoot.getMetrics)
@@ -241,7 +241,7 @@ class Caltech101Demo {
     logOut.close()
     val onExit = new Semaphore(0)
     log.p("To exit the sever: <a href='/exit'>/exit</a>")
-    server.addHandler("exit", "text/html", Java8Util.cvt(out ⇒ {
+    server.addAsyncHandler("exit", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         log.h1("OK")
         onExit.release(1)

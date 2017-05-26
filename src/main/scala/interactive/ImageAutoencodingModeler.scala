@@ -181,7 +181,7 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
       ).asJava): _*)
     }
     out.p("<a href='test.html'>Test Reconstruction</a>")
-    server.addHandler("test.html", "text/html", cvt(o ⇒ {
+    server.addAsyncHandler("test.html", "text/html", cvt(o ⇒ {
       Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(out ⇒ {
         try {
           out.eval {
@@ -214,7 +214,7 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
     logOut.close()
     val onExit = new Semaphore(0)
     out.p("To exit the sever: <a href='/exit'>/exit</a>")
-    server.addHandler("exit", "text/html", cvt(o ⇒ {
+    server.addAsyncHandler("exit", "text/html", cvt(o ⇒ {
       Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(log ⇒ {
         log.h1("OK")
         onExit.release(1)
@@ -225,7 +225,7 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
 
   val logOut = new TeeOutputStream(new FileOutputStream("training.log", true), true)
   val history = new scala.collection.mutable.ArrayBuffer[IterativeTrainer.Step]()
-  server.addHandler("history.html", "text/html", cvt(o ⇒ {
+  server.addAsyncHandler("history.html", "text/html", cvt(o ⇒ {
     Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(log ⇒ {
       summarizeHistory(log, history.toList)
     })
@@ -236,7 +236,7 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
     KernelManager.instance().reportDeviceUsage(sb,true)
     sb.toString()
   }))
-  server.addHandler("netmon.json", "application/json", cvt(out ⇒ {
+  server.addAsyncHandler("netmon.json", "application/json", cvt(out ⇒ {
     val mapper = new ObjectMapper().enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL)
     val buffer = new ByteArrayOutputStream()
     mapper.writeValue(buffer, monitoringRoot.getMetrics)

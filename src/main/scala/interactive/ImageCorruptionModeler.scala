@@ -28,20 +28,22 @@ import java.util.concurrent.{Semaphore, TimeUnit}
 import _root_.util._
 import com.aparapi.internal.kernel.KernelManager
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.simiacryptus.mindseye.network.{InceptionLayer, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.layers.activation.SoftmaxActivationLayer
+import com.simiacryptus.mindseye.layers.NNLayer
+import com.simiacryptus.mindseye.layers.activation.{ReLuActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.layers.media.MaxSubsampleLayer
+import com.simiacryptus.mindseye.layers.media.{ImgConvolutionSynapseLayer, MaxSubsampleLayer, SumSubsampleLayer}
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
-import com.simiacryptus.mindseye.layers.util.MonitoringWrapper
+import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
+import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
-import com.simiacryptus.mindseye.opt.trainable.{SparkTrainable, StochasticArrayTrainable, Trainable}
+import com.simiacryptus.mindseye.opt.region.{LayerTrustRegion, LinearSumConstraint, TrustRegion}
+import com.simiacryptus.mindseye.opt.trainable.{ConstL12Normalizer, ScheduledSampleTrainable, SparkTrainable, Trainable}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil, TeeOutputStream}
 import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.test.ImageTiles.ImageTensorLoader
 import com.simiacryptus.util.test.LabeledObject
 import com.simiacryptus.util.text.TableOutput
-import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
+import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD}
 import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
 import org.apache.spark.sql.SparkSession
@@ -68,7 +70,9 @@ object ImageCorruptionModeler extends ServiceNotebook {
 class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) {
 
   val corruptors = Map[String, Tensor ⇒ Tensor](
-    "resample4x" → (imgTensor ⇒ {
+    "resample2x" → (imgTensor ⇒ {
+      Tensor.fromRGB(resize(resize(imgTensor.toRgbImage, 32), 64))
+    }),"resample4x" → (imgTensor ⇒ {
       Tensor.fromRGB(resize(resize(imgTensor.toRgbImage, 16), 64))
     })
   )
@@ -76,50 +80,68 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
   private def corruptionDetectionModel(categoryCount: Int, monitoringRoot: MonitoredObject) = {
     val outputSize = Array[Int](categoryCount)
     var network: PipelineNetwork = new PipelineNetwork
-    // 64 x 64 x 3 (RGB)
-    network.add(new MonitoringWrapper(new InceptionLayer(Array(
-      Array(Array(5, 5, 3)),
-      Array(Array(3, 3, 9))
-    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-      .addTo(monitoringRoot, "inception_1"))
-    network.add(new MaxSubsampleLayer(2, 2, 1))
-    // 32 x 32 x 4
-    network.add(new MonitoringWrapper(new InceptionLayer(Array(
-      Array(Array(5, 5, 4)),
-      Array(Array(3, 3, 16))
-    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-      .addTo(monitoringRoot, "inception_2"))
-    network.add(new MaxSubsampleLayer(2, 2, 1))
-    // 16 x 16 x 5
-    network.add(new MonitoringWrapper(new InceptionLayer(Array(
-      Array(Array(5, 5, 5)),
-      Array(Array(3, 3, 25))
-    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-      .addTo(monitoringRoot, "inception_3"))
-    network.add(new MaxSubsampleLayer(2, 2, 1))
-    // 8 x 8 x 6
-    network.add(new MonitoringWrapper(new InceptionLayer(Array(
-      Array(Array(5, 5, 12)),
-      Array(Array(3, 3, 36))
-    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-      .addTo(monitoringRoot, "inception_4"))
-    network.add(new MaxSubsampleLayer(2, 2, 1))
-    // 4 x 4 x 8
-    network.add(new MonitoringWrapper(new InceptionLayer(Array(
-      Array(Array(5, 5, 64)),
-      Array(Array(3, 3, 64))
-    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-      .addTo(monitoringRoot, "inception_5"))
-    network.add(new MaxSubsampleLayer(2, 2, 1))
-    // 2 x 2 x 16
-    network.add(new MonitoringWrapper(
-      new DenseSynapseLayer(Array[Int](2,2,16), outputSize)
-      .setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-      .addTo(monitoringRoot, "final_dense"))
-    network.add(new BiasLayer(outputSize: _*))
+
+//    // 64 x 64 x 3 (RGB)
+//    network.add(new MonitoringWrapper(new InceptionLayer(Array(
+//      Array(Array(5, 5, 3)),
+//      Array(Array(3, 3, 9))
+//    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
+//      .addTo(monitoringRoot, "inception_1"))
+//    network.add(new MaxSubsampleLayer(2, 2, 1))
+//    // 32 x 32 x 4
+//    network.add(new MonitoringWrapper(new InceptionLayer(Array(
+//      Array(Array(5, 5, 4)),
+//      Array(Array(3, 3, 16))
+//    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
+//      .addTo(monitoringRoot, "inception_2"))
+//    network.add(new MaxSubsampleLayer(2, 2, 1))
+//    // 16 x 16 x 5
+//    network.add(new MonitoringWrapper(new InceptionLayer(Array(
+//      Array(Array(5, 5, 5)),
+//      Array(Array(3, 3, 25))
+//    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
+//      .addTo(monitoringRoot, "inception_3"))
+//    network.add(new MaxSubsampleLayer(2, 2, 1))
+//    // 8 x 8 x 6
+//    network.add(new MonitoringWrapper(new InceptionLayer(Array(
+//      Array(Array(5, 5, 12)),
+//      Array(Array(3, 3, 36))
+//    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
+//      .addTo(monitoringRoot, "inception_4"))
+//    network.add(new MaxSubsampleLayer(2, 2, 1))
+//    // 4 x 4 x 8
+//    network.add(new MonitoringWrapper(new InceptionLayer(Array(
+//      Array(Array(5, 5, 64)),
+//      Array(Array(3, 3, 64))
+//    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
+//      .addTo(monitoringRoot, "inception_5"))
+//    network.add(new MaxSubsampleLayer(2, 2, 1))
+//    // 2 x 2 x 16
+//    network.add(new MonitoringWrapper(
+//      new DenseSynapseLayer(Array[Int](2,2,16), outputSize)
+//      .setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
+//      .addTo(monitoringRoot, "final_dense"))
+//    network.add(new BiasLayer(outputSize: _*))
+
+    network.add(new MonitoringWrapper(new BiasLayer(64,64,3)).addTo(monitoringRoot, "inbias"))
+    network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(3,3,18)
+      .setWeights(Java8Util.cvt(() ⇒ 0.2 * Random.nextGaussian()))).addTo(monitoringRoot, "synapse1"))
+    network.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu1"))
+    network.add(new MonitoringWrapper(new MaxSubsampleLayer(2,2,1)).addTo(monitoringRoot, "max1"))
+    network.add(new MonitoringSynapse().addTo(monitoringRoot, "output1"))
+    network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(3,3,60)
+      .setWeights(Java8Util.cvt(() ⇒ 0.1 * Random.nextGaussian()))).addTo(monitoringRoot, "synapse2"))
+    network.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu2"))
+    network.add(new MonitoringWrapper(new SumSubsampleLayer(32,32,1)).addTo(monitoringRoot, "max2"))
+    network.add(new MonitoringSynapse().addTo(monitoringRoot, "output2"))
+    network.add(new MonitoringWrapper(new DenseSynapseLayer(Array[Int](1,1,10), outputSize)
+      .setWeights(Java8Util.cvt(() ⇒ 0.1 * Random.nextGaussian()))).addTo(monitoringRoot, "synapse3"))
+    network.add(new MonitoringWrapper(new BiasLayer(outputSize: _*)).addTo(monitoringRoot, "outbias"))
+    network.add(new MonitoringSynapse().addTo(monitoringRoot, "output3"))
     network.add(new SoftmaxActivationLayer)
     network
   }
+  val dataTable = new TableOutput()
 
   private def train(data: List[Array[Tensor]],
                     model: PipelineNetwork,
@@ -140,6 +162,21 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
           lastCheckpoint = System.currentTimeMillis()
           IOUtil.writeKryo(model, out.file("model_checkpoint_" + currentPoint.iteration + ".kryo"))
         }
+        def flatten(prefix:String,data:Map[String,AnyRef]) : Map[String,AnyRef] = {
+          data.flatMap({
+            case (key, value) ⇒ value match {
+              case value : java.util.Map[String,AnyRef] ⇒ flatten(prefix+key+".", value.asScala.toMap)
+              case value : Map[String,AnyRef] ⇒ flatten(prefix+key, value)
+              case value if prefix.isEmpty ⇒ Map(key → value)
+              case value ⇒ Map((prefix + key) → value)
+            }
+          }).map(e⇒(if(e._1.startsWith(".")) e._1.substring(1) else e._1)→e._2)
+        }
+        dataTable.putRow((flatten(".",monitoringRoot.getMetrics.asScala.toMap)++Map(
+          "epoch" → currentPoint.iteration.asInstanceOf[java.lang.Long],
+          "time" → currentPoint.time.asInstanceOf[java.lang.Long],
+          "value" → currentPoint.point.value.asInstanceOf[java.lang.Double]
+        )).asJava)
       }
     }
     val trainer = out.eval {
@@ -147,8 +184,15 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFactory(data, trainingNetwork))
       trainer.setMonitor(monitor)
       trainer.setTimeout(72, TimeUnit.HOURS)
-      trainer.setOrientation(new LBFGS().setMinHistory(10).setMaxHistory(20))
-      trainer.setTerminateThreshold(0.0)
+      trainer.setOrientation(new LayerTrustRegion(new LBFGS().setMinHistory(10).setMaxHistory(20)) {
+        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
+          case _:MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
+          case _:DenseSynapseLayer ⇒ new LinearSumConstraint()
+          case _:ImgConvolutionSynapseLayer ⇒ new LinearSumConstraint()
+          case _ ⇒ null
+        }
+      })
+      trainer.setTerminateThreshold(Double.NegativeInfinity)
       trainer
     }
     trainer.run()
@@ -167,7 +211,11 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
   }
 
   def runLocal(): Unit = {
-    run((data, network) ⇒ new StochasticArrayTrainable(data.toArray, network, 100))
+    run((data, network) ⇒
+      new ConstL12Normalizer(
+        ScheduledSampleTrainable.Pow(data.toArray, network, 50,1.0,0.0).setShuffled(true)
+      ).setFactor_L1(0.001)
+    )
     //run((data,network)⇒new ArrayTrainable(data.toArray, network))
   }
 
@@ -200,12 +248,19 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     out.p("View the convergence history: <a href='/history.html'>/history.html</a>")
     out.p("<a href='/netmon.json'>Network Monitoring</a>")
     out.p("View the log: <a href='/log'>/log</a>")
+    out.p("<a href='/table.html'>Parameter History Data Table</a>")
+    server.addSyncHandler("table.html", "text/html", Java8Util.cvt(o ⇒ {
+      Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(log ⇒ {
+        log.h1("Parameter History Data Table")
+        log.p(dataTable.toHtmlTable(true))
+      })
+    }), false)
     out.out("<hr/>")
     val (categories: Map[String, Int], data: List[Array[Tensor]]) = loadData(out)
     var model: PipelineNetwork = corruptionDetectionModel(categories.size, monitoringRoot)
 
     out.p("<a href='test.html'>Test Reconstruction</a>")
-    server.addHandler("test.html", "text/html", cvt(o ⇒ {
+    server.addSyncHandler("test.html", "text/html", cvt(o ⇒ {
       Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(out ⇒ {
         try {
           out.eval {
@@ -228,7 +283,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     logOut.close()
     val onExit = new Semaphore(0)
     out.p("To exit the sever: <a href='/exit'>/exit</a>")
-    server.addHandler("exit", "text/html", cvt(o ⇒ {
+    server.addSyncHandler("exit", "text/html", cvt(o ⇒ {
       Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(log ⇒ {
         log.h1("OK")
         onExit.release(1)
@@ -239,7 +294,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
 
   val logOut = new TeeOutputStream(new FileOutputStream("training.log", true), true)
   val history = new scala.collection.mutable.ArrayBuffer[IterativeTrainer.Step]()
-  server.addHandler("history.html", "text/html", cvt(o ⇒ {
+  server.addSyncHandler("history.html", "text/html", cvt(o ⇒ {
     Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(log ⇒ {
       summarizeHistory(log, history.toList)
     })
@@ -250,7 +305,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     KernelManager.instance().reportDeviceUsage(sb,true)
     sb.toString()
   }))
-  server.addHandler("netmon.json", "application/json", cvt(out ⇒ {
+  server.addSyncHandler("netmon.json", "application/json", cvt(out ⇒ {
     val mapper = new ObjectMapper().enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL)
     val buffer = new ByteArrayOutputStream()
     mapper.writeValue(buffer, monitoringRoot.getMetrics)

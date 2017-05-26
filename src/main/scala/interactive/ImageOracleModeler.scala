@@ -35,8 +35,9 @@ import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionS
 import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
+import com.simiacryptus.mindseye.opt.line.ArmijoWolfeConditions
 import com.simiacryptus.mindseye.opt.region.{LayerTrustRegion, LinearSumConstraint, TrustRegion}
-import com.simiacryptus.mindseye.opt.trainable.{SparkTrainable, StochasticArrayTrainable, Trainable}
+import com.simiacryptus.mindseye.opt.trainable.{ConstL12Normalizer, SparkTrainable, StochasticArrayTrainable, Trainable}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil, TeeOutputStream}
 import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.test.ImageTiles.ImageTensorLoader
@@ -150,7 +151,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new MeanSqLossLayer)
       val inner = executorFactory(data, trainingNetwork)
-      val normalized = new L12Normalizer(inner).setFactor_L1(0.01)
+      val normalized = new ConstL12Normalizer(inner).setFactor_L1(0.01)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(72, TimeUnit.HOURS)
@@ -201,7 +202,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
       ).asJava): _*)
     }
     out.p("<a href='test.html'>Test Reconstruction</a>")
-    server.addHandler("test.html", "text/html", cvt(o ⇒ {
+    server.addAsyncHandler("test.html", "text/html", cvt(o ⇒ {
       Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(out ⇒ {
         try {
           out.eval {
@@ -234,7 +235,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     logOut.close()
     val onExit = new Semaphore(0)
     out.p("To exit the sever: <a href='/exit'>/exit</a>")
-    server.addHandler("exit", "text/html", cvt(o ⇒ {
+    server.addAsyncHandler("exit", "text/html", cvt(o ⇒ {
       Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(log ⇒ {
         log.h1("OK")
         onExit.release(1)
@@ -245,7 +246,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
 
   val logOut = new TeeOutputStream(new FileOutputStream("training.log", true), true)
   val history = new scala.collection.mutable.ArrayBuffer[IterativeTrainer.Step]()
-  server.addHandler("history.html", "text/html", cvt(o ⇒ {
+  server.addAsyncHandler("history.html", "text/html", cvt(o ⇒ {
     Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(log ⇒ {
       summarizeHistory(log, history.toList)
     })
@@ -256,7 +257,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     KernelManager.instance().reportDeviceUsage(sb,true)
     sb.toString()
   }))
-  server.addHandler("netmon.json", "application/json", cvt(out ⇒ {
+  server.addAsyncHandler("netmon.json", "application/json", cvt(out ⇒ {
     val mapper = new ObjectMapper().enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL)
     val buffer = new ByteArrayOutputStream()
     mapper.writeValue(buffer, monitoringRoot.getMetrics)

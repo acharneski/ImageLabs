@@ -79,7 +79,7 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
   def run(): Unit = {
 
     log.p("View the convergence history: <a href='/history.html'>/history.html</a>")
-    server.addHandler("history.html", "text/html", Java8Util.cvt(out ⇒ {
+    server.addAsyncHandler("history.html", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         summarizeHistory(log, history.toList.toArray)
       })
@@ -120,14 +120,14 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
 
 
     log.p("<a href='/reportTable.html'>Autorecognition Sample</a>")
-    server.addHandler("reportTable.html", "text/html", Java8Util.cvt(out ⇒ {
+    server.addAsyncHandler("reportTable.html", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
       })
     }), false)
 
     log.p("<a href='/representationMatrix.html'>Representation Matrix</a>")
-    server.addHandler("representationMatrix.html", "text/html", Java8Util.cvt(out ⇒ {
+    server.addAsyncHandler("representationMatrix.html", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder)
       })
@@ -205,7 +205,7 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
     logOut.close()
     val onExit = new Semaphore(0)
     log.p("To exit the sever: <a href='/exit'>/exit</a>")
-    server.addHandler("exit", "text/html", Java8Util.cvt(out ⇒ {
+    server.addAsyncHandler("exit", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         log.h1("OK")
         onExit.release(1)

@@ -24,20 +24,22 @@ import java.lang
 import java.util.concurrent.{Semaphore, TimeUnit}
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.simiacryptus.mindseye.network.graph._
-import com.simiacryptus.mindseye.network.{InceptionLayer, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.layers.NNLayer
 import com.simiacryptus.mindseye.layers.activation._
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.layers.media.MaxSubsampleLayer
+import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer, MaxSubsampleLayer}
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
-import com.simiacryptus.mindseye.layers.util.MonitoringWrapper
-import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
+import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
+import com.simiacryptus.mindseye.network.graph._
+import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.opt.region.{LayerTrustRegion, LinearSumConstraint, TrustRegion}
+import com.simiacryptus.mindseye.opt.trainable.ScheduledSampleTrainable
 import com.simiacryptus.mindseye.opt.{IterativeTrainer, TrainingMonitor}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, MarkdownNotebookOutput, TeeOutputStream}
 import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.test.MNIST
 import com.simiacryptus.util.text.TableOutput
-import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
+import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD}
 import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
 import guru.nidi.graphviz.engine.{Format, Graphviz}
@@ -46,19 +48,22 @@ import util.NetworkViz._
 import util._
 
 import scala.collection.JavaConverters._
+import scala.util.Random
 
 
-object ConvMnistDemo extends ServiceNotebook {
+object ConvolutionalMnistDemo extends ServiceNotebook {
 
   def main(args: Array[String]): Unit = {
-    report(new ConvMnistDemo().run)
+    report(new ConvolutionalMnistDemo().run)
     System.exit(0)
   }
 }
 
-class ConvMnistDemo {
+class ConvolutionalMnistDemo {
 
   def run(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNotebookOutput) {
+    val inputSize = Array[Int](28, 28, 1)
+    val outputSize = Array[Int](10)
     log.p("In this demo we newTrainer a simple neural network against the MNIST handwritten digit dataset")
 
     log.h2("Data")
@@ -70,7 +75,7 @@ class ConvMnistDemo {
     })
 
     log.p("View a preview table here: <a href='/sample.html'>/sample.html</a>")
-    server.addHandler("sample.html", "text/html", Java8Util.cvt(out ⇒ {
+    server.addSyncHandler("sample.html", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         log.eval {
           TableOutput.create(data.take(10).map(testObj ⇒ Map[String, AnyRef](
@@ -84,7 +89,7 @@ class ConvMnistDemo {
 
     val history = new scala.collection.mutable.ArrayBuffer[IterativeTrainer.Step]()
     log.p("View the convergence history: <a href='/history.html'>/history.html</a>")
-    server.addHandler("history.html", "text/html", Java8Util.cvt(out ⇒ {
+    server.addSyncHandler("history.html", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         summarizeHistory(log, history.toList)
       })
@@ -97,66 +102,99 @@ class ConvMnistDemo {
       NanoHTTPD.newChunkedResponse(NanoHTTPD.Response.Status.OK, "text/plain", logOut.newInputStream())
     }))
 
-    val monitor = new TrainingMonitor {
-      override def log(msg: String): Unit = {
-        logPrintStream.println(msg);
-        System.err.println(msg);
-      }
-
-      override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
-        history += currentPoint
-      }
-    }
-
     val monitoringRoot = new MonitoredObject()
     log.p("<p><a href='/netmon.json'>Network Monitoring</a></p>")
-    server.addHandler("netmon.json", "application/json", Java8Util.cvt(out ⇒ {
+    server.addSyncHandler("netmon.json", "application/json", Java8Util.cvt(out ⇒ {
       val mapper = new ObjectMapper().enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL)
       val buffer = new ByteArrayOutputStream()
       mapper.writeValue(buffer, monitoringRoot.getMetrics)
       out.write(buffer.toByteArray)
     }), false)
+    val dataTable = new TableOutput()
+    log.p("<a href='/table.html'>Parameter History Data Table</a>")
+    server.addSyncHandler("table.html", "text/html", Java8Util.cvt(out ⇒ {
+      Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
+        log.h1("Parameter History Data Table")
+        log.p(dataTable.toHtmlTable(true))
+      })
+    }), false)
+    val monitor = new TrainingMonitor {
+      override def log(msg: String): Unit = {
+        println(msg)
+        logPrintStream.println(msg)
+      }
 
+      override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
+        history += currentPoint
+        def flatten(prefix:String,data:Map[String,AnyRef]) : Map[String,AnyRef] = {
+          data.flatMap({
+            case (key, value) ⇒ value match {
+              case value : Number if prefix.isEmpty ⇒ Map(key → value)
+              case value : Number ⇒ Map((prefix + key) → value)
+              case value : java.util.Map[String,AnyRef] ⇒ flatten(prefix+key+".", value.asScala.toMap)
+              case value : Map[String,AnyRef] ⇒ flatten(prefix+key, value)
+            }
+          }).map(e⇒(if(e._1.startsWith(".")) e._1.substring(1) else e._1)→e._2)
+        }
+        dataTable.putRow((flatten(".",monitoringRoot.getMetrics.asScala.toMap)++Map(
+          "epoch" → currentPoint.iteration.asInstanceOf[java.lang.Long],
+          "time" → currentPoint.time.asInstanceOf[java.lang.Long],
+          "value" → currentPoint.point.value.asInstanceOf[java.lang.Double]
+        )).asJava)
+      }
+    }
 
     log.h2("Model")
     log.p("Here we define the logic network that we are about to newTrainer: ")
     var model: PipelineNetwork = log.eval {
-      val inputSize1 = Array[Int](28, 28, 1)
-      val inputSize2 = Array[Int](28, 28, 4)
-      val inputSize3 = Array[Int](14, 14, 4)
-      val outputSize = Array[Int](10)
       var model: PipelineNetwork = new PipelineNetwork
-
-//      model.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5,5,4)
-//        .setWeights(Java8Util.cvt(_⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"conv1"))
-
-      model.add(new MonitoringWrapper(new InceptionLayer(Array(
-        Array(Array(5,5,1)),
-        Array(Array(3,3,3))
-      ))).addTo(monitoringRoot,"inception1"))
-      //  .setWeights(Java8Util.cvt(_⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"conv1"))
-
-
-      model.add(new MaxSubsampleLayer(2,2,1))
-      model.add(new MonitoringWrapper(new DenseSynapseLayer(inputSize3, outputSize)
-        .setWeights(Java8Util.cvt(()⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"synapse1"))
-      model.add(new BiasLayer(outputSize: _*))
+      model.add(new MonitoringWrapper(new BiasLayer(inputSize: _*)).addTo(monitoringRoot, "inbias"))
+      model.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(3,3,8)
+        .setWeights(Java8Util.cvt(() ⇒ 0.01 * Random.nextGaussian()))).addTo(monitoringRoot, "synapse1"))
+      model.add(new MonitoringWrapper(new ImgBandBiasLayer(28,28,8)).addTo(monitoringRoot, "imgbias1"))
+      model.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu1"))
+      model.add(new MonitoringWrapper(new MaxSubsampleLayer(2,2,1)).addTo(monitoringRoot, "max1"))
+      model.add(new MonitoringSynapse().addTo(monitoringRoot, "hidden1"))
+      model.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(3,3,32)
+        .setWeights(Java8Util.cvt(() ⇒ 0.01 * Random.nextGaussian()))).addTo(monitoringRoot, "synapse2"))
+      model.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu2"))
+      model.add(new MonitoringWrapper(new MaxSubsampleLayer(2,2,1)).addTo(monitoringRoot, "max2"))
+      model.add(new MonitoringWrapper(new ImgBandBiasLayer(7,7,4)).addTo(monitoringRoot, "imgbias2"))
+      model.add(new MonitoringWrapper(new DenseSynapseLayer(Array[Int](7,7,4), outputSize)
+        .setWeights(Java8Util.cvt(() ⇒ 0.01 * Random.nextGaussian()))).addTo(monitoringRoot, "synapse3"))
+      model.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu3"))
+      model.add(new MonitoringSynapse().addTo(monitoringRoot, "output"))
+      model.add(new MonitoringWrapper(new BiasLayer(outputSize: _*)).addTo(monitoringRoot, "outbias"))
       model.add(new SoftmaxActivationLayer)
       model
     }
-
+    log.p("We can visualize this network as a graph: ")
+    networkGraph(log, model, 800, 600)
     log.p("We encapsulate our model network within a supervisory network that applies a loss function: ")
     val trainingNetwork: SupervisedNetwork = log.eval {
       new SimpleLossNetwork(model, new EntropyLossLayer)
     }
+    log.p("With a the following component graph: ")
+    networkGraph(log, trainingNetwork, 800, 600)
+    log.p("Note that this visualization does not expand DAGNetworks recursively")
 
     log.h2("Training")
     log.p("We newTrainer using a standard iterative L-BFGS strategy: ")
     val trainer = log.eval {
-      val trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
+      val trainable = ScheduledSampleTrainable.Pow(data.toArray, trainingNetwork, 100, 10,0).setShuffled(true)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
       trainer.setMonitor(monitor)
-      trainer.setTimeout(5, TimeUnit.MINUTES)
+      trainer.setOrientation(new LayerTrustRegion() {
+        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
+          case _:MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
+          //case _:DenseSynapseLayer ⇒ new GrowthSphere().setGrowthFactor(2.0).setMinRadius(1.0)
+          //case _:DenseSynapseLayer ⇒ new SingleOrthant()
+          case _:DenseSynapseLayer ⇒ new LinearSumConstraint()
+          case _:ImgConvolutionSynapseLayer ⇒ new LinearSumConstraint()
+          case _ ⇒ null
+        }
+      });
+      trainer.setTimeout(15, TimeUnit.MINUTES)
       trainer.setTerminateThreshold(0.0)
       trainer
     }
@@ -169,6 +207,8 @@ class ConvMnistDemo {
     }
     log.p("A summary of the training timeline: ")
     summarizeHistory(log, history.toList)
+    log.p("Parameter History Data Table")
+    log.p(dataTable.toHtmlTable)
 
     log.h2("Validation")
     log.p("Here we examine a sample of validation rows, randomly selected: ")
@@ -228,7 +268,7 @@ class ConvMnistDemo {
     logOut.close()
     val onExit = new Semaphore(0)
     log.p("To exit the sever: <a href='/exit'>/exit</a>")
-    server.addHandler("exit", "text/html", Java8Util.cvt(out ⇒ {
+    server.addAsyncHandler("exit", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         log.h1("OK")
         onExit.release(1)
@@ -264,23 +304,16 @@ class ConvMnistDemo {
   }
 
   def toOut(label: String): Int = {
-    var i = 0
-    while ( {
-      i < 10
-    }) {
-      if (label == "[" + i + "]") return i
-
-      {
-        i += 1;
-        i - 1
-      }
-    }
-    throw new RuntimeException
+    (0 until 10).find(label == "[" + _ + "]").get
   }
 
   def networkGraph(log: ScalaNotebookOutput, network: DAGNetwork, width: Int = 1200, height: Int = 1000) = {
-    log.eval {
-      Graphviz.fromGraph(toGraph(network)).height(height).width(width).render(Format.PNG).toImage
+    try {
+      log.eval {
+        Graphviz.fromGraph(toGraph(network)).height(height).width(width).render(Format.PNG).toImage
+      }
+    } catch {
+      case e : Throwable ⇒ e.printStackTrace()
     }
   }
 

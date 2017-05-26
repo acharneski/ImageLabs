@@ -31,7 +31,8 @@ import com.simiacryptus.mindseye.layers.activation.{ReLuActivationLayer, Softmax
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.opt._
-import com.simiacryptus.mindseye.opt.trainable.{StochasticArrayTrainable, Trainable}
+import com.simiacryptus.mindseye.opt.line.ArmijoWolfeConditions
+import com.simiacryptus.mindseye.opt.trainable.{ConstL12Normalizer, StochasticArrayTrainable, Trainable}
 import com.simiacryptus.util.Util
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
@@ -111,7 +112,7 @@ class OptimizerDemo extends WordSpec with MustMatchers with ReportNotebook {
     "L1 Normalized SGD" in {
       report("l1sgd", log ⇒ {
         test(log, trainable ⇒ log.eval {
-          val normalized = new L12Normalizer(trainable).setFactor_L1(-1000.0)
+          val normalized = new ConstL12Normalizer(trainable).setFactor_L1(-1000.0)
           val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(normalized)
           trainer.setOrientation(new GradientDescent())
           trainer
@@ -122,7 +123,7 @@ class OptimizerDemo extends WordSpec with MustMatchers with ReportNotebook {
     "L2 Normalized SGD" in {
       report("l2sgd", log ⇒ {
         test(log, trainable ⇒ log.eval {
-          val normalized = new L12Normalizer(trainable).setFactor_L1(0.0).setFactor_L2(1.0)
+          val normalized = new ConstL12Normalizer(trainable).setFactor_L1(0.0).setFactor_L2(1.0)
           val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(normalized)
           trainer.setOrientation(new GradientDescent())
           trainer

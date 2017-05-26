@@ -81,7 +81,7 @@ class ConvMnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with
   def run(): Unit = {
 
     log.p("View the convergence history: <a href='/history.html'>/history.html</a>")
-    server.addHandler("history.html", "text/html", Java8Util.cvt(out ⇒ {
+    server.addAsyncHandler("history.html", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         summarizeHistory(log, history.toList.toArray)
       })
@@ -95,7 +95,7 @@ class ConvMnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with
 
     val monitoringRoot = new MonitoredObject()
     log.p("<p><a href='/netmon.json'>Network Monitoring</a></p>")
-    server.addHandler("netmon.json", "application/json", Java8Util.cvt(out ⇒ {
+    server.addAsyncHandler("netmon.json", "application/json", Java8Util.cvt(out ⇒ {
       val mapper = new ObjectMapper() // .enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL)
       val buffer = new ByteArrayOutputStream()
       mapper.writeValue(buffer, monitoringRoot.getMetrics)
@@ -136,14 +136,14 @@ class ConvMnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with
 
 
     log.p("<a href='/reportTable.html'>Autorecognition Sample</a>")
-    server.addHandler("reportTable.html", "text/html", Java8Util.cvt(out ⇒ {
+    server.addAsyncHandler("reportTable.html", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         reportTable(log, autoencoder.getEncoder, autoencoder.getDecoder)
       })
     }), false)
 
     log.p("<a href='/representationMatrix.html'>Representation Matrix</a>")
-    server.addHandler("representationMatrix.html", "text/html", Java8Util.cvt(out ⇒ {
+    server.addAsyncHandler("representationMatrix.html", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         representationMatrix(log, autoencoder.getEncoder, autoencoder.getDecoder)
       })
@@ -199,7 +199,7 @@ class ConvMnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with
     logOut.close()
     val onExit = new Semaphore(0)
     log.p("To exit the sever: <a href='/exit'>/exit</a>")
-    server.addHandler("exit", "text/html", Java8Util.cvt(out ⇒ {
+    server.addAsyncHandler("exit", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         log.h1("OK")
         onExit.release(1)
