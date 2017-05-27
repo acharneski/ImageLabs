@@ -125,17 +125,18 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
 
     network.add(new MonitoringWrapper(new BiasLayer(64,64,3)).addTo(monitoringRoot, "inbias"))
     network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(3,3,18)
-      .setWeights(Java8Util.cvt(() ⇒ 0.2 * Random.nextGaussian()))).addTo(monitoringRoot, "synapse1"))
+      .setWeights(Java8Util.cvt(() ⇒ 0.1 * Random.nextGaussian()))).addTo(monitoringRoot, "synapse1"))
     network.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu1"))
     network.add(new MonitoringWrapper(new MaxSubsampleLayer(2,2,1)).addTo(monitoringRoot, "max1"))
     network.add(new MonitoringSynapse().addTo(monitoringRoot, "output1"))
     network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(3,3,60)
-      .setWeights(Java8Util.cvt(() ⇒ 0.1 * Random.nextGaussian()))).addTo(monitoringRoot, "synapse2"))
+      .setWeights(Java8Util.cvt(() ⇒ 0.05 * Random.nextGaussian()))).addTo(monitoringRoot, "synapse2"))
     network.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu2"))
     network.add(new MonitoringWrapper(new SumSubsampleLayer(32,32,1)).addTo(monitoringRoot, "max2"))
     network.add(new MonitoringSynapse().addTo(monitoringRoot, "output2"))
     network.add(new MonitoringWrapper(new DenseSynapseLayer(Array[Int](1,1,10), outputSize)
       .setWeights(Java8Util.cvt(() ⇒ 0.1 * Random.nextGaussian()))).addTo(monitoringRoot, "synapse3"))
+    network.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu3"))
     network.add(new MonitoringWrapper(new BiasLayer(outputSize: _*)).addTo(monitoringRoot, "outbias"))
     network.add(new MonitoringSynapse().addTo(monitoringRoot, "output3"))
     network.add(new SoftmaxActivationLayer)
@@ -179,23 +180,36 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
         )).asJava)
       }
     }
-    val trainer = out.eval {
+    out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
-      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFactory(data, trainingNetwork))
-      trainer.setMonitor(monitor)
-      trainer.setTimeout(72, TimeUnit.HOURS)
-      trainer.setOrientation(new LayerTrustRegion(new LBFGS().setMinHistory(10).setMaxHistory(20)) {
+      val executorFunction = executorFactory(data, trainingNetwork)
+      val effectiveFunction = executorFunction
+      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
+      trainer.setOrientation(new LayerTrustRegion(new LBFGS().setMinHistory(10).setMaxHistory(30)) {
         override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
-          case _:MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
-          case _:DenseSynapseLayer ⇒ new LinearSumConstraint()
-          case _:ImgConvolutionSynapseLayer ⇒ new LinearSumConstraint()
+          case _: MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
+          case _: DenseSynapseLayer ⇒ new LinearSumConstraint()
+          case _: ImgConvolutionSynapseLayer ⇒ new LinearSumConstraint()
           case _ ⇒ null
         }
       })
+      trainer.setMonitor(monitor)
+      trainer.setTimeout(1, TimeUnit.HOURS)
+      trainer.setTerminateThreshold(Double.NegativeInfinity)
+      trainer.setMaxIterations(20)
+      trainer
+    }.run()
+    out.eval {
+      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
+      val executorFunction = executorFactory(data, trainingNetwork)
+      val effectiveFunction = new ConstL12Normalizer(executorFunction).setFactor_L1(0.001)
+      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
+      trainer.setOrientation(new LBFGS().setMinHistory(10).setMaxHistory(30))
+      trainer.setMonitor(monitor)
+      trainer.setTimeout(72, TimeUnit.HOURS)
       trainer.setTerminateThreshold(Double.NegativeInfinity)
       trainer
-    }
-    trainer.run()
+    }.run()
   }
 
   def runSpark(masterUrl: String): Unit = {
@@ -211,11 +225,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
   }
 
   def runLocal(): Unit = {
-    run((data, network) ⇒
-      new ConstL12Normalizer(
-        ScheduledSampleTrainable.Pow(data.toArray, network, 50,1.0,0.0).setShuffled(true)
-      ).setFactor_L1(0.001)
-    )
+    run((data, network) ⇒ ScheduledSampleTrainable.Pow(data.toArray, network, 50,1.0,0.0).setShuffled(true))
     //run((data,network)⇒new ArrayTrainable(data.toArray, network))
   }
 
@@ -303,7 +313,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
   monitoringRoot.addField("openCL",Java8Util.cvt(()⇒{
     val sb = new java.lang.StringBuilder()
     KernelManager.instance().reportDeviceUsage(sb,true)
-    sb.toString()
+    sb.toString().split("\n")
   }))
   server.addSyncHandler("netmon.json", "application/json", cvt(out ⇒ {
     val mapper = new ObjectMapper().enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL)
