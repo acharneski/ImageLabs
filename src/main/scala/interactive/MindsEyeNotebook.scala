@@ -94,6 +94,7 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, log: HtmlNotebookOutput
       })
     }), false)
     log.p("<a href='/metricsHistory.html'>View the Metrics History</a>")
+    log.p("<a href='/mobility.html'>View State Mobility History</a>")
 
     log.p("<a href='/log'>View the Log</a>")
     server.addSessionHandler("log", Java8Util.cvt((session : IHTTPSession)⇒{
@@ -156,11 +157,11 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, log: HtmlNotebookOutput
           List(1, 5, 20).foreach(lag ⇒ {
             log.out("</td><td>")
             val xy = (lag until transcript.size).map(i ⇒ {
-              i → Math.log(Math.sqrt(magnitude(subtract(transcript(i), transcript(i - lag)))))
+              i → Math.log10(Math.sqrt(magnitude(subtract(transcript(i), transcript(i - lag)))))
             }).filter(d ⇒ java.lang.Double.isFinite(d._2))
             if (xy.size > 1) log.eval {
               val plot: PlotCanvas = ScatterPlot.plot(xy.map(xy ⇒ Array(xy._1.toDouble, xy._2)): _*)
-              plot.setTitle(s"${layer.getClass}/${layer.id}")
+              plot.setTitle(s"${layer.getClass.getSimpleName}/${layer.id}")
               plot.setAxisLabels("Epoch", s"log(dist(n,n-$lag))")
               plot.setSize(600, 400)
               plot

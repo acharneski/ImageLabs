@@ -19,59 +19,115 @@
 
 package interactive
 
-import java.io.{ByteArrayOutputStream, PrintStream}
-import java.lang
-import java.util.concurrent.{Semaphore, TimeUnit}
+import java.util.concurrent.TimeUnit
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import _root_.util.NetworkViz._
+import _root_.util._
 import com.simiacryptus.mindseye.layers.NNLayer
 import com.simiacryptus.mindseye.layers.activation._
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
-import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
+import com.simiacryptus.mindseye.layers.util.MonitoringWrapper
 import com.simiacryptus.mindseye.network.graph._
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.opt.region.{LayerTrustRegion, LinearSumConstraint, TrustRegion}
-import com.simiacryptus.mindseye.opt.trainable.ScheduledSampleTrainable
-import com.simiacryptus.mindseye.opt.{IterativeTrainer, TrainingMonitor}
-import com.simiacryptus.util.io.{HtmlNotebookOutput, MarkdownNotebookOutput, TeeOutputStream}
+import com.simiacryptus.mindseye.opt.region.{SingleOrthant, TrustRegion, TrustRegionStrategy}
+import com.simiacryptus.mindseye.opt.trainable.{HoldoverSampleTrainable, L12Normalizer, StochasticArrayTrainable}
+import com.simiacryptus.mindseye.opt.{GradientDescent, IterativeTrainer, LBFGS}
+import com.simiacryptus.util.StreamNanoHTTPD
+import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil, MarkdownNotebookOutput}
 import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.test.MNIST
 import com.simiacryptus.util.text.TableOutput
-import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD}
-import fi.iki.elonen.NanoHTTPD
-import fi.iki.elonen.NanoHTTPD.IHTTPSession
 import guru.nidi.graphviz.engine.{Format, Graphviz}
-import smile.plot.{PlotCanvas, ScatterPlot}
-import util.NetworkViz._
-import util._
 
 import scala.collection.JavaConverters._
 import scala.util.Random
 
+
 object MnistDemo extends ServiceNotebook {
 
   def main(args: Array[String]): Unit = {
-    report(new MnistDemo().run)
+    report((s,log)⇒new MnistDemo(s,log).run)
     System.exit(0)
   }
 }
-class MnistDemo {
 
-  def run(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNotebookOutput) {
-    val inputSize = Array[Int](28, 28, 1)
-    val outputSize = Array[Int](10)
+object MnistDemo2 extends ServiceNotebook {
+
+  def main(args: Array[String]): Unit = {
+    report((s,log)⇒new MnistDemo(s,log){
+
+      override def buildTrainer(data: Seq[Array[Tensor]]): Stream[IterativeTrainer] = Stream(log.eval {
+        val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
+//        val executor = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
+        val executor = HoldoverSampleTrainable.Pow(data.toArray, trainingNetwork, 1000, 10, 0.0)
+          .setShuffled(true).setHoldoverFraction(0.001)
+        val normalized = new L12Normalizer(executor) {
+          override protected def getL1(layer: NNLayer): Double = layer match {
+            case _ : DenseSynapseLayer ⇒ -0.0001
+            case _ ⇒ 0.0
+          }
+
+          override protected def getL2(layer: NNLayer): Double = 0.0
+        }
+        val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(normalized)
+        trainer.setMonitor(monitor)
+        trainer.setOrientation(new TrustRegionStrategy(new LBFGS) {
+          override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
+            case _ : BiasLayer ⇒ new SingleOrthant
+            case _ ⇒ null
+          }
+        });
+        trainer.setTimeout(trainingTime, TimeUnit.MINUTES)
+        trainer.setTerminateThreshold(0.0)
+        trainer
+      })
+
+    }.run)
+    System.exit(0)
+  }
+}
+
+class MnistDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, log) {
+
+  val inputSize = Array[Int](28, 28, 1)
+  val outputSize = Array[Int](10)
+  val trainingTime = 5
+
+  lazy val model = log.eval {
+    var model: PipelineNetwork = new PipelineNetwork
+    model.add(new MonitoringWrapper(new BiasLayer(inputSize: _*)).addTo(monitoringRoot, "inbias"))
+    model.add(new MonitoringWrapper(new DenseSynapseLayer(inputSize, outputSize)
+      .setWeights(Java8Util.cvt(() ⇒ 0.001 * (Random.nextDouble() - 0.5)))).addTo(monitoringRoot, "synapse"))
+    model.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu"))
+    model.add(new MonitoringWrapper(new BiasLayer(outputSize: _*)).addTo(monitoringRoot, "outbias"))
+    model.add(new SoftmaxActivationLayer)
+    model
+  }
+
+  def buildTrainer(data: Seq[Array[Tensor]]): Stream[IterativeTrainer] = Stream(log.eval {
+    val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
+    val trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
+    val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
+    trainer.setMonitor(monitor)
+    trainer.setOrientation(new GradientDescent);
+    trainer.setTimeout(trainingTime, TimeUnit.MINUTES)
+    trainer.setTerminateThreshold(0.0)
+    trainer
+  })
+
+  def run {
+
     log.p("In this demo we newTrainer a simple neural network against the MNIST handwritten digit dataset")
 
     log.h2("Data")
     log.p("First, we cache the training dataset: ")
-    val data: Seq[Array[Tensor]] = log.code(() ⇒ {
+    val data: Seq[Array[Tensor]] = log.eval {
       MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
         Array(labeledObj.data, toOutNDArray(toOut(labeledObj.label), 10))
       })
-    })
-
-    log.p("View a preview table here: <a href='/sample.html'>/sample.html</a>")
+    }
+    log.p("<a href='/sample.html'>View a preview table here</a>")
     server.addSyncHandler("sample.html", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         log.eval {
@@ -84,120 +140,36 @@ class MnistDemo {
       })
     }), false)
 
-    val history = new scala.collection.mutable.ArrayBuffer[IterativeTrainer.Step]()
-    log.p("View the convergence history: <a href='/history.html'>/history.html</a>")
-    server.addSyncHandler("history.html", "text/html", Java8Util.cvt(out ⇒ {
-      Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
-        summarizeHistory(log, history.toList)
-      })
-    }), false)
-
-    log.p("View the log: <a href='/log'>/log</a>")
-    val logOut = new TeeOutputStream(log.file("log.txt"), true)
-    val logPrintStream = new PrintStream(logOut)
-    server.addSessionHandler("log", Java8Util.cvt((session : IHTTPSession)⇒{
-      NanoHTTPD.newChunkedResponse(NanoHTTPD.Response.Status.OK, "text/plain", logOut.newInputStream())
-    }))
-
-    val monitoringRoot = new MonitoredObject()
-    log.p("<p><a href='/netmon.json'>Network Monitoring</a></p>")
-    server.addSyncHandler("netmon.json", "application/json", Java8Util.cvt(out ⇒ {
-      val mapper = new ObjectMapper().enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL)
-      val buffer = new ByteArrayOutputStream()
-      mapper.writeValue(buffer, monitoringRoot.getMetrics)
-      out.write(buffer.toByteArray)
-    }), false)
-    val dataTable = new TableOutput()
-    log.p("<a href='/table.html'>Parameter History Data Table</a>")
-    server.addSyncHandler("table.html", "text/html", Java8Util.cvt(out ⇒ {
-      Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
-        log.h1("Parameter History Data Table")
-        log.p(dataTable.toHtmlTable)
-      })
-    }), false)
-    val monitor = new TrainingMonitor {
-      override def log(msg: String): Unit = {
-        println(msg)
-        logPrintStream.println(msg)
-      }
-
-      override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
-        history += currentPoint
-        def flatten(prefix:String,data:Map[String,AnyRef]) : Map[String,AnyRef] = {
-          data.flatMap({
-            case (key, value) ⇒ value match {
-              case value : Number if prefix.isEmpty ⇒ Map(key → value)
-              case value : Number ⇒ Map((prefix + key) → value)
-              case value : java.util.Map[String,AnyRef] ⇒ flatten(prefix+key+".", value.asScala.toMap)
-              case value : Map[String,AnyRef] ⇒ flatten(prefix+key, value)
-            }
-          }).map(e⇒(if(e._1.startsWith(".")) e._1.substring(1) else e._1)→e._2)
-        }
-        dataTable.putRow((flatten(".",monitoringRoot.getMetrics.asScala.toMap)++Map(
-          "epoch" → currentPoint.iteration.asInstanceOf[java.lang.Long],
-          "time" → currentPoint.time.asInstanceOf[java.lang.Long],
-          "value" → currentPoint.point.value.asInstanceOf[java.lang.Double]
-        )).asJava)
-      }
-    }
-
     log.h2("Model")
-    log.p("Here we define the logic network that we are about to newTrainer: ")
-    var model: PipelineNetwork = log.eval {
-      var model: PipelineNetwork = new PipelineNetwork
-      model.add(new MonitoringWrapper(new DenseSynapseLayer(inputSize, Array[Int](20))
-        .setWeights(Java8Util.cvt(() ⇒ 0.01 * Random.nextGaussian()))).addTo(monitoringRoot, "synapse1"))
-      model.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu1"))
-      model.add(new MonitoringSynapse().addTo(monitoringRoot, "hidden1"))
-      model.add(new MonitoringWrapper(new DenseSynapseLayer(Array[Int](20), outputSize)
-        .setWeights(Java8Util.cvt(() ⇒ 0.01 * Random.nextGaussian()))).addTo(monitoringRoot, "synapse2"))
-      model.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu2"))
-      model.add(new MonitoringSynapse().addTo(monitoringRoot, "output"))
-      model.add(new MonitoringWrapper(new BiasLayer(outputSize: _*)).addTo(monitoringRoot, "outbias"))
-      model.add(new SoftmaxActivationLayer)
-      model
-    }
-    log.p("We can visualize this network as a graph: ")
-    networkGraph(log, model, 800, 600)
-    log.p("We encapsulate our model network within a supervisory network that applies a loss function: ")
-    val trainingNetwork: SupervisedNetwork = log.eval {
-      new SimpleLossNetwork(model, new EntropyLossLayer)
-    }
-    log.p("With a the following component graph: ")
-    networkGraph(log, trainingNetwork, 800, 600)
-    log.p("Note that this visualization does not expand DAGNetworks recursively")
+    log.p("Here we define the logic network that we are about to train: ")
+    model
+    defineMonitorReports()
 
-    log.h2("Training")
-    log.p("We newTrainer using a standard iterative L-BFGS strategy: ")
-    val trainer = log.eval {
-      val trainable = ScheduledSampleTrainable.Pow(data.toArray, trainingNetwork, 100, 10,0).setShuffled(true)
-      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
-      trainer.setMonitor(monitor)
-      trainer.setOrientation(new LayerTrustRegion() {
-        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
-          case _:MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
-          //case _:DenseSynapseLayer ⇒ new GrowthSphere().setGrowthFactor(2.0).setMinRadius(1.0)
-          //case _:DenseSynapseLayer ⇒ new SingleOrthant()
-          case _:DenseSynapseLayer ⇒ new LinearSumConstraint()
-          case _ ⇒ null
-        }
-      });
-      trainer.setTimeout(5, TimeUnit.MINUTES)
-      trainer.setTerminateThreshold(0.0)
-      trainer
-    }
-    log.eval {
+    log.p("<a href='/test.html'>Validation Report</a>")
+    server.addSyncHandler("test.html", "text/html", Java8Util.cvt(out ⇒ {
+      Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
+        validation(log, KryoUtil.kryo().copy(model))
+      })
+    }), false)
+
+    log.p("We train using a the following strategy: ")
+    buildTrainer(data).foreach(trainer ⇒ log.eval {
       trainer.run()
-    }
-    log.p("After training, we have the following parameterized model: ")
-    log.eval {
-      model.toString
-    }
+    })
+
     log.p("A summary of the training timeline: ")
-    summarizeHistory(log, history.toList)
+    summarizeHistory(log)
+
+    log.p("Validation Report")
+    validation(log, model)
+
     log.p("Parameter History Data Table")
     log.p(dataTable.toHtmlTable)
 
+    waitForExit()
+  }
+
+  def validation(log: HtmlNotebookOutput with ScalaNotebookOutput, model: NNLayer) = {
     log.h2("Validation")
     log.p("Here we examine a sample of validation rows, randomly selected: ")
     log.eval {
@@ -252,21 +224,9 @@ class MnistDemo {
         categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0)
       }).sum.toDouble * 100.0 / categorizationMatrix.values.flatMap(_.values).sum
     }
-
-    logOut.close()
-    val onExit = new Semaphore(0)
-    log.p("To exit the sever: <a href='/exit'>/exit</a>")
-    server.addAsyncHandler("exit", "text/html", Java8Util.cvt(out ⇒ {
-      Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
-        log.h1("OK")
-        onExit.release(1)
-      })
-    }), false)
-    onExit.acquire()
   }
 
-
-  private def writeMislassificationMatrix(log: HtmlNotebookOutput, categorizationMatrix: Map[Int, Map[Int, Int]]) = {
+  def writeMislassificationMatrix(log: HtmlNotebookOutput, categorizationMatrix: Map[Int, Map[Int, Int]]) = {
     log.out("<table>")
     log.out("<tr>")
     log.out((List("Actual \\ Predicted | ") ++ (0 to 9)).map("<td>"+_+"</td>").mkString(""))
@@ -281,7 +241,7 @@ class MnistDemo {
     log.out("</table>")
   }
 
-  private def writeMislassificationMatrix(log: MarkdownNotebookOutput, categorizationMatrix: Map[Int, Map[Int, Int]]) = {
+  def writeMislassificationMatrix(log: MarkdownNotebookOutput, categorizationMatrix: Map[Int, Map[Int, Int]]) = {
     log.out("Actual \\ Predicted | " + (0 to 9).mkString(" | "))
     log.out((0 to 10).map(_ ⇒ "---").mkString(" | "))
     (0 to 9).foreach(actual ⇒ {
@@ -296,8 +256,12 @@ class MnistDemo {
   }
 
   def networkGraph(log: ScalaNotebookOutput, network: DAGNetwork, width: Int = 1200, height: Int = 1000) = {
-    log.eval {
-      Graphviz.fromGraph(toGraph(network)).height(height).width(width).render(Format.PNG).toImage
+    try {
+      log.eval {
+        Graphviz.fromGraph(toGraph(network)).height(height).width(width).render(Format.PNG).toImage
+      }
+    } catch {
+      case e : Throwable ⇒ e.printStackTrace()
     }
   }
 
@@ -305,30 +269,6 @@ class MnistDemo {
     val ndArray = new Tensor(max)
     ndArray.set(out, 1)
     ndArray
-  }
-
-  private def summarizeHistory(log: ScalaNotebookOutput, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
-    if(!history.isEmpty) {
-      log.eval {
-        val step = Math.max(Math.pow(10, Math.ceil(Math.log(history.size) / Math.log(10)) - 2), 1).toInt
-        TableOutput.create(history.filter(0 == _.iteration % step).map(state ⇒
-          Map[String, AnyRef](
-            "iteration" → state.iteration.toInt.asInstanceOf[Integer],
-            "time" → state.time.toDouble.asInstanceOf[lang.Double],
-            "fitness" → state.point.value.toDouble.asInstanceOf[lang.Double]
-          ).asJava
-        ): _*)
-      }
-      log.eval {
-        val plot: PlotCanvas = ScatterPlot.plot(history.map(item ⇒ Array[Double](
-          item.iteration, Math.log(item.point.value)
-        )).toArray: _*)
-        plot.setTitle("Convergence Plot")
-        plot.setAxisLabels("Iteration", "log(Fitness)")
-        plot.setSize(600, 400)
-        plot
-      }
-    }
   }
 
 }

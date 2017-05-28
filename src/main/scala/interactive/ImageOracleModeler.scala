@@ -36,7 +36,7 @@ import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapp
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line.ArmijoWolfeConditions
-import com.simiacryptus.mindseye.opt.region.{LayerTrustRegion, LinearSumConstraint, TrustRegion}
+import com.simiacryptus.mindseye.opt.region.{TrustRegionStrategy, LinearSumConstraint, TrustRegion}
 import com.simiacryptus.mindseye.opt.trainable.{ConstL12Normalizer, SparkTrainable, StochasticArrayTrainable, Trainable}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil, TeeOutputStream}
 import com.simiacryptus.util.ml.Tensor
@@ -155,7 +155,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(72, TimeUnit.HOURS)
-      trainer.setOrientation(new LayerTrustRegion(new LBFGS().setMinHistory(10).setMaxHistory(20)) {
+      trainer.setOrientation(new TrustRegionStrategy(new LBFGS().setMinHistory(10).setMaxHistory(20)) {
         override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
           case _:MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
           //case _:ImgConvolutionSynapseLayer ⇒ new GrowthSphere().setGrowthFactor(1.0).setMinRadius(0.0)

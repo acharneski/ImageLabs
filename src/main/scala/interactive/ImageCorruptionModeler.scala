@@ -36,7 +36,7 @@ import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
-import com.simiacryptus.mindseye.opt.region.{LayerTrustRegion, LinearSumConstraint, TrustRegion}
+import com.simiacryptus.mindseye.opt.region.{TrustRegionStrategy, LinearSumConstraint, TrustRegion}
 import com.simiacryptus.mindseye.opt.trainable.{ConstL12Normalizer, ScheduledSampleTrainable, SparkTrainable, Trainable}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil, TeeOutputStream}
 import com.simiacryptus.util.ml.Tensor
@@ -185,7 +185,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
       val executorFunction = executorFactory(data, trainingNetwork)
       val effectiveFunction = executorFunction
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
-      trainer.setOrientation(new LayerTrustRegion(new LBFGS().setMinHistory(10).setMaxHistory(30)) {
+      trainer.setOrientation(new TrustRegionStrategy(new LBFGS().setMinHistory(10).setMaxHistory(30)) {
         override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
           case _: MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
           case _: DenseSynapseLayer ⇒ new LinearSumConstraint()
