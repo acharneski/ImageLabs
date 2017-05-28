@@ -159,12 +159,12 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
           List(1, 5, 20).foreach(lag ⇒ {
             log.out("</td><td>")
             val xy = (lag until transcript.size).map(i ⇒ {
-              i → Math.log10(magnitude(subtract(transcript(i), transcript(i - lag))))
+              i → Math.log10(magnitude(subtract(transcript(i), transcript(i - lag)))/lag)
             }).filter(d ⇒ java.lang.Double.isFinite(d._2))
             if (xy.size > 1) log.eval {
               val plot: PlotCanvas = ScatterPlot.plot(xy.map(xy ⇒ Array(xy._1.toDouble, xy._2)): _*)
               plot.setTitle(s"${layer.getClass.getSimpleName}/${layer.id}")
-              plot.setAxisLabels("Epoch", s"log(dist(n,n-$lag))")
+              plot.setAxisLabels("Epoch", s"log(dist(n,n-$lag)/$lag)")
               plot.setSize(600, 400)
               plot
             } else log.out("No Data")

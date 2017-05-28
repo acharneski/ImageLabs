@@ -65,8 +65,8 @@ object ImageCorruptionModeler extends ServiceNotebook {
 class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 
   val corruptors = Map[String, Tensor ⇒ Tensor](
-    "resample2x" → (imgTensor ⇒ {
-      Tensor.fromRGB(resize(resize(imgTensor.toRgbImage, 32), 64))
+    "resample8x" → (imgTensor ⇒ {
+      Tensor.fromRGB(resize(resize(imgTensor.toRgbImage, 8), 64))
     }),"resample4x" → (imgTensor ⇒ {
       Tensor.fromRGB(resize(resize(imgTensor.toRgbImage, 16), 64))
     })
@@ -127,8 +127,8 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
       trainer.setOrientation(new TrustRegionStrategy(new LBFGS().setMinHistory(10).setMaxHistory(30)) {
         override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
           case _: MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
-          case _: DenseSynapseLayer ⇒ new LinearSumConstraint()
-          case _: ImgConvolutionSynapseLayer ⇒ new LinearSumConstraint()
+          case _: DenseSynapseLayer ⇒ new LinearSumConstraint
+          case _: ImgConvolutionSynapseLayer ⇒ new SingleOrthant
           case _: BiasLayer ⇒ new DistanceConstraint().setMax(1e-3)
           case _: ImgBandBiasLayer ⇒ new DistanceConstraint().setMax(1e-3)
           case _ ⇒ null
