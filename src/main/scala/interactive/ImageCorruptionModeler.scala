@@ -34,6 +34,7 @@ import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
+import com.simiacryptus.mindseye.opt.line.ArmijoWolfeConditions
 import com.simiacryptus.mindseye.opt.region._
 import com.simiacryptus.mindseye.opt.trainable.{ScheduledSampleTrainable, SparkTrainable, Trainable}
 import com.simiacryptus.util.StreamNanoHTTPD
@@ -77,12 +78,12 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
   override lazy val model = {
     var network: PipelineNetwork = new PipelineNetwork
     network.add(new MonitoringWrapper(new ImgBandBiasLayer(64,64,3)).addTo(monitoringRoot, "inbias"))
-    network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(3,3,36)
+    network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5,5,36)
       .setWeights(Java8Util.cvt(() ⇒ 0.1 * (Random.nextDouble()-0.5)))).addTo(monitoringRoot, "synapse1"))
     network.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu1"))
     network.add(new MonitoringWrapper(new MaxSubsampleLayer(2,2,1)).addTo(monitoringRoot, "max1"))
     network.add(new MonitoringSynapse().addTo(monitoringRoot, "output1"))
-    network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(3,3,240)
+    network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5,5,240)
       .setWeights(Java8Util.cvt(() ⇒ 0.05 * (Random.nextDouble()-0.5)))).addTo(monitoringRoot, "synapse2"))
     network.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu2"))
     network.add(new MonitoringWrapper(new MaxSubsampleLayer(2,2,1)).addTo(monitoringRoot, "max2"))
@@ -117,7 +118,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
       trainer.setMonitor(monitor)
       trainer.setTimeout(20, TimeUnit.MINUTES)
       trainer.setTerminateThreshold(1.0)
-      trainer.setMaxIterations(20)
+      trainer.setMaxIterations(50)
       trainer
     }.run()
     out.eval {
@@ -130,12 +131,13 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
           case _: DenseSynapseLayer ⇒ new LinearSumConstraint
           case _: ImgConvolutionSynapseLayer ⇒ new SingleOrthant
           case _: BiasLayer ⇒ new DistanceConstraint().setMax(1e-3)
-          case _: ImgBandBiasLayer ⇒ new DistanceConstraint().setMax(1e-3)
+          case _: ImgBandBiasLayer ⇒ new DistanceConstraint().setMax(1e-5)
           case _ ⇒ null
         }
       })
+      trainer.setScaling(new ArmijoWolfeConditions().setMinAlpha(1e-14))
       trainer.setMonitor(monitor)
-      trainer.setTimeout(2, TimeUnit.HOURS)
+      trainer.setTimeout(5, TimeUnit.HOURS)
       trainer.setTerminateThreshold(Double.NegativeInfinity)
       //trainer.setMaxIterations(20)
       trainer
@@ -155,7 +157,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
   }
 
   def runLocal(): Unit = {
-    run((data, network) ⇒ ScheduledSampleTrainable.Pow(data.toArray, network, 50,1.0,0.0).setShuffled(true))
+    run((data, network) ⇒ ScheduledSampleTrainable.Pow(data.toArray, network, 50,1.0,0.0).setShuffled(false))
     //run((data,network)⇒new ArrayTrainable(data.toArray, network))
   }
 

@@ -28,7 +28,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.simiacryptus.mindseye.opt.{IterativeTrainer, TrainingMonitor}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil, TeeOutputStream}
 import com.simiacryptus.util.text.TableOutput
-import com.simiacryptus.util.{ArrayUtil, MonitoredObject, StreamNanoHTTPD}
+import com.simiacryptus.util.{ArrayUtil, MonitoredObject, StreamNanoHTTPD, TimerText}
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
 import smile.plot.{PlotCanvas, ScatterPlot}
 import util.{Java8Util, ScalaNotebookOutput}
@@ -52,9 +52,10 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
   def model: NNLayer
 
   val monitor = new TrainingMonitor {
+    val timer = new TimerText
     override def log(msg: String): Unit = {
-      println(msg)
-      logPrintStream.println(msg)
+      println(timer + " " + msg)
+      logPrintStream.println(timer + " " + msg)
     }
 
     override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
