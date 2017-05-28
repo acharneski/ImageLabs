@@ -52,6 +52,33 @@ object MnistDemo extends ServiceNotebook {
   }
 }
 
+object MnistDemo_L1Normalizations extends ServiceNotebook {
+
+  def main(args: Array[String]): Unit = {
+    report((s,log)⇒new MnistDemo(s,log){
+      override def buildTrainer(data: Seq[Array[Tensor]]): Stream[IterativeTrainer] = Stream(log.eval {
+        val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
+        val executor = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
+        val normalized = new L12Normalizer(executor) {
+          override protected def getL1(layer: NNLayer): Double = layer match {
+            case _ : DenseSynapseLayer ⇒ -0.001
+            case _ ⇒ 0.0
+          }
+          override protected def getL2(layer: NNLayer): Double = 0.0
+        }
+        val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(normalized)
+        trainer.setMonitor(monitor)
+        trainer.setOrientation(new GradientDescent)
+        trainer.setTimeout(trainingTime, TimeUnit.MINUTES)
+        trainer.setTerminateThreshold(0.0)
+        trainer
+      })
+    }.run)
+    System.exit(0)
+  }
+}
+
+
 object MnistDemo2 extends ServiceNotebook {
 
   def main(args: Array[String]): Unit = {

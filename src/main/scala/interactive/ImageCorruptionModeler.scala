@@ -23,17 +23,18 @@ import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
 import java.io.File
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 import _root_.util._
 import com.simiacryptus.mindseye.layers.NNLayer
 import com.simiacryptus.mindseye.layers.activation.{ReLuActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.layers.media.{ImgConvolutionSynapseLayer, MaxSubsampleLayer, SumSubsampleLayer}
+import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer, MaxSubsampleLayer, SumSubsampleLayer}
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
-import com.simiacryptus.mindseye.opt.region.{LinearSumConstraint, TrustRegion, TrustRegionStrategy}
+import com.simiacryptus.mindseye.opt.region._
 import com.simiacryptus.mindseye.opt.trainable.{ScheduledSampleTrainable, SparkTrainable, Trainable}
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil}
@@ -75,62 +76,20 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
 
   override lazy val model = {
     var network: PipelineNetwork = new PipelineNetwork
-
-    //    // 64 x 64 x 3 (RGB)
-    //    network.add(new MonitoringWrapper(new InceptionLayer(Array(
-    //      Array(Array(5, 5, 3)),
-    //      Array(Array(3, 3, 9))
-    //    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-//      .addTo(monitoringRoot, "inception_1"))
-//    network.add(new MaxSubsampleLayer(2, 2, 1))
-//    // 32 x 32 x 4
-//    network.add(new MonitoringWrapper(new InceptionLayer(Array(
-//      Array(Array(5, 5, 4)),
-//      Array(Array(3, 3, 16))
-//    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-//      .addTo(monitoringRoot, "inception_2"))
-//    network.add(new MaxSubsampleLayer(2, 2, 1))
-//    // 16 x 16 x 5
-//    network.add(new MonitoringWrapper(new InceptionLayer(Array(
-//      Array(Array(5, 5, 5)),
-//      Array(Array(3, 3, 25))
-//    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-//      .addTo(monitoringRoot, "inception_3"))
-//    network.add(new MaxSubsampleLayer(2, 2, 1))
-//    // 8 x 8 x 6
-//    network.add(new MonitoringWrapper(new InceptionLayer(Array(
-//      Array(Array(5, 5, 12)),
-//      Array(Array(3, 3, 36))
-//    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-//      .addTo(monitoringRoot, "inception_4"))
-//    network.add(new MaxSubsampleLayer(2, 2, 1))
-//    // 4 x 4 x 8
-//    network.add(new MonitoringWrapper(new InceptionLayer(Array(
-//      Array(Array(5, 5, 64)),
-//      Array(Array(3, 3, 64))
-//    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-//      .addTo(monitoringRoot, "inception_5"))
-//    network.add(new MaxSubsampleLayer(2, 2, 1))
-//    // 2 x 2 x 16
-//    network.add(new MonitoringWrapper(
-//      new DenseSynapseLayer(Array[Int](2,2,16), outputSize)
-//      .setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-//      .addTo(monitoringRoot, "final_dense"))
-//    network.add(new BiasLayer(outputSize: _*))
-
-    network.add(new MonitoringWrapper(new BiasLayer(64,64,3)).addTo(monitoringRoot, "inbias"))
-    network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(3,3,18)
-      .setWeights(Java8Util.cvt(() ⇒ 0.1 * Random.nextGaussian()))).addTo(monitoringRoot, "synapse1"))
+    network.add(new MonitoringWrapper(new ImgBandBiasLayer(64,64,3)).addTo(monitoringRoot, "inbias"))
+    network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(3,3,36)
+      .setWeights(Java8Util.cvt(() ⇒ 0.1 * (Random.nextDouble()-0.5)))).addTo(monitoringRoot, "synapse1"))
     network.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu1"))
     network.add(new MonitoringWrapper(new MaxSubsampleLayer(2,2,1)).addTo(monitoringRoot, "max1"))
     network.add(new MonitoringSynapse().addTo(monitoringRoot, "output1"))
-    network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(3,3,60)
-      .setWeights(Java8Util.cvt(() ⇒ 0.05 * Random.nextGaussian()))).addTo(monitoringRoot, "synapse2"))
+    network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(3,3,240)
+      .setWeights(Java8Util.cvt(() ⇒ 0.05 * (Random.nextDouble()-0.5)))).addTo(monitoringRoot, "synapse2"))
     network.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu2"))
-    network.add(new MonitoringWrapper(new SumSubsampleLayer(32,32,1)).addTo(monitoringRoot, "max2"))
+    network.add(new MonitoringWrapper(new MaxSubsampleLayer(2,2,1)).addTo(monitoringRoot, "max2"))
+    network.add(new MonitoringWrapper(new SumSubsampleLayer(16,16,1)).addTo(monitoringRoot, "max3"))
     network.add(new MonitoringSynapse().addTo(monitoringRoot, "output2"))
-    network.add(new MonitoringWrapper(new DenseSynapseLayer(Array[Int](1,1,10), outputSize)
-      .setWeights(Java8Util.cvt(() ⇒ 0.1 * Random.nextGaussian()))).addTo(monitoringRoot, "synapse3"))
+    network.add(new MonitoringWrapper(new DenseSynapseLayer(Array[Int](1,1,20), outputSize)
+      .setWeights(Java8Util.cvt(() ⇒ 0.1 * (Random.nextDouble()-0.5)))).addTo(monitoringRoot, "synapse3"))
     network.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu3"))
     network.add(new MonitoringWrapper(new BiasLayer(outputSize: _*)).addTo(monitoringRoot, "outbias"))
     network.add(new MonitoringSynapse().addTo(monitoringRoot, "output3"))
@@ -140,15 +99,38 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
 
   def train(data: List[Array[Tensor]], executorFactory: (List[Array[Tensor]], SupervisedNetwork) ⇒ Trainable): Double =
   {
+    val iterationCounter = new AtomicInteger(0)
     out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
       val executorFunction = executorFactory(data, trainingNetwork)
-      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
+      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction).setCurrentIteration(iterationCounter)
+      trainer.setOrientation(new TrustRegionStrategy(new GradientDescent) {
+        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
+          case _: MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
+          case _: DenseSynapseLayer ⇒ new MeanVarianceGradient
+          case _: ImgConvolutionSynapseLayer ⇒ new MeanVarianceGradient
+          case _: BiasLayer ⇒ null
+          case _: ImgBandBiasLayer ⇒ null
+          case _ ⇒ new StaticConstraint
+        }
+      })
+      trainer.setMonitor(monitor)
+      trainer.setTimeout(20, TimeUnit.MINUTES)
+      trainer.setTerminateThreshold(1.0)
+      trainer.setMaxIterations(20)
+      trainer
+    }.run()
+    out.eval {
+      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
+      val executorFunction = executorFactory(data, trainingNetwork)
+      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction).setCurrentIteration(iterationCounter)
       trainer.setOrientation(new TrustRegionStrategy(new LBFGS().setMinHistory(10).setMaxHistory(30)) {
         override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
           case _: MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
           case _: DenseSynapseLayer ⇒ new LinearSumConstraint()
           case _: ImgConvolutionSynapseLayer ⇒ new LinearSumConstraint()
+          case _: BiasLayer ⇒ new DistanceConstraint().setMax(1e-3)
+          case _: ImgBandBiasLayer ⇒ new DistanceConstraint().setMax(1e-3)
           case _ ⇒ null
         }
       })
