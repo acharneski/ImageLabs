@@ -26,7 +26,7 @@ import java.util.concurrent.Semaphore
 import scala.concurrent.ExecutionContext.Implicits.global
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.simiacryptus.mindseye.opt.{IterativeTrainer, TrainingMonitor}
-import com.simiacryptus.util.io.{HtmlNotebookOutput, TeeOutputStream}
+import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil, TeeOutputStream}
 import com.simiacryptus.util.text.TableOutput
 import com.simiacryptus.util.{ArrayUtil, MonitoredObject, StreamNanoHTTPD}
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
@@ -41,13 +41,14 @@ import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import ArrayUtil._
 
-abstract class MindsEyeNotebook(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNotebookOutput) {
+abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) {
 
   val history = new scala.collection.mutable.ArrayBuffer[IterativeTrainer.Step]()
-  val logOut = new TeeOutputStream(log.file("log.txt"), true)
+  val logOut = new TeeOutputStream(out.file("log.txt"), true)
   val logPrintStream = new PrintStream(logOut)
   val monitoringRoot = new MonitoredObject()
   val dataTable = new TableOutput()
+  val checkpointFrequency = 10
   def model: NNLayer
 
   val monitor = new TrainingMonitor {
@@ -58,6 +59,7 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, log: HtmlNotebookOutput
 
     override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
       history += currentPoint
+      if(0 == currentPoint.iteration % checkpointFrequency) IOUtil.writeKryo(model, out.file("model_checkpoint_" + currentPoint.iteration + ".kryo"))
       val iteration = currentPoint.iteration
       if(shouldReplotMetrics(iteration)) regenerateReports()
       def flatten(prefix:String,data:Map[String,AnyRef]) : Map[String,AnyRef] = {
@@ -85,7 +87,7 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, log: HtmlNotebookOutput
     case _ ⇒ false
   }
 
-  def defineMonitorReports(log: HtmlNotebookOutput with ScalaNotebookOutput = log): Unit = {
+  def defineMonitorReports(log: HtmlNotebookOutput with ScalaNotebookOutput = out): Unit = {
 
     log.p("<a href='/history.html'>View the Convergence History</a>")
     server.addSyncHandler("history.html", "text/html", Java8Util.cvt(out ⇒ {
@@ -120,7 +122,7 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, log: HtmlNotebookOutput
   }
 
 
-  def summarizeHistory(log: ScalaNotebookOutput = log) = {
+  def summarizeHistory(log: ScalaNotebookOutput = out) = {
     if (!history.isEmpty) {
       log.eval {
         val plot: PlotCanvas = ScatterPlot.plot(history.map(item ⇒ Array[Double](
@@ -135,17 +137,17 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, log: HtmlNotebookOutput
   }
 
   def regenerateReports() = {
-    Option(log.file("../metricsHistory.html")).foreach(file⇒{
-      val report = new HtmlNotebookOutput(log.workingDir, file) with ScalaNotebookOutput
+    Option(out.file("../metricsHistory.html")).foreach(file⇒{
+      val report = new HtmlNotebookOutput(out.workingDir, file) with ScalaNotebookOutput
       generateMetricsHistoryReport(report).andThen({case _⇒report.close()})
     })
-    Option(log.file("../mobility.html")).foreach(file⇒{
-      val report = new HtmlNotebookOutput(log.workingDir, file) with ScalaNotebookOutput
+    Option(out.file("../mobility.html")).foreach(file⇒{
+      val report = new HtmlNotebookOutput(out.workingDir, file) with ScalaNotebookOutput
       generateMobilityReport(report).andThen({case _⇒report.close()})
     })
   }
 
-  def generateMobilityReport(log: ScalaNotebookOutput = log): Future[Unit] = Future {
+  def generateMobilityReport(log: ScalaNotebookOutput = out): Future[Unit] = Future {
     if (!history.isEmpty) {
       val layers: Array[NNLayer] = history.flatMap(_.point.weights.map.asScala.keySet).distinct.toArray
       log.out("<table>")
@@ -176,7 +178,7 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, log: HtmlNotebookOutput
     }
   }
 
-  def generateMetricsHistoryReport(log: ScalaNotebookOutput = log): Future[Unit] = {
+  def generateMetricsHistoryReport(log: ScalaNotebookOutput = out): Future[Unit] = {
     if(!history.isEmpty) {
       val dataAsScala: Array[Map[String, AnyRef]] = dataTable.rows.asScala.map(_.asScala.toMap).toArray
       val keys: Array[String] = dataTable.schema.asScala.keySet.toArray
@@ -226,7 +228,7 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, log: HtmlNotebookOutput
     } else Future.successful()
   }
 
-  def waitForExit(log: HtmlNotebookOutput with ScalaNotebookOutput = log): Unit = {
+  def waitForExit(log: HtmlNotebookOutput with ScalaNotebookOutput = out): Unit = {
     logOut.close()
     val onExit = new Semaphore(0)
     log.p("To exit the sever: <a href='/exit'>/exit</a>")

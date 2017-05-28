@@ -59,7 +59,6 @@ object MnistDemo2 extends ServiceNotebook {
 
       override def buildTrainer(data: Seq[Array[Tensor]]): Stream[IterativeTrainer] = Stream(log.eval {
         val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
-//        val executor = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
         val executor = HoldoverSampleTrainable.Pow(data.toArray, trainingNetwork, 1000, 10, 0.0)
           .setShuffled(true).setHoldoverFraction(0.001)
         val normalized = new L12Normalizer(executor) {
