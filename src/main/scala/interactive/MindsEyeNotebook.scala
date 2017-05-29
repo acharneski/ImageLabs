@@ -40,6 +40,7 @@ import fi.iki.elonen.NanoHTTPD
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import ArrayUtil._
+import com.google.gson.GsonBuilder
 
 abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) {
 
@@ -89,6 +90,11 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
   }
 
   def defineMonitorReports(log: HtmlNotebookOutput with ScalaNotebookOutput = out): Unit = {
+
+    log.p("<a href='/model.json'>View the Current Model State</a>")
+    server.addSyncHandler("model.json", "application/json", Java8Util.cvt(out ⇒ {
+      out.write(new GsonBuilder().setPrettyPrinting().create().toJson(model.getJson).getBytes)
+    }), false)
 
     log.p("<a href='/history.html'>View the Convergence History</a>")
     server.addSyncHandler("history.html", "text/html", Java8Util.cvt(out ⇒ {
