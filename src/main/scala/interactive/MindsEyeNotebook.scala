@@ -26,7 +26,7 @@ import java.util.concurrent.Semaphore
 import scala.concurrent.ExecutionContext.Implicits.global
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.simiacryptus.mindseye.opt.{IterativeTrainer, TrainingMonitor}
-import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil, TeeOutputStream}
+import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil, KryoUtil, TeeOutputStream}
 import com.simiacryptus.util.text.TableOutput
 import com.simiacryptus.util.{ArrayUtil, MonitoredObject, StreamNanoHTTPD, TimerText}
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
@@ -51,7 +51,10 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
   val dataTable = new TableOutput()
   val checkpointFrequency = 10
   def model: NNLayer
+  var modelCheckpoint : NNLayer = null
+  def getModelCheckpoint = Option(modelCheckpoint).getOrElse(model)
 
+  def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {}
   val monitor = new TrainingMonitor {
     val timer = new TimerText
     override def log(msg: String): Unit = {
@@ -60,8 +63,12 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
     }
 
     override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
+      modelCheckpoint = KryoUtil.kryo().copy(model)
       history += currentPoint
-      if(0 == currentPoint.iteration % checkpointFrequency) IOUtil.writeKryo(model, out.file("model_checkpoint_" + currentPoint.iteration + ".kryo"))
+      if(0 == currentPoint.iteration % checkpointFrequency) {
+        IOUtil.writeKryo(model, out.file("model_checkpoint_" + currentPoint.iteration + ".kryo"))
+        IOUtil.writeString(model.getJsonString, out.file("model_checkpoint_" + currentPoint.iteration + ".json"))
+      }
       val iteration = currentPoint.iteration
       if(shouldReplotMetrics(iteration)) regenerateReports()
       def flatten(prefix:String,data:Map[String,AnyRef]) : Map[String,AnyRef] = {
@@ -79,6 +86,7 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
         "time" → currentPoint.time.asInstanceOf[lang.Long],
         "value" → currentPoint.point.value.asInstanceOf[lang.Double]
       )).asJava)
+      MindsEyeNotebook.this.onStepComplete(currentPoint)
     }
   }
 
@@ -93,7 +101,7 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
 
     log.p("<a href='/model.json'>View the Current Model State</a>")
     server.addSyncHandler("model.json", "application/json", Java8Util.cvt(out ⇒ {
-      out.write(new GsonBuilder().setPrettyPrinting().create().toJson(model.getJson).getBytes)
+      out.write(new GsonBuilder().setPrettyPrinting().create().toJson(getModelCheckpoint.getJson).getBytes)
     }), false)
 
     log.p("<a href='/history.html'>View the Convergence History</a>")

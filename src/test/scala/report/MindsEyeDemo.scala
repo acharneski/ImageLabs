@@ -35,7 +35,7 @@ import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, Su
 import com.simiacryptus.mindseye.layers.activation._
 import com.simiacryptus.mindseye.layers.loss.{EntropyLossLayer, MeanSqLossLayer}
 import com.simiacryptus.mindseye.layers.media.ImgConvolutionSynapseLayer
-import com.simiacryptus.mindseye.layers.reducers.SumInputsLayer
+import com.simiacryptus.mindseye.layers.reducers.{SumInputsLayer, SumReducerLayer}
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.opt.TrainingMonitor
 import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
@@ -410,11 +410,11 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
           net.add(new AbsActivationLayer, bias)
           net.add(new L1NormalizationLayer)
           net.add(new EntropyLayer)
-          net.add(new SumInputsLayer)
+          net.add(new SumReducerLayer())
           val image_entropy: DAGNode = net.add(new BiasLayer().freeze)
           val scaledRms: DAGNode = net.add(new LinearActivationLayer().setWeight(1.0).freeze, imageRMS)
           val scaledEntropy: DAGNode = net.add(new LinearActivationLayer().setWeight(0.001).freeze, image_entropy)
-          net.add(new SumInputsLayer, scaledRms, scaledEntropy)
+          net.add(new SumReducerLayer, scaledRms, scaledEntropy)
           (bias, net)
         }
         networkGraph(log, dagNetwork)

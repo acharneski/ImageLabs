@@ -22,28 +22,23 @@ package interactive
 import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
 import java.io._
-import java.lang
-import java.util.concurrent.{Semaphore, TimeUnit}
+import java.util.concurrent.TimeUnit
 
 import _root_.util._
-import com.aparapi.internal.kernel.KernelManager
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.simiacryptus.mindseye.network.{InceptionLayer, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.layers.activation.{MaxDropoutNoiseLayer, ReLuActivationLayer}
+import com.simiacryptus.mindseye.layers.activation.{DropoutNoiseLayer, LinearActivationLayer, ReLuActivationLayer, SigmoidActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.MeanSqLossLayer
 import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer}
+import com.simiacryptus.mindseye.layers.reducers.SumInputsLayer
 import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
+import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
-import com.simiacryptus.mindseye.opt.trainable.{SparkTrainable, StochasticArrayTrainable, Trainable}
-import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil, TeeOutputStream}
+import com.simiacryptus.mindseye.opt.trainable.{ScheduledSampleTrainable, SparkTrainable, Trainable}
+import com.simiacryptus.util.StreamNanoHTTPD
+import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil}
 import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.test.ImageTiles.ImageTensorLoader
 import com.simiacryptus.util.text.TableOutput
-import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
-import fi.iki.elonen.NanoHTTPD
-import fi.iki.elonen.NanoHTTPD.IHTTPSession
 import org.apache.spark.sql.SparkSession
-import smile.plot.{PlotCanvas, ScatterPlot}
 import util.Java8Util.cvt
 
 import scala.collection.JavaConverters._
@@ -55,15 +50,14 @@ object ImageAutoencodingModeler extends ServiceNotebook {
   def main(args: Array[String]): Unit = {
 
     report((server, out) ⇒ args match {
-      case Array(source, master) ⇒ new ImageAutoencodingModeler(source, server, out).runSpark(master)
-      case Array(source) ⇒ new ImageAutoencodingModeler(source, server, out).runLocal()
-      case _ ⇒ new ImageAutoencodingModeler("E:\\testImages\\256_ObjectCategories", server, out).runLocal()
+      case Array(source) ⇒ new ImageAutoencodingModeler(source, server, out).run()
+      case _ ⇒ new ImageAutoencodingModeler("E:\\testImages\\256_ObjectCategories", server, out).run()
     })
 
   }
 }
 
-class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) {
+class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 
   val corruptors = Map[String, Tensor ⇒ Tensor](
     "resample2x" → (imgTensor ⇒ {
@@ -71,103 +65,64 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
     })
   )
 
-  def encoderModel(monitoringRoot: MonitoredObject) = {
+  lazy val encoder = {
     var network: PipelineNetwork = new PipelineNetwork
-
-    network.add(new MonitoringSynapse().addTo(monitoringRoot, "input"))
-    network.add(new ImgBandBiasLayer(64,64,3))
-    network.add(new MonitoringSynapse().addTo(monitoringRoot, "bias"))
-    network.add(new ImgConvolutionSynapseLayer(3,3,9).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.1)))
-    network.add(new MonitoringSynapse().addTo(monitoringRoot, "pre-inception"))
-    network.add(new MonitoringWrapper(new InceptionLayer(Array(
-      Array(Array(1, 1, 18)),
-      Array(Array(3, 3, 12)),
-      Array(Array(5, 5, 6))
-    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.1)))
-      .addTo(monitoringRoot, "inception_1"))
-    //network.add(new ImgBandBiasLayer(2,2,1))
-    network.add(new MonitoringSynapse().addTo(monitoringRoot, "pre-dropout"))
-    //network.add(new ReLuActivationLayer())
-    network.add(new MaxDropoutNoiseLayer(2,2,1))
-    network.add(new MonitoringSynapse().addTo(monitoringRoot, "encoded"))
+    network.add(new ImgBandBiasLayer(3))
+    network.add(new ImgConvolutionSynapseLayer(5,5,90)
+      .setWeights(cvt(() ⇒ 0.001 * (Math.random()-0.5))))
+    network.add(new ImgBandBiasLayer(30))
     network
   }
 
-  def decoderModel(monitoringRoot: MonitoredObject) = {
+  lazy val decoder = {
     var network: PipelineNetwork = new PipelineNetwork
+    network.add(new ImgBandBiasLayer(30))
+    network.add(new ImgConvolutionSynapseLayer(5,5,90)
+      .setWeights(cvt(() ⇒ 0.001 * (Math.random()-0.5))))
+    network.add(new ImgBandBiasLayer(3))
 
-    network.add(new MonitoringWrapper(new InceptionLayer(Array(
-      Array(Array(1, 1, 144)),
-      Array(Array(3, 3, 24)),
-      Array(Array(5, 5, 12))
-    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.1)))
-      .addTo(monitoringRoot, "inception_2"))
-    network.add(new ImgBandBiasLayer(64,64,15))
-    network.add(new ImgConvolutionSynapseLayer(1,1,45))
+    val skip1 = network.getHead
+    network.add(new ImgBandBiasLayer(3))
+    network.add(new ImgConvolutionSynapseLayer(3,3,9)
+      .setWeights(cvt(() ⇒ 0.0)))
+    network.add(new ImgBandBiasLayer(3))
     network.add(new ReLuActivationLayer())
+    network.add(new SumInputsLayer, network.getHead, skip1)
 
+    network.add(new SigmoidActivationLayer())
+    network.add(new LinearActivationLayer())
+    network.add(new ImgBandBiasLayer(3))
     network
   }
 
+  def train() = {
+    val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new MeanSqLossLayer)
+    val executor = ScheduledSampleTrainable.Pow(data.toArray, trainingNetwork, 100, 1.0, 0.0).setShuffled(true)
+    val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executor)
+    trainer.setMonitor(monitor)
+    trainer.setTimeout(6, TimeUnit.HOURS)
+    trainer.setOrientation(new LBFGS().setMinHistory(10).setMaxHistory(20))
+    trainer.setTerminateThreshold(0.0)
+    trainer
+  }.run()
 
-  def autoencoderModel(monitoringRoot: MonitoredObject) = {
+  val dropoutNoiseLayer = new DropoutNoiseLayer(0.5)
+  lazy val model: PipelineNetwork = {
     var network: PipelineNetwork = new PipelineNetwork
-    network.add(new MonitoringWrapper(encoderModel(monitoringRoot)).addTo(monitoringRoot, "encoder"))
-    network.add(new MonitoringWrapper(decoderModel(monitoringRoot)).addTo(monitoringRoot, "decoder"))
+    network.add(new MonitoringSynapse().addTo(monitoringRoot, "input"))
+    network.add(new MonitoringWrapper(encoder).addTo(monitoringRoot, "encoder"))
+    network.add(new MonitoringSynapse().addTo(monitoringRoot, "encoded"))
+    network.add(dropoutNoiseLayer)
+    network.add(new MonitoringWrapper(decoder).addTo(monitoringRoot, "decoder"))
+    network.add(new MonitoringSynapse().addTo(monitoringRoot, "output"))
     network
   }
 
-  private def train(data: List[Array[Tensor]],
-                    model: PipelineNetwork,
-                    executorFactory: (List[Array[Tensor]], SupervisedNetwork) ⇒ Trainable) =
-  {
-    val monitor = new TrainingMonitor {
-      var lastCheckpoint = System.currentTimeMillis()
-
-      override def log(msg: String): Unit = {
-        println(msg)
-        logPrintStream.println(msg)
-        logPrintStream.flush()
-      }
-
-      override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
-        history += currentPoint
-        if ((System.currentTimeMillis() - lastCheckpoint) > TimeUnit.MINUTES.toMillis(5)) {
-          lastCheckpoint = System.currentTimeMillis()
-          IOUtil.writeKryo(model, out.file("model_checkpoint_" + currentPoint.iteration + ".kryo"))
-        }
-      }
-    }
-    val trainer = out.eval {
-      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new MeanSqLossLayer)
-      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFactory(data, trainingNetwork))
-      trainer.setMonitor(monitor)
-      trainer.setTimeout(72, TimeUnit.HOURS)
-      trainer.setOrientation(new LBFGS().setMinHistory(10).setMaxHistory(20))
-      trainer.setTerminateThreshold(0.0)
-      trainer
-    }
-    trainer.run()
+  override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
+    dropoutNoiseLayer.shuffle()
   }
 
-  def runSpark(masterUrl: String): Unit = {
-    var builder = SparkSession.builder
-      .appName("Spark MindsEye Demo")
-    builder = masterUrl match {
-      case "auto" ⇒ builder
-      case _ ⇒ builder.master(masterUrl)
-    }
-    val sparkSession = builder.getOrCreate()
-    run((data, network) ⇒ new SparkTrainable(sparkSession.sparkContext.makeRDD(data, 8), network))
-    sparkSession.stop()
-  }
-
-  def runLocal(): Unit = {
-    run((data, network) ⇒ new StochasticArrayTrainable(data.toArray, network, 100))
-    //run((data,network)⇒new ArrayTrainable(data.toArray, network))
-  }
-
-  private def loadData(out: HtmlNotebookOutput with ScalaNotebookOutput, model: PipelineNetwork) = {
+  lazy val data = {
     out.p("Loading data from " + source)
     val loader = new ImageTensorLoader(new File(source), 64, 64, 64, 64, 10, 10)
     val data: List[Array[Tensor]] = loader.stream().iterator().asScala.toStream.flatMap(tile ⇒ corruptors.map(e ⇒ {
@@ -180,6 +135,15 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
         "Distorted" → out.image(testObj(0).toRgbImage(), "")
       ).asJava): _*)
     }
+    out.p("Loading data complete")
+    data
+  }
+
+  var blockAtEnd: Boolean = true
+
+  def run(): Unit = {
+    defineMonitorReports()
+    require(null != data)
     out.p("<a href='test.html'>Test Reconstruction</a>")
     server.addAsyncHandler("test.html", "text/html", cvt(o ⇒ {
       Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(out ⇒ {
@@ -188,7 +152,7 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
             TableOutput.create(Random.shuffle(data).take(100).map(testObj ⇒ Map[String, AnyRef](
               "Original" → out.image(testObj(1).toRgbImage(), ""),
               "Distorted" → out.image(testObj(0).toRgbImage(), ""),
-              "Reconstructed" → out.image(model.eval(testObj(0)).data.head.toRgbImage(), "")
+              "Reconstructed" → out.image(getModelCheckpoint.eval(testObj(0)).data.head.toRgbImage(), "")
             ).asJava): _*)
           }
         } catch {
@@ -196,56 +160,14 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
         }
       })
     }), false)
-    out.p("Loading data complete")
-    data
-  }
-
-  def run(executor: (List[Array[Tensor]], SupervisedNetwork) ⇒ Trainable): Unit = {
-    out.p("View the convergence history: <a href='/history.html'>/history.html</a>")
-    out.p("<a href='/netmon.json'>Network Monitoring</a>")
-    out.p("View the log: <a href='/log'>/log</a>")
     out.out("<hr/>")
-    var model: PipelineNetwork = autoencoderModel(monitoringRoot)
-    val data: List[Array[Tensor]] = loadData(out, model)
-    train(data, model, executor)
+    train()
     IOUtil.writeKryo(model, out.file("model_final.kryo"))
-    summarizeHistory(out, history.toList)
+    IOUtil.writeString(model.getJsonString, out.file("model_final.json"))
+    summarizeHistory(out)
     out.out("<hr/>")
-    logOut.close()
-    val onExit = new Semaphore(0)
-    out.p("To exit the sever: <a href='/exit'>/exit</a>")
-    server.addAsyncHandler("exit", "text/html", cvt(o ⇒ {
-      Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(log ⇒ {
-        log.h1("OK")
-        onExit.release(1)
-      })
-    }), false)
-    onExit.acquire()
+    if(blockAtEnd) waitForExit(out)
   }
-
-  val logOut = new TeeOutputStream(new FileOutputStream("training.log", true), true)
-  val history = new scala.collection.mutable.ArrayBuffer[IterativeTrainer.Step]()
-  server.addAsyncHandler("history.html", "text/html", cvt(o ⇒ {
-    Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(log ⇒ {
-      summarizeHistory(log, history.toList)
-    })
-  }), false)
-  val monitoringRoot = new MonitoredObject()
-  monitoringRoot.addField("openCL",Java8Util.cvt(()⇒{
-    val sb = new java.lang.StringBuilder()
-    KernelManager.instance().reportDeviceUsage(sb,true)
-    sb.toString()
-  }))
-  server.addAsyncHandler("netmon.json", "application/json", cvt(out ⇒ {
-    val mapper = new ObjectMapper().enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL)
-    val buffer = new ByteArrayOutputStream()
-    mapper.writeValue(buffer, monitoringRoot.getMetrics)
-    out.write(buffer.toByteArray)
-  }), false)
-  val logPrintStream = new PrintStream(logOut)
-  server.addSessionHandler("log", cvt((session: IHTTPSession) ⇒ {
-    NanoHTTPD.newChunkedResponse(NanoHTTPD.Response.Status.OK, "text/plain", logOut.newInputStream())
-  }))
 
   def resize(source: BufferedImage, size: Int) = {
     val image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB)
@@ -253,30 +175,6 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
     graphics.asInstanceOf[Graphics2D].setRenderingHints(new RenderingHints(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC))
     graphics.drawImage(source, 0, 0, size, size, null)
     image
-  }
-
-  private def summarizeHistory(log: ScalaNotebookOutput, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
-    if (!history.isEmpty) {
-      log.eval {
-        val step = Math.max(Math.pow(10, Math.ceil(Math.log(history.size) / Math.log(10)) - 2), 1).toInt
-        TableOutput.create(history.filter(0 == _.iteration % step).map(state ⇒
-          Map[String, AnyRef](
-            "iteration" → state.iteration.toInt.asInstanceOf[Integer],
-            "time" → state.time.toDouble.asInstanceOf[lang.Double],
-            "fitness" → state.point.value.toDouble.asInstanceOf[lang.Double]
-          ).asJava
-        ): _*)
-      }
-      log.eval {
-        val plot: PlotCanvas = ScatterPlot.plot(history.map(item ⇒ Array[Double](
-          item.iteration, Math.log(item.point.value)
-        )).toArray: _*)
-        plot.setTitle("Convergence Plot")
-        plot.setAxisLabels("Iteration", "log(Fitness)")
-        plot.setSize(600, 400)
-        plot
-      }
-    }
   }
 
   def toOut(label: String, max: Int): Int = {

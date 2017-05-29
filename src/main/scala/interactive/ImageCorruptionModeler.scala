@@ -77,7 +77,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
 
   override lazy val model = {
     var network: PipelineNetwork = new PipelineNetwork
-    network.add(new MonitoringWrapper(new ImgBandBiasLayer(64,64,3)).addTo(monitoringRoot, "inbias"))
+    network.add(new MonitoringWrapper(new ImgBandBiasLayer(3)).addTo(monitoringRoot, "inbias"))
     network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5,5,36)
       .setWeights(Java8Util.cvt(() ⇒ 0.1 * (Random.nextDouble()-0.5)))).addTo(monitoringRoot, "synapse1"))
     network.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu1"))

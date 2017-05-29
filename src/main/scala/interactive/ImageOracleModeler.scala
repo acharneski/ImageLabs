@@ -107,7 +107,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
 //    network.add(new MonitoringSynapse().addTo(monitoringRoot, "activationLayer3"))
 
     network.add(new MonitoringWrapper(
-      new ImgBandBiasLayer(64,64,3))
+      new ImgBandBiasLayer(3))
       .addTo(monitoringRoot, "Bias1"));
     network.add(new MonitoringSynapse().addTo(monitoringRoot, "input"))
 
@@ -122,7 +122,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     network.add(new ReLuActivationLayer())
     network.add(new MonitoringSynapse().addTo(monitoringRoot, "activationLayer2"))
     network.add(new MonitoringWrapper(
-      new ImgBandBiasLayer(64,64,3))
+      new ImgBandBiasLayer(3))
       .addTo(monitoringRoot, "Bias2"))
     network
   }
