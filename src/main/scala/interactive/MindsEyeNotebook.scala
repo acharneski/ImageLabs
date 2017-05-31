@@ -151,17 +151,18 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
     }
   }
 
-  def regenerateReports() = {
-    Option(out.file("../metricsHistory.html")).foreach(file⇒{
+  def regenerateReports() = Future.sequence(List(
+    {
+      val file = out.file("../metricsHistory.html")
       val report = new HtmlNotebookOutput(out.workingDir, file) with ScalaNotebookOutput
       generateMetricsHistoryReport(report).andThen({case _⇒report.close()})
-    })
-    Option(out.file("../mobility.html")).foreach(file⇒{
+    },
+    {
+      val file = out.file("../mobility.html")
       val report = new HtmlNotebookOutput(out.workingDir, file) with ScalaNotebookOutput
       generateMobilityReport(report).andThen({case _⇒report.close()})
-    })
-  }
-
+    }
+  ))
   def generateMobilityReport(log: ScalaNotebookOutput = out): Future[Unit] = Future {
     if (!history.isEmpty) {
       val layers: Array[NNLayer] = history.flatMap(_.point.weights.map.asScala.keySet).distinct.toArray
