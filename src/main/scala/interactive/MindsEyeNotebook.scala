@@ -90,7 +90,7 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
     }
   }
 
-  private def shouldReplotMetrics(iteration: Long) = iteration match {
+  protected def shouldReplotMetrics(iteration: Long) = iteration match {
     case _ if List(10,50).contains(iteration) ⇒ true
     case _ if 100 > iteration ⇒ false
     case _ if 0 == iteration % 100 ⇒ true

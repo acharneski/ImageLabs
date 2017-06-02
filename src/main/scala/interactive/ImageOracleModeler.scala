@@ -164,7 +164,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
           case _ ⇒ null
         }
       })
-      trainer.setScaling(new ArmijoWolfeConditions().setMaxAlpha(5))
+      trainer.setLineSearchFactory(()⇒new ArmijoWolfeConditions().setMaxAlpha(5))
       trainer.setTerminateThreshold(0.0)
       trainer
     }

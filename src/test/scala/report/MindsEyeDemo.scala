@@ -412,8 +412,8 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
           net.add(new EntropyLayer)
           net.add(new SumReducerLayer())
           val image_entropy: DAGNode = net.add(new BiasLayer().freeze)
-          val scaledRms: DAGNode = net.add(new LinearActivationLayer().setWeight(1.0).freeze, imageRMS)
-          val scaledEntropy: DAGNode = net.add(new LinearActivationLayer().setWeight(0.001).freeze, image_entropy)
+          val scaledRms: DAGNode = net.add(new LinearActivationLayer().setScale(1.0).freeze, imageRMS)
+          val scaledEntropy: DAGNode = net.add(new LinearActivationLayer().setScale(0.001).freeze, image_entropy)
           net.add(new SumReducerLayer, scaledRms, scaledEntropy)
           (bias, net)
         }

@@ -135,7 +135,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
           case _ ⇒ null
         }
       })
-      trainer.setScaling(new ArmijoWolfeConditions().setMinAlpha(1e-14))
+      trainer.setLineSearchFactory(()⇒new ArmijoWolfeConditions().setMinAlpha(1e-14))
       trainer.setMonitor(monitor)
       trainer.setTimeout(5, TimeUnit.HOURS)
       trainer.setTerminateThreshold(Double.NegativeInfinity)
