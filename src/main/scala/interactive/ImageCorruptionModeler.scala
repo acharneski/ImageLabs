@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import _root_.util._
 import com.simiacryptus.mindseye.layers.NNLayer
-import com.simiacryptus.mindseye.layers.activation.{ReLuActivationLayer, SoftmaxActivationLayer}
+import com.simiacryptus.mindseye.layers.activation.{HyperbolicActivationLayer, LinearActivationLayer, ReLuActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer, MaxSubsampleLayer, SumSubsampleLayer}
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
@@ -55,12 +55,24 @@ object ImageCorruptionModeler extends ServiceNotebook {
   def main(args: Array[String]): Unit = {
 
     report((server, out) ⇒ args match {
-      case Array(source, master) ⇒ new ImageCorruptionModeler(source, server, out).runSpark(master)
-      case Array(source) ⇒ new ImageCorruptionModeler(source, server, out).runLocal()
-      case _ ⇒ new ImageCorruptionModeler("E:\\testImages\\256_ObjectCategories", server, out).runLocal()
+      case Array(source) ⇒ new ImageCorruptionModeler(source, server, out).run()
+      case _ ⇒ new ImageCorruptionModeler("E:\\testImages\\256_ObjectCategories", server, out).run()
     })
 
   }
+
+  def runSpark(masterUrl: String): Unit = {
+    var builder = SparkSession.builder
+      .appName("Spark MindsEye Demo")
+    builder = masterUrl match {
+      case "auto" ⇒ builder
+      case _ ⇒ builder.master(masterUrl)
+    }
+    val sparkSession = builder.getOrCreate()
+    sparkSession.stop()
+  }
+
+
 }
 
 class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
@@ -80,85 +92,48 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     network.add(new MonitoringWrapper(new ImgBandBiasLayer(3)).addTo(monitoringRoot, "inbias"))
     network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5,5,36)
       .setWeights(Java8Util.cvt(() ⇒ 0.1 * (Random.nextDouble()-0.5)))).addTo(monitoringRoot, "synapse1"))
-    network.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu1"))
+    network.add(new MonitoringWrapper(new HyperbolicActivationLayer().setScale(0.01).setName("hypr1")).addTo(monitoringRoot))
     network.add(new MonitoringWrapper(new MaxSubsampleLayer(2,2,1)).addTo(monitoringRoot, "max1"))
     network.add(new MonitoringSynapse().addTo(monitoringRoot, "output1"))
     network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5,5,240)
       .setWeights(Java8Util.cvt(() ⇒ 0.05 * (Random.nextDouble()-0.5)))).addTo(monitoringRoot, "synapse2"))
-    network.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu2"))
+    network.add(new MonitoringWrapper(new HyperbolicActivationLayer().setScale(0.01).setName("hypr2")).addTo(monitoringRoot))
     network.add(new MonitoringWrapper(new MaxSubsampleLayer(2,2,1)).addTo(monitoringRoot, "max2"))
     network.add(new MonitoringWrapper(new SumSubsampleLayer(16,16,1)).addTo(monitoringRoot, "max3"))
     network.add(new MonitoringSynapse().addTo(monitoringRoot, "output2"))
     network.add(new MonitoringWrapper(new DenseSynapseLayer(Array[Int](1,1,20), outputSize)
       .setWeights(Java8Util.cvt(() ⇒ 0.1 * (Random.nextDouble()-0.5)))).addTo(monitoringRoot, "synapse3"))
-    network.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu3"))
+    network.add(new MonitoringWrapper(new HyperbolicActivationLayer().setScale(0.01).setName("hypr3")).addTo(monitoringRoot))
     network.add(new MonitoringWrapper(new BiasLayer(outputSize: _*)).addTo(monitoringRoot, "outbias"))
+    network.add(new MonitoringWrapper(new LinearActivationLayer().setScale(0.001).setName("OutputLinear")).addTo(monitoringRoot))
     network.add(new MonitoringSynapse().addTo(monitoringRoot, "output3"))
     network.add(new SoftmaxActivationLayer)
     network
   }
 
-  def train(data: List[Array[Tensor]], executorFactory: (List[Array[Tensor]], SupervisedNetwork) ⇒ Trainable): Double =
+  def train(data: List[Array[Tensor]]): Double =
   {
     val iterationCounter = new AtomicInteger(0)
     out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
-      val executorFunction = executorFactory(data, trainingNetwork)
+      val executorFunction = ScheduledSampleTrainable.Pow(data.toArray, trainingNetwork, 50,1.0,0.0).setShuffled(false)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction).setCurrentIteration(iterationCounter)
       trainer.setOrientation(new TrustRegionStrategy(new GradientDescent) {
         override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
           case _: MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
-          case _: DenseSynapseLayer ⇒ new MeanVarianceGradient
-          case _: ImgConvolutionSynapseLayer ⇒ new MeanVarianceGradient
+          case _: DenseSynapseLayer ⇒ new LinearSumConstraint
+          case _: ImgConvolutionSynapseLayer ⇒ new LinearSumConstraint
           case _: BiasLayer ⇒ null
           case _: ImgBandBiasLayer ⇒ null
           case _ ⇒ new StaticConstraint
         }
       })
       trainer.setMonitor(monitor)
-      trainer.setTimeout(20, TimeUnit.MINUTES)
-      trainer.setTerminateThreshold(1.0)
-      trainer.setMaxIterations(50)
+      trainer.setTimeout(6, TimeUnit.HOURS)
+      trainer.setTerminateThreshold(0.0)
+      trainer.setMaxIterations(5000)
       trainer
     }.run()
-    out.eval {
-      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
-      val executorFunction = executorFactory(data, trainingNetwork)
-      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction).setCurrentIteration(iterationCounter)
-      trainer.setOrientation(new TrustRegionStrategy(new LBFGS().setMinHistory(10).setMaxHistory(30)) {
-        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
-          case _: MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
-          case _: DenseSynapseLayer ⇒ new LinearSumConstraint
-          case _: ImgConvolutionSynapseLayer ⇒ new SingleOrthant
-          case _: BiasLayer ⇒ new DistanceConstraint().setMax(1e-3)
-          case _: ImgBandBiasLayer ⇒ new DistanceConstraint().setMax(1e-5)
-          case _ ⇒ null
-        }
-      })
-      trainer.setLineSearchFactory(()⇒new ArmijoWolfeConditions().setMinAlpha(1e-14))
-      trainer.setMonitor(monitor)
-      trainer.setTimeout(5, TimeUnit.HOURS)
-      trainer.setTerminateThreshold(Double.NegativeInfinity)
-      //trainer.setMaxIterations(20)
-      trainer
-    }.run()
-  }
-
-  def runSpark(masterUrl: String): Unit = {
-    var builder = SparkSession.builder
-      .appName("Spark MindsEye Demo")
-    builder = masterUrl match {
-      case "auto" ⇒ builder
-      case _ ⇒ builder.master(masterUrl)
-    }
-    val sparkSession = builder.getOrCreate()
-    run((data, network) ⇒ new SparkTrainable(sparkSession.sparkContext.makeRDD(data, 8), network))
-    sparkSession.stop()
-  }
-
-  def runLocal(): Unit = {
-    run((data, network) ⇒ ScheduledSampleTrainable.Pow(data.toArray, network, 50,1.0,0.0).setShuffled(false))
-    //run((data,network)⇒new ArrayTrainable(data.toArray, network))
   }
 
   def loadData(out: HtmlNotebookOutput with ScalaNotebookOutput) = {
@@ -186,12 +161,12 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     (categories, data)
   }
 
-  def run(executor: (List[Array[Tensor]], SupervisedNetwork) ⇒ Trainable): Unit = {
+  def run(): Unit = {
     defineMonitorReports()
     out.out("<hr/>")
     val (categories: Map[String, Int], data: List[Array[Tensor]]) = loadData(out)
 
-    out.p("<a href='test.html'>Test Reconstruction</a>")
+    out.p("<a href='test.html'>Test</a>")
     server.addSyncHandler("test.html", "text/html", cvt(o ⇒ {
       Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(out ⇒ {
         try {
@@ -199,7 +174,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
             TableOutput.create(Random.shuffle(data).take(100).map(testObj ⇒ Map[String, AnyRef](
               "Image" → out.image(testObj(0).toRgbImage(), ""),
               "Categorization" → categories.toList.sortBy(_._2).map(_._1)
-                .zip(model.eval(testObj(0)).data.head.getData.map(_*100.0))
+                .zip(getModelCheckpoint.eval(testObj(0)).data.head.getData.map(_*100.0))
             ).asJava): _*)
           }
         } catch {
@@ -208,7 +183,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
       })
     }), false)
 
-    train(data, executor)
+    train(data)
     IOUtil.writeKryo(model, out.file("model_final.kryo"))
     summarizeHistory(out)
     out.out("<hr/>")
