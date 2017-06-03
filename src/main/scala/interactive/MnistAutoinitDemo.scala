@@ -28,12 +28,13 @@ import com.simiacryptus.mindseye.layers.activation._
 import com.simiacryptus.mindseye.layers.cross.CrossProductLayer
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.layers.media.{ImgConvolutionSynapseLayer, MaxSubsampleLayer}
-import com.simiacryptus.mindseye.layers.meta.{AvgMetaLayer, SumMetaLayer}
+import com.simiacryptus.mindseye.layers.meta._
 import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, SumInputsLayer, SumReducerLayer}
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
 import com.simiacryptus.mindseye.network.graph._
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.opt.region.{LinearSumConstraint, TrustRegion, TrustRegionStrategy}
 import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
 import com.simiacryptus.mindseye.opt.{GradientDescent, IterativeTrainer}
 import com.simiacryptus.util.StreamNanoHTTPD
@@ -91,7 +92,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
 
   lazy val component1 = log.eval {
     var model: PipelineNetwork = new PipelineNetwork
-    model.add(new MonitoringWrapper(new BiasLayer(inputSize: _*)).addTo(monitoringRoot, "bias1a"))
+    //model.add(new MonitoringWrapper(new BiasLayer(inputSize: _*).setName("bias1a")).addTo(monitoringRoot))
     model.add(new MonitoringWrapper(new DenseSynapseLayer(inputSize, midSize)).addTo(monitoringRoot, "synapse1"))
     model.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu1"))
     model.add(new MonitoringWrapper(new BiasLayer(midSize: _*)).addTo(monitoringRoot, "bias1b"))
@@ -103,49 +104,60 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
     model.add(new MonitoringWrapper(component).addTo(monitoringRoot, "component1init"))
     val componentNode = model.add(new MonitoringSynapse().addTo(monitoringRoot, "component1out"))
 
-    model.add(new SumMetaLayer(), componentNode)
-    model.add(new MonitoringSynapse().addTo(monitoringRoot, "valueSum"))
-    model.add(new SqActivationLayer())
-    model.add(new SumReducerLayer())
-    val meanNormalizer = model.add(new LinearActivationLayer().setScale(10.0).freeze())
+//    model.add(new AbsActivationLayer(), componentNode)
+//    model.add(new MaxMetaLayer())
+//    model.add(new LinearActivationLayer().setBias(-1).freeze())
+//    model.add(new SqActivationLayer())
+//    val maxLimiter = model.add(new MonitoringSynapse().addTo(monitoringRoot, "valueMean"))
 
-    val squares = model.add(new SqActivationLayer(), componentNode)
-    model.add(new SumReducerLayer())
-    val sqSum = model.add(new MonitoringSynapse().addTo(monitoringRoot, "valueMagnitude"))
+    model.add(new AvgMetaLayer(), componentNode)
+    val means = model.add(new MonitoringSynapse().addTo(monitoringRoot, "valueMean"))
+    model.add(new BiasMetaLayer(), componentNode, model.add(new LinearActivationLayer().setScale(-1).freeze(), means))
+    val recentered = model.add(new MonitoringSynapse().addTo(monitoringRoot, "recentered"))
 
+    model.add(new SqActivationLayer(), recentered)
+    model.add(new AvgMetaLayer())
+    //model.add(new LinearActivationLayer().setBias(1e-15).freeze())
+    val variances = model.add(new MonitoringSynapse().addTo(monitoringRoot, "valueVariance"))
+
+    model.add(new ScaleMetaLayer(), recentered, model.add(new NthPowerActivationLayer().setPower(-0.5), variances))
+    val rescaled = model.add(new MonitoringSynapse().addTo(monitoringRoot, "rescaled"))
+
+    val logVariance = model.add(new HyperbolicActivationLayer().freeze(), model.add(new LogActivationLayer(), variances))
+
+    model.add(new NthPowerActivationLayer().setPower(0.5), variances)
     model.add(new LinearActivationLayer().setBias(-1).freeze())
-    model.add(new SqActivationLayer())
-    model.add(new MonitoringSynapse().addTo(monitoringRoot, "absMagnitude1"))
-    model.add(new SumMetaLayer())
-    val magnitudeNormalizer1 = model.add(new LinearActivationLayer().setScale(1.0).freeze())
+    val varOffset = model.add(new SqActivationLayer())
 
-    model.add(new LogActivationLayer(), sqSum)
-    model.add(new SqActivationLayer())
-    model.add(new MonitoringSynapse().addTo(monitoringRoot, "absMagnitude2"))
-    model.add(new SumMetaLayer())
-    val magnitudeNormalizer2 = model.add(new LinearActivationLayer().setScale(1.0).freeze())
-
-    val magnitudeNormalizer = model.add(new SumInputsLayer(), magnitudeNormalizer1, magnitudeNormalizer2)
-//
-//    model.add(new CrossProductLayer(), componentNode)
+//    model.add(new CrossProductLayer(), rescaled)
 //    model.add(new SumMetaLayer())
 //    model.add(new HyperbolicActivationLayer().setScale(1.0).freeze())
 //    model.add(new MonitoringSynapse().addTo(monitoringRoot, "dotNormalizer"))
 //    model.add(new SumReducerLayer())
 //    val dotNormalizer = model.add(new LinearActivationLayer().setScale(1.0).freeze())
 
-    model.add(new SumInputsLayer(), meanNormalizer, magnitudeNormalizer)
+    model.add(new SumReducerLayer(), model.add(new SumInputsLayer(),
+      varOffset,
+      logVariance
+      //  model.add(new HyperbolicActivationLayer(), means)
+      ))
+
     model
   }
 
   def pretrain(component:NNLayer, data:Array[Array[Tensor]]) = {
     log.eval {
       val autoinitializerNetwork = autoinitializer(component)
-      val trainable = new StochasticArrayTrainable(data, autoinitializerNetwork, 1000)
+      val trainable = new StochasticArrayTrainable(data, autoinitializerNetwork, 2000)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
       trainer.setMonitor(monitor)
       trainer.setTimeout(5, TimeUnit.MINUTES)
       trainer.setTerminateThreshold(Double.NegativeInfinity)
+      trainer.setOrientation(new TrustRegionStrategy() {
+        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
+          case _ ⇒ null//new LinearSumConstraint
+        }
+      })
       trainer.run()
     }
   }
@@ -210,10 +222,13 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
 
 
     pretrain(component1, data.map(x ⇒ Array(x(0))).toArray)
+    Await.result(generateMetricsHistoryReport(log), Duration(1, TimeUnit.MINUTES))
     Await.result(regenerateReports(), Duration(1, TimeUnit.MINUTES))
+
     log.p("Pretraining complete")
     Thread.sleep(10000)
     component1.freeze()
+    monitoringRoot.clearConstants()
 
     log.p("We train using a the following strategy: ")
     buildTrainer(data, model).run()
@@ -225,8 +240,8 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
     log.p("Validation Report")
     validation(log, model)
 
-    log.p("Parameter History Data Table")
-    log.p(dataTable.toHtmlTable)
+    //log.p("Parameter History Data Table")
+    //log.p(dataTable.toHtmlTable)
 
     waitForExit()
   }

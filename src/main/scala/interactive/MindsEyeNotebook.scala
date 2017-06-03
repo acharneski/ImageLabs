@@ -67,7 +67,7 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
       history += currentPoint
       if(0 == currentPoint.iteration % checkpointFrequency) {
         IOUtil.writeKryo(model, out.file("model_checkpoint_" + currentPoint.iteration + ".kryo"))
-        IOUtil.writeString(model.getJsonString, out.file("model_checkpoint_" + currentPoint.iteration + ".json"))
+        IOUtil.writeString(model.getJsonString, out.file("../model_checkpoint.json"))
       }
       val iteration = currentPoint.iteration
       if(shouldReplotMetrics(iteration)) regenerateReports()
