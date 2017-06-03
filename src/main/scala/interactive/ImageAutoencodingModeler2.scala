@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit
 import java.util.function.DoubleUnaryOperator
 
 import _root_.util._
+import com.simiacryptus.mindseye.layers.NNLayer
 import com.simiacryptus.mindseye.layers.activation._
 import com.simiacryptus.mindseye.layers.loss.MeanSqLossLayer
 import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer}
@@ -69,23 +70,23 @@ class ImageAutoencodingModeler2(source: String, server: StreamNanoHTTPD, out: Ht
   lazy val encoder = {
     var network: PipelineNetwork = new PipelineNetwork
     network.add(new BiasLayer(64,64,3))
-    network.add(new DenseSynapseLayer(Array(64,64,3), Array(100))
+    network.add(new DenseSynapseLayer(Array(64,64,3), midSize)
       .setWeights(cvt(() ⇒ 0.001 * (Math.random()-0.5))))
     network
   }
 
   lazy val decoder = {
     var network: PipelineNetwork = new PipelineNetwork
-    network.add(new DenseSynapseLayer(Array(100), Array(64,64,3))
+    network.add(new DenseSynapseLayer(midSize, Array(64,64,3))
       .setWeights(cvt(() ⇒ 0.001 * (Math.random()-0.5))))
     network.add(new BiasLayer(64,64,3))
     network
   }
 
-  val midSize = 100
+  val midSize = Array(100)
   def train() = {
     val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new MeanSqLossLayer)
-    val executor = ScheduledSampleTrainable.Pow(data.toArray, trainingNetwork, midSize, 1.0, 0.0).setShuffled(true)
+    val executor = ScheduledSampleTrainable.Pow(data.toArray, trainingNetwork, 100, 1.0, 0.0).setShuffled(true)
     val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executor)
     trainer.setMonitor(monitor)
     trainer.setTimeout(3, TimeUnit.HOURS)
@@ -111,10 +112,15 @@ class ImageAutoencodingModeler2(source: String, server: StreamNanoHTTPD, out: Ht
     network
   }
 
+  var encoderCheckpoint : NNLayer = null
+  var decoderCheckpoint : NNLayer = null
+
   override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
     dropoutNoiseLayer.setValue(0.0)
     gainAdjLayer.setScale(1/(1-dropoutFactor))
     modelCheckpoint = KryoUtil.kryo().copy(model)
+    encoderCheckpoint = KryoUtil.kryo().copy(encoder)
+    decoderCheckpoint = KryoUtil.kryo().copy(decoder)
     dropoutNoiseLayer.setValue(dropoutFactor)
     gainAdjLayer.setScale(1.0)
     dropoutNoiseLayer.shuffle()
@@ -163,11 +169,11 @@ class ImageAutoencodingModeler2(source: String, server: StreamNanoHTTPD, out: Ht
       Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(out ⇒ {
         try {
           out.eval {
-            TableOutput.create(Random.shuffle(0 to midSize).take(10).map(index ⇒ {
-              val input = new Tensor(midSize)
+            TableOutput.create(Random.shuffle(0 to midSize(0)).take(10).map(index ⇒ {
+              val input = new Tensor(midSize:_*)
               input.set(index, 1.0)
               Map[String, AnyRef](
-                "Reconstructed" → out.image(getModelCheckpoint.eval(input).data.head.toRgbImage(), "")
+                "Reconstructed" → out.image(decoderCheckpoint.eval(input).data.head.toRgbImage(), "")
               ).asJava
             }): _*)
           }

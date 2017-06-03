@@ -64,30 +64,34 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
     }
 
     override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
-      modelCheckpoint = KryoUtil.kryo().copy(model)
-      history += currentPoint
-      if(0 == currentPoint.iteration % checkpointFrequency) {
-        IOUtil.writeKryo(model, out.file("model_checkpoint_" + currentPoint.iteration + ".kryo"))
-        IOUtil.writeString(model.getJsonString, out.file("../model_checkpoint.json"))
+      try {
+        modelCheckpoint = KryoUtil.kryo().copy(model)
+        history += currentPoint
+        if(0 == currentPoint.iteration % checkpointFrequency) {
+          IOUtil.writeKryo(model, out.file("model_checkpoint_" + currentPoint.iteration + ".kryo"))
+          IOUtil.writeString(model.getJsonString, out.file("../model_checkpoint.json"))
+        }
+        val iteration = currentPoint.iteration
+        if(shouldReplotMetrics(iteration)) regenerateReports()
+        def flatten(prefix:String,data:Map[String,AnyRef]) : Map[String,AnyRef] = {
+          data.flatMap({
+            case (key, value) ⇒ value match {
+              case value : Number if prefix.isEmpty ⇒ Map(key → value)
+              case value : Number ⇒ Map((prefix + key) → value)
+              case value : util.Map[String,AnyRef] ⇒ flatten(prefix+key+".", value.asScala.toMap)
+              case value : Map[String,AnyRef] ⇒ flatten(prefix+key, value)
+            }
+          }).map(e⇒(if(e._1.startsWith(".")) e._1.substring(1) else e._1)→e._2)
+        }
+        dataTable.putRow((flatten(".",monitoringRoot.getMetrics.asScala.toMap)++Map(
+          "epoch" → currentPoint.iteration.asInstanceOf[lang.Long],
+          "time" → currentPoint.time.asInstanceOf[lang.Long],
+          "value" → currentPoint.point.value.asInstanceOf[lang.Double]
+        )).asJava)
+        MindsEyeNotebook.this.onStepComplete(currentPoint)
+      } catch {
+        case e : Throwable ⇒ e.printStackTrace()
       }
-      val iteration = currentPoint.iteration
-      if(shouldReplotMetrics(iteration)) regenerateReports()
-      def flatten(prefix:String,data:Map[String,AnyRef]) : Map[String,AnyRef] = {
-        data.flatMap({
-          case (key, value) ⇒ value match {
-            case value : Number if prefix.isEmpty ⇒ Map(key → value)
-            case value : Number ⇒ Map((prefix + key) → value)
-            case value : util.Map[String,AnyRef] ⇒ flatten(prefix+key+".", value.asScala.toMap)
-            case value : Map[String,AnyRef] ⇒ flatten(prefix+key, value)
-          }
-        }).map(e⇒(if(e._1.startsWith(".")) e._1.substring(1) else e._1)→e._2)
-      }
-      dataTable.putRow((flatten(".",monitoringRoot.getMetrics.asScala.toMap)++Map(
-        "epoch" → currentPoint.iteration.asInstanceOf[lang.Long],
-        "time" → currentPoint.time.asInstanceOf[lang.Long],
-        "value" → currentPoint.point.value.asInstanceOf[lang.Double]
-      )).asJava)
-      MindsEyeNotebook.this.onStepComplete(currentPoint)
     }
   }
 //  monitoringRoot.addField("openCL",Java8Util.cvt(()⇒{
