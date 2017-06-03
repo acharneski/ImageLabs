@@ -22,71 +22,70 @@ package interactive
 import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
 import java.io._
-import java.lang
 import java.util.concurrent.TimeUnit
-import java.util.function.{DoubleUnaryOperator, ToDoubleFunction}
+import java.util.function.DoubleUnaryOperator
 
 import _root_.util._
 import com.simiacryptus.mindseye.layers.activation._
 import com.simiacryptus.mindseye.layers.loss.MeanSqLossLayer
 import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer}
-import com.simiacryptus.mindseye.layers.reducers.SumInputsLayer
+import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
-import com.simiacryptus.mindseye.opt.trainable.{ScheduledSampleTrainable, SparkTrainable, Trainable}
+import com.simiacryptus.mindseye.opt.trainable.ScheduledSampleTrainable
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil, KryoUtil}
 import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.test.ImageTiles.ImageTensorLoader
 import com.simiacryptus.util.text.TableOutput
-import org.apache.spark.sql.SparkSession
 import util.Java8Util.cvt
 
 import scala.collection.JavaConverters._
 import scala.util.Random
 
 
-object ImageAutoencodingModeler extends ServiceNotebook {
+
+object ImageAutoencodingModeler2 extends ServiceNotebook {
 
   def main(args: Array[String]): Unit = {
 
     report((server, out) ⇒ args match {
-      case Array(source) ⇒ new ImageAutoencodingModeler(source, server, out).run()
-      case _ ⇒ new ImageAutoencodingModeler("E:\\testImages\\256_ObjectCategories", server, out).run()
+      case Array(source) ⇒ new ImageAutoencodingModeler2(source, server, out).run()
+      case _ ⇒ new ImageAutoencodingModeler2("E:\\testImages\\256_ObjectCategories", server, out).run()
     })
 
   }
 }
 
-class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
+class ImageAutoencodingModeler2(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 
   val corruptors = Map[String, Tensor ⇒ Tensor](
     "noise" → (imgTensor ⇒ {
-      imgTensor.map(Java8Util.cvt(v ⇒ v + 0.5 * (Math.random() - 0.5)) : DoubleUnaryOperator)
+      imgTensor.map(Java8Util.cvt(v ⇒ v + 0.5 * (Math.random() - 0.5)): DoubleUnaryOperator)
     })
   )
 
   lazy val encoder = {
     var network: PipelineNetwork = new PipelineNetwork
-    network.add(new ImgBandBiasLayer(3))
-    network.add(new ImgConvolutionSynapseLayer(5,5,90)
+    network.add(new BiasLayer(64,64,3))
+    network.add(new DenseSynapseLayer(Array(64,64,3), Array(100))
       .setWeights(cvt(() ⇒ 0.001 * (Math.random()-0.5))))
     network
   }
 
   lazy val decoder = {
     var network: PipelineNetwork = new PipelineNetwork
-    network.add(new ImgConvolutionSynapseLayer(5,5,90)
+    network.add(new DenseSynapseLayer(Array(100), Array(64,64,3))
       .setWeights(cvt(() ⇒ 0.001 * (Math.random()-0.5))))
-    network.add(new ImgBandBiasLayer(3))
-    network.add(new LinearActivationLayer())
+    network.add(new BiasLayer(64,64,3))
     network
   }
 
+  val midSize = 100
   def train() = {
     val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new MeanSqLossLayer)
-    val executor = ScheduledSampleTrainable.Pow(data.toArray, trainingNetwork, 100, 1.0, 0.0).setShuffled(true)
+    val executor = ScheduledSampleTrainable.Pow(data.toArray, trainingNetwork, midSize, 1.0, 0.0).setShuffled(true)
     val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executor)
     trainer.setMonitor(monitor)
     trainer.setTimeout(3, TimeUnit.HOURS)
@@ -97,7 +96,8 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
     trainer
   }.run()
 
-  val dropoutNoiseLayer = new DropoutNoiseLayer(0.5)
+  private val dropoutFactor = 0.5
+  val dropoutNoiseLayer = new DropoutNoiseLayer(dropoutFactor)
   val gainAdjLayer = new LinearActivationLayer().freeze().asInstanceOf[LinearActivationLayer]
   lazy val model: PipelineNetwork = {
     var network: PipelineNetwork = new PipelineNetwork
@@ -113,9 +113,9 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
 
   override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
     dropoutNoiseLayer.setValue(0.0)
-    gainAdjLayer.setScale(0.5)
+    gainAdjLayer.setScale(1/(1-dropoutFactor))
     modelCheckpoint = KryoUtil.kryo().copy(model)
-    dropoutNoiseLayer.setValue(0.5)
+    dropoutNoiseLayer.setValue(dropoutFactor)
     gainAdjLayer.setScale(1.0)
     dropoutNoiseLayer.shuffle()
   }
@@ -152,6 +152,24 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
               "Distorted" → out.image(testObj(0).toRgbImage(), ""),
               "Reconstructed" → out.image(getModelCheckpoint.eval(testObj(0)).data.head.toRgbImage(), "")
             ).asJava): _*)
+          }
+        } catch {
+          case e : Throwable ⇒ e.printStackTrace()
+        }
+      })
+    }), false)
+    out.p("<a href='vectors.html'>Unit Vectors</a>")
+    server.addAsyncHandler("vectors.html", "text/html", cvt(o ⇒ {
+      Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(out ⇒ {
+        try {
+          out.eval {
+            TableOutput.create(Random.shuffle(0 to midSize).take(10).map(index ⇒ {
+              val input = new Tensor(midSize)
+              input.set(index, 1.0)
+              Map[String, AnyRef](
+                "Reconstructed" → out.image(getModelCheckpoint.eval(input).data.head.toRgbImage(), "")
+              ).asJava
+            }): _*)
           }
         } catch {
           case e : Throwable ⇒ e.printStackTrace()

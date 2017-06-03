@@ -40,6 +40,7 @@ import fi.iki.elonen.NanoHTTPD
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import ArrayUtil._
+import com.aparapi.internal.kernel.KernelManager
 import com.google.gson.GsonBuilder
 
 abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) {
@@ -89,6 +90,12 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
       MindsEyeNotebook.this.onStepComplete(currentPoint)
     }
   }
+//  monitoringRoot.addField("openCL",Java8Util.cvt(()⇒{
+//    val sb = new java.lang.StringBuilder()
+//    KernelManager.instance().reportDeviceUsage(sb,true)
+//    sb.toString()
+//  }))
+
 
   protected def shouldReplotMetrics(iteration: Long) = iteration match {
     case _ if List(10,50).contains(iteration) ⇒ true
