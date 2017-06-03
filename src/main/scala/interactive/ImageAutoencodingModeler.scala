@@ -36,7 +36,7 @@ import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, Su
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.trainable.{ScheduledSampleTrainable, SparkTrainable, Trainable}
 import com.simiacryptus.util.StreamNanoHTTPD
-import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
+import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil, KryoUtil}
 import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.test.ImageTiles.ImageTensorLoader
 import com.simiacryptus.util.text.TableOutput
