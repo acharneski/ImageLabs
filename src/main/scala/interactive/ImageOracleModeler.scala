@@ -28,14 +28,15 @@ import java.util.concurrent.{Semaphore, TimeUnit}
 import _root_.util._
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.simiacryptus.mindseye.layers.NNLayer
-import com.simiacryptus.mindseye.layers.activation.ReLuActivationLayer
+import com.simiacryptus.mindseye.layers.activation.{HyperbolicActivationLayer, ReLuActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.MeanSqLossLayer
 import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer}
+import com.simiacryptus.mindseye.layers.reducers.SumInputsLayer
 import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line.ArmijoWolfeConditions
-import com.simiacryptus.mindseye.opt.region.{TrustRegionStrategy, LinearSumConstraint, TrustRegion}
+import com.simiacryptus.mindseye.opt.region.{LinearSumConstraint, TrustRegion, TrustRegionStrategy}
 import com.simiacryptus.mindseye.opt.trainable.{ConstL12Normalizer, SparkTrainable, StochasticArrayTrainable, Trainable}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil, TeeOutputStream}
 import com.simiacryptus.util.ml.Tensor
@@ -56,15 +57,14 @@ object ImageOracleModeler extends ServiceNotebook {
   def main(args: Array[String]): Unit = {
 
     report((server, out) ⇒ args match {
-      case Array(source, master) ⇒ new ImageOracleModeler(source, server, out).runSpark(master)
-      case Array(source) ⇒ new ImageOracleModeler(source, server, out).runLocal()
-      case _ ⇒ new ImageOracleModeler("E:\\testImages\\256_ObjectCategories", server, out).runLocal()
+      case Array(source) ⇒ new ImageOracleModeler(source, server, out).run()
+      case _ ⇒ new ImageOracleModeler("E:\\testImages\\256_ObjectCategories", server, out).run()
     })
 
   }
 }
 
-class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) {
+class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 
   val corruptors = Map[String, Tensor ⇒ Tensor](
     "resample4x" → (imgTensor ⇒ {
@@ -72,64 +72,24 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     })
   )
 
-  private def corruptionDetectionModel(monitoringRoot: MonitoredObject) = {
+  def model = {
     var network: PipelineNetwork = new PipelineNetwork
 
-//    network.add(new MonitoringWrapper(new InceptionLayer(Array(
-//      Array(Array(1, 1, 9)),
-//      Array(Array(3, 3, 6)),
-//      Array(Array(5, 5, 3))
-//    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-//      .addTo(monitoringRoot, "inception_1"))
-//    network.add(new ImgBandBiasLayer(64,64,6))
-//    network.add(new ReLuActivationLayer())
-//    network.add(new MonitoringSynapse().addTo(monitoringRoot, "activationLayer1"))
+    val input = network.getInput(0)
+    network.add(new MonitoringSynapse().addTo(monitoringRoot, "input1"))
+    network.add(new MonitoringWrapper(new ImgBandBiasLayer(3).setName("Bias1In")).addTo(monitoringRoot));
+    network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(3,3,18).setWeights(Java8Util.cvt(() ⇒ Util.R.get.nextGaussian * 0.01))
+      .setName("Conv1a")).addTo(monitoringRoot));
+    network.add(new MonitoringWrapper(new HyperbolicActivationLayer().setName("Activation1")).addTo(monitoringRoot));
+    network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(3,3,18).setWeights(Java8Util.cvt(() ⇒ Util.R.get.nextGaussian * 0.01))
+      .setName("Conv1b")).addTo(monitoringRoot));
+    network.add(new MonitoringWrapper(new ImgBandBiasLayer(3).setName("Bias1Out")).addTo(monitoringRoot));
+    network.add(new SumInputsLayer(), input, network.getHead)
 
-//    network.add(new MonitoringWrapper(new InceptionLayer(Array(
-//      Array(Array(1, 1, 36)),
-//      Array(Array(3, 3, 12)),
-//      Array(Array(5, 5, 6))
-//    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-//      .addTo(monitoringRoot, "inception_2"))
-//    network.add(new ImgBandBiasLayer(64,64,9))
-//    network.add(new ReLuActivationLayer())
-//    network.add(new MonitoringSynapse().addTo(monitoringRoot, "activationLayer2"))
-
-//    network.add(new MonitoringWrapper(new InceptionLayer(Array(
-//      Array(Array(1, 1, 81)),
-//      Array(Array(3, 3, 18)),
-//      Array(Array(5, 5, 9))
-//    )).setWeights(cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-//      .addTo(monitoringRoot, "inception_3"))
-//    network.add(new ImgBandBiasLayer(64,64,12))
-//    network.add(new ReLuActivationLayer())
-//    network.add(new MonitoringSynapse().addTo(monitoringRoot, "activationLayer3"))
-
-    network.add(new MonitoringWrapper(
-      new ImgBandBiasLayer(3))
-      .addTo(monitoringRoot, "Bias1"));
-    network.add(new MonitoringSynapse().addTo(monitoringRoot, "input"))
-
-    network.add(new MonitoringWrapper(
-      new ImgConvolutionSynapseLayer(3,3,18).setWeights(Java8Util.cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-      .addTo(monitoringRoot, "Conv1"))
-    network.add(new ReLuActivationLayer())
-    network.add(new MonitoringSynapse().addTo(monitoringRoot, "activationLayer1"))
-    network.add(new MonitoringWrapper(
-      new ImgConvolutionSynapseLayer(1,1,18).setWeights(Java8Util.cvt(() ⇒ Util.R.get.nextGaussian * 0.01)))
-      .addTo(monitoringRoot, "Conv2"))
-    network.add(new ReLuActivationLayer())
-    network.add(new MonitoringSynapse().addTo(monitoringRoot, "activationLayer2"))
-    network.add(new MonitoringWrapper(
-      new ImgBandBiasLayer(3))
-      .addTo(monitoringRoot, "Bias2"))
     network
   }
 
-  private def train(data: List[Array[Tensor]],
-                    model: PipelineNetwork,
-                    executorFactory: (List[Array[Tensor]], SupervisedNetwork) ⇒ Trainable) =
-  {
+  def train(data: List[Array[Tensor]], model: PipelineNetwork) {
     val monitor = new TrainingMonitor {
       var lastCheckpoint = System.currentTimeMillis()
 
@@ -149,7 +109,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     }
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new MeanSqLossLayer)
-      val inner = executorFactory(data, trainingNetwork)
+      val inner = new StochasticArrayTrainable(data.toArray, trainingNetwork, 100)
       val normalized = new ConstL12Normalizer(inner).setFactor_L1(0.01)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(inner)
       trainer.setMonitor(monitor)
@@ -170,24 +130,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     trainer.run()
   }
 
-  def runSpark(masterUrl: String): Unit = {
-    var builder = SparkSession.builder
-      .appName("Spark MindsEye Demo")
-    builder = masterUrl match {
-      case "auto" ⇒ builder
-      case _ ⇒ builder.master(masterUrl)
-    }
-    val sparkSession = builder.getOrCreate()
-    run((data, network) ⇒ new SparkTrainable(sparkSession.sparkContext.makeRDD(data, 8), network))
-    sparkSession.stop()
-  }
-
-  def runLocal(): Unit = {
-    run((data, network) ⇒ new StochasticArrayTrainable(data.toArray, network, 100))
-    //run((data,network)⇒new ArrayTrainable(data.toArray, network))
-  }
-
-  private def loadData(out: HtmlNotebookOutput with ScalaNotebookOutput, model: PipelineNetwork) = {
+  lazy val data : List[Array[Tensor]] = {
     out.p("Loading data from " + source)
     val loader = new ImageTensorLoader(new File(source), 64, 64, 64, 64, 10, 10)
     val data: List[Array[Tensor]] = loader.stream().iterator().asScala.toStream.flatMap(tile ⇒ corruptors.map(e ⇒ {
@@ -220,16 +163,12 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     data
   }
 
-  def run(executor: (List[Array[Tensor]], SupervisedNetwork) ⇒ Trainable): Unit = {
-    out.p("View the convergence history: <a href='/history.html'>/history.html</a>")
-    out.p("<a href='/netmon.json'>Network Monitoring</a>")
-    out.p("View the log: <a href='/log'>/log</a>")
+  def run(): Unit = {
+    defineMonitorReports()
     out.out("<hr/>")
-    var model: PipelineNetwork = corruptionDetectionModel(monitoringRoot)
-    val data: List[Array[Tensor]] = loadData(out, model)
-    train(data, model, executor)
+    train(data, model)
     IOUtil.writeKryo(model, out.file("model_final.kryo"))
-    summarizeHistory(out, history.toList)
+    summarizeHistory()
     out.out("<hr/>")
     logOut.close()
     val onExit = new Semaphore(0)
@@ -243,55 +182,12 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     onExit.acquire()
   }
 
-  val logOut = new TeeOutputStream(new FileOutputStream("training.log", true), true)
-  val history = new scala.collection.mutable.ArrayBuffer[IterativeTrainer.Step]()
-  server.addAsyncHandler("history.html", "text/html", cvt(o ⇒ {
-    Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(log ⇒ {
-      summarizeHistory(log, history.toList)
-    })
-  }), false)
-  val monitoringRoot = new MonitoredObject()
-  server.addAsyncHandler("netmon.json", "application/json", cvt(out ⇒ {
-    val mapper = new ObjectMapper().enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL)
-    val buffer = new ByteArrayOutputStream()
-    mapper.writeValue(buffer, monitoringRoot.getMetrics)
-    out.write(buffer.toByteArray)
-  }), false)
-  val logPrintStream = new PrintStream(logOut)
-  server.addSessionHandler("log", cvt((session: IHTTPSession) ⇒ {
-    NanoHTTPD.newChunkedResponse(NanoHTTPD.Response.Status.OK, "text/plain", logOut.newInputStream())
-  }))
-
   def resize(source: BufferedImage, size: Int) = {
     val image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB)
     val graphics = image.getGraphics.asInstanceOf[Graphics2D]
     graphics.asInstanceOf[Graphics2D].setRenderingHints(new RenderingHints(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC))
     graphics.drawImage(source, 0, 0, size, size, null)
     image
-  }
-
-  private def summarizeHistory(log: ScalaNotebookOutput, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
-    if (!history.isEmpty) {
-      log.eval {
-        val step = Math.max(Math.pow(10, Math.ceil(Math.log(history.size) / Math.log(10)) - 2), 1).toInt
-        TableOutput.create(history.filter(0 == _.iteration % step).map(state ⇒
-          Map[String, AnyRef](
-            "iteration" → state.iteration.toInt.asInstanceOf[Integer],
-            "time" → state.time.toDouble.asInstanceOf[lang.Double],
-            "fitness" → state.point.value.toDouble.asInstanceOf[lang.Double]
-          ).asJava
-        ): _*)
-      }
-      log.eval {
-        val plot: PlotCanvas = ScatterPlot.plot(history.map(item ⇒ Array[Double](
-          item.iteration, Math.log(item.point.value)
-        )).toArray: _*)
-        plot.setTitle("Convergence Plot")
-        plot.setAxisLabels("Iteration", "log(Fitness)")
-        plot.setSize(600, 400)
-        plot
-      }
-    }
   }
 
   def toOut(label: String, max: Int): Int = {

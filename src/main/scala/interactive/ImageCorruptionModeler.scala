@@ -104,7 +104,8 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     network.add(new MonitoringWrapper(new DenseSynapseLayer(Array[Int](1,1,20), outputSize)
       .setWeights(Java8Util.cvt(() ⇒ 0.1 * (Random.nextDouble()-0.5)))).addTo(monitoringRoot, "synapse3"))
     network.add(new MonitoringWrapper(new HyperbolicActivationLayer().setScale(0.01).setName("hypr3")).addTo(monitoringRoot))
-    network.add(new MonitoringWrapper(new BiasLayer(outputSize: _*)).addTo(monitoringRoot, "outbias"))
+    val outputBias = new BiasLayer(outputSize: _*)
+    network.add(new MonitoringWrapper(outputBias).addTo(monitoringRoot, "outbias"))
     network.add(NetworkMetaNormalizers.positionNormalizer2)
     network.add(NetworkMetaNormalizers.scaleNormalizer2)
     network.add(new MonitoringWrapper(new LinearActivationLayer().setScale(0.001).setName("OutputLinear")).addTo(monitoringRoot))
@@ -121,15 +122,34 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
       val executorFunction = ScheduledSampleTrainable.Pow(data.toArray, trainingNetwork, 50,1.0,0.0).setShuffled(true)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
         .setCurrentIteration(iterationCounter)
-        .setIterationsPerSample(5)
-      trainer.setOrientation(new TrustRegionStrategy(new LBFGS) {
+        .setIterationsPerSample(1)
+      trainer.setOrientation(new TrustRegionStrategy(new GradientDescent) {
         override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
           case _: MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
-          case _: DenseSynapseLayer ⇒ new LinearSumConstraint
-          case _: ImgConvolutionSynapseLayer ⇒ null // new LinearSumConstraint
-          case _: BiasLayer ⇒ null
-          case _: ImgBandBiasLayer ⇒ null
+          case _: DenseSynapseLayer ⇒ new MeanVarianceGradient
+          case _: ImgConvolutionSynapseLayer ⇒ new MeanVarianceGradient
+          case _: BiasLayer ⇒ new StaticConstraint
           case _ ⇒ null
+        }
+      })
+      trainer.setMonitor(monitor)
+      trainer.setTimeout(1, TimeUnit.HOURS)
+      trainer.setTerminateThreshold(0.0)
+      trainer.setMaxIterations(10)
+      trainer
+    }.run()
+    out.eval {
+      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
+      val executorFunction = ScheduledSampleTrainable.Pow(data.toArray, trainingNetwork, 50,1.0,0.0).setShuffled(true)
+      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
+        .setCurrentIteration(iterationCounter)
+        .setIterationsPerSample(5)
+      trainer.setOrientation(new TrustRegionStrategy(new MomentumStrategy(new GradientDescent).setCarryOver(0.3)) {
+        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
+          case _: MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
+          case _: DenseSynapseLayer ⇒ null
+          case _: ImgConvolutionSynapseLayer ⇒ null
+          case _ ⇒ new StaticConstraint
         }
       })
       trainer.setMonitor(monitor)
