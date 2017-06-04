@@ -43,6 +43,8 @@ import ArrayUtil._
 import com.aparapi.internal.kernel.KernelManager
 import com.google.gson.GsonBuilder
 
+import scala.collection.mutable
+
 abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) {
 
   val history = new scala.collection.mutable.ArrayBuffer[IterativeTrainer.Step]()
@@ -167,33 +169,38 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
       val file = out.file("../metricsHistory.html")
       val report = new HtmlNotebookOutput(out.workingDir, file) with ScalaNotebookOutput
       generateMetricsHistoryReport(report).andThen({case _⇒report.close()})
-    },
-    {
+    },{
       val file = out.file("../mobility.html")
       val report = new HtmlNotebookOutput(out.workingDir, file) with ScalaNotebookOutput
       generateMobilityReport(report).andThen({case _⇒report.close()})
     }
   ))
+
   def generateMobilityReport(log: ScalaNotebookOutput = out): Future[Unit] = Future {
     if (!history.isEmpty) {
       val layers: Array[NNLayer] = history.flatMap(_.point.weights.map.asScala.keySet).distinct.toArray
+      val outputTable = new mutable.HashMap[Int, mutable.Map[String, AnyRef]]()
       log.out("<table>")
       layers.foreach(layer ⇒ {
         try {
           val transcript: List[Array[Double]] = history.map(_.point.weights.map.get(layer).delta).toList
           log.out("<tr><td>")
-          log.p(s"Layer ${layer.getClass}<br/>id ${layer.id}<br/>")
+          log.p(s"${layer.getName}")
           List(1, 5, 20).foreach(lag ⇒ {
             log.out("</td><td>")
             val xy = (lag until transcript.size).map(i ⇒ {
-              i → Math.log10(magnitude(subtract(transcript(i), transcript(i - lag)))/lag)
+              val v = Math.log10(magnitude(subtract(transcript(i), transcript(i - lag))) / lag)
+              outputTable.getOrElseUpdate(i, new mutable.HashMap[String,AnyRef]())(s"${layer.getName}/$lag") = v.asInstanceOf[Object]
+              i → v
             }).filter(d ⇒ java.lang.Double.isFinite(d._2))
-            if (xy.size > 1) log.eval {
+            if (xy.size > 1) {
               val plot: PlotCanvas = ScatterPlot.plot(xy.map(xy ⇒ Array(xy._1.toDouble, xy._2)): _*)
-              plot.setTitle(s"${layer.getClass.getSimpleName}/${layer.id}")
+              plot.setTitle(s"${layer.getName}")
               plot.setAxisLabels("Epoch", s"log(dist(n,n-$lag)/$lag)")
               plot.setSize(600, 400)
-              plot
+              log.eval {
+                plot
+              }
             } else log.out("No Data")
           })
           log.out("</td></tr>")
@@ -201,6 +208,7 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
           case e: Throwable ⇒
         }
       })
+      IOUtil.writeString(TableOutput.create(outputTable.toList.sortBy(_._1).map(_._2.toMap.asJava).toArray: _*).toCSV(true), log.file("../mobility.csv"))
       log.out("</table>")
     }
   }
@@ -209,7 +217,7 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
     if(!history.isEmpty) {
       val dataAsScala: Array[Map[String, AnyRef]] = dataTable.rows.asScala.map(_.asScala.toMap).toArray
       val keys: Array[String] = dataTable.schema.asScala.keySet.toArray
-
+      val outputTable = new mutable.HashMap[Int, mutable.Map[String, AnyRef]]()
       Future {
         log.out("<table><tr><th>Vs Iteration</th><th>Vs Objective</th></tr>")
         keys
@@ -220,15 +228,22 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
           .foreach(key⇒{
             log.out("<tr><td>")
             try {
-              val data = dataAsScala.map(row ⇒ Array[Double](
-                row("epoch").toString.toDouble, row(key).toString.toDouble
-              )).filter(d ⇒ d.forall(java.lang.Double.isFinite))
-              if(data.size > 1) log.eval {
+              val data = dataAsScala.map(row ⇒ {
+                val v = row(key).toString.toDouble
+                val i = row("epoch").toString.toInt
+                outputTable.getOrElseUpdate(i, new mutable.HashMap[String,AnyRef]())(key) = v.asInstanceOf[Object]
+                Array[Double](
+                  i.toDouble, v
+                )
+              }).filter(d ⇒ d.forall(java.lang.Double.isFinite))
+              log.p(s"$key vs Epoch")
+              if(data.size > 1) {
                 val plot: PlotCanvas = ScatterPlot.plot(data: _*)
-                //plot.setTitle(s"$key vs Epoch")
                 plot.setAxisLabels("Epoch", key)
                 plot.setSize(600, 400)
-                plot
+                log.eval {
+                  plot
+                }
               } else log.out("No Data")
             } catch {
               case e : Throwable ⇒
@@ -238,12 +253,14 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
               val data = dataAsScala.map(row ⇒ Array[Double](
                 Math.log(row("value").toString.toDouble), row(key).toString.toDouble
               )).filter(d ⇒ d.forall(java.lang.Double.isFinite))
-              if(data.size > 1) log.eval {
+              log.p(s"$key vs Log(Fitness)")
+              if(data.size > 1) {
                 val plot: PlotCanvas = ScatterPlot.plot(data: _*)
-                //plot.setTitle(s"$key vs Epoch")
                 plot.setAxisLabels("log(value)", key)
                 plot.setSize(600, 400)
-                plot
+                log.eval {
+                  plot
+                }
               } else log.out("No Data")
             } catch {
               case e : Throwable ⇒
@@ -251,6 +268,7 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
             log.out("</td></tr>")
           })
         log.out("</table>")
+        IOUtil.writeString(TableOutput.create(outputTable.toList.sortBy(_._1).map(_._2.toMap.asJava): _*).toCSV(true), log.file("../metrics.csv"))
       }
     } else Future.successful()
   }

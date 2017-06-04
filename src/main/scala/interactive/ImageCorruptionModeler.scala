@@ -119,11 +119,13 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
       val executorFunction = ScheduledSampleTrainable.Pow(data.toArray, trainingNetwork, 50,1.0,0.0).setShuffled(true)
-      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction).setCurrentIteration(iterationCounter)
+      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
+        .setCurrentIteration(iterationCounter)
+        .setIterationsPerSample(5)
       trainer.setOrientation(new TrustRegionStrategy(new LBFGS) {
         override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
           case _: MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
-          case _: DenseSynapseLayer ⇒ null // new LinearSumConstraint
+          case _: DenseSynapseLayer ⇒ new LinearSumConstraint
           case _: ImgConvolutionSynapseLayer ⇒ null // new LinearSumConstraint
           case _: BiasLayer ⇒ null
           case _: ImgBandBiasLayer ⇒ null

@@ -27,13 +27,16 @@ import java.util.concurrent.TimeUnit
 import java.util.function.{DoubleUnaryOperator, ToDoubleFunction}
 
 import _root_.util._
+import com.simiacryptus.mindseye.layers.NNLayer
 import com.simiacryptus.mindseye.layers.activation._
 import com.simiacryptus.mindseye.layers.loss.MeanSqLossLayer
 import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer}
 import com.simiacryptus.mindseye.layers.reducers.SumInputsLayer
+import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
+import com.simiacryptus.mindseye.opt.region.{LinearSumConstraint, StaticConstraint, TrustRegion, TrustRegionStrategy}
 import com.simiacryptus.mindseye.opt.trainable.{ScheduledSampleTrainable, SparkTrainable, Trainable}
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.{HtmlNotebookOutput, IOUtil, KryoUtil}
@@ -86,16 +89,34 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
 
   def train() = {
     val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new MeanSqLossLayer)
-    val executor = ScheduledSampleTrainable.Pow(data.toArray, trainingNetwork, 100, 1.0, 0.0).setShuffled(true)
-    val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executor)
-    trainer.setMonitor(monitor)
-    trainer.setTimeout(12, TimeUnit.HOURS)
-    trainer.setOrientation(new MomentumStrategy(
-      new LBFGS().setMinHistory(10).setMaxHistory(20)
-    ).setCarryOver(0.2))
-    trainer.setTerminateThreshold(0.0)
-    trainer
-  }.run()
+    val executor = ScheduledSampleTrainable.Pow(data.toArray, trainingNetwork, 500, 2.0, 0.0).setShuffled(true)
+    out.eval {
+      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executor)
+      trainer.setIterationsPerSample(5)
+      trainer.setMonitor(monitor)
+      trainer.setTimeout(12, TimeUnit.HOURS)
+      trainer.setOrientation(new GradientDescent)
+      trainer.setTerminateThreshold(5000.0)
+      trainer
+    }.run()
+    out.eval {
+      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executor)
+      trainer.setIterationsPerSample(5)
+      trainer.setMonitor(monitor)
+      trainer.setTimeout(12, TimeUnit.HOURS)
+      trainer.setOrientation(new TrustRegionStrategy(new MomentumStrategy(
+        new LBFGS().setMinHistory(10).setMaxHistory(20)
+      ).setCarryOver(0.2)) {
+        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
+          case _: MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
+          case _: LinearActivationLayer ⇒ new StaticConstraint
+          case _ ⇒ null
+        }
+      })
+      trainer.setTerminateThreshold(0.0)
+      trainer
+    }.run()
+  }
 
   private val dropoutFactor = 0.3
   val dropoutNoiseLayer = new DropoutNoiseLayer(dropoutFactor)
