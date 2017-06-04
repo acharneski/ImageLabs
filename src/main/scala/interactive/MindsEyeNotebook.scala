@@ -19,9 +19,9 @@
 
 package interactive
 
-import java.io.{ByteArrayOutputStream, PrintStream}
+import java.io.{ByteArrayOutputStream, FileInputStream, FileOutputStream, PrintStream}
 import java.util.UUID
-import java.util.concurrent.Semaphore
+import java.util.concurrent.{Semaphore, TimeUnit}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -38,12 +38,14 @@ import com.simiacryptus.mindseye.layers.NNLayer
 import fi.iki.elonen.NanoHTTPD
 
 import scala.collection.JavaConverters._
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
 import ArrayUtil._
 import com.aparapi.internal.kernel.KernelManager
-import com.google.gson.GsonBuilder
+import com.google.gson.{GsonBuilder, JsonObject}
+import org.apache.commons.io.IOUtils
 
 import scala.collection.mutable
+import scala.concurrent.duration.Duration
 
 abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) {
 
@@ -53,7 +55,7 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
   val monitoringRoot = new MonitoredObject()
   val dataTable = new TableOutput()
   val checkpointFrequency = 10
-  def model: NNLayer
+  var model: NNLayer = null
   var modelCheckpoint : NNLayer = null
   def getModelCheckpoint = Option(modelCheckpoint).getOrElse(model)
 
@@ -284,6 +286,30 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
       })
     }), false)
     onExit.acquire()
+  }
+
+  def phase(inputFile: String, fn: NNLayer ⇒ Unit, outputFile: String): Unit = {
+    phase(NNLayer.fromJson(new GsonBuilder().create().fromJson(IOUtils.toString(new FileInputStream(inputFile), "UTF-8"), classOf[JsonObject])),
+      layer ⇒ {
+        fn(layer)
+        layer
+      }, model ⇒ IOUtil.writeString(model.getJsonString, new FileOutputStream(outputFile)))
+  }
+
+  def phase(input: ⇒ NNLayer, fn: NNLayer ⇒ Unit, outputFile: String): Unit = {
+    phase(input,
+      layer ⇒ {
+        fn(layer)
+        layer
+      }, model ⇒ IOUtil.writeString(model.getJsonString, new FileOutputStream(outputFile)))
+  }
+
+  def phase(initializer: ⇒ NNLayer, fn: NNLayer ⇒ NNLayer, onComplete: NNLayer ⇒ Unit): Unit = {
+    model = initializer
+    model = fn(model)
+    summarizeHistory(out)
+    Await.result(regenerateReports, Duration(1,TimeUnit.MINUTES))
+    onComplete(model)
   }
 
 }

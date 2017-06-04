@@ -121,7 +121,7 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
   private val dropoutFactor = 0.3
   val dropoutNoiseLayer = new DropoutNoiseLayer(dropoutFactor)
   val gainAdjLayer = new LinearActivationLayer().freeze().asInstanceOf[LinearActivationLayer]
-  lazy val model: PipelineNetwork = {
+  model = {
     var network: PipelineNetwork = new PipelineNetwork
     network.add(new MonitoringSynapse().addTo(monitoringRoot, "input"))
     network.add(new MonitoringWrapper(encoder).addTo(monitoringRoot, "encoder"))

@@ -43,7 +43,7 @@ object ConvolutionalMnistDemo extends ServiceNotebook {
     report((server,log)⇒new MnistDemo(server,log){
       override val trainingTime = 5
 
-      override lazy val model = log.eval {
+      model = log.eval {
         var model: PipelineNetwork = new PipelineNetwork
         model.add(new MonitoringWrapper(new BiasLayer(inputSize: _*)).addTo(monitoringRoot, "inbias"))
         model.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(3, 3, 8)

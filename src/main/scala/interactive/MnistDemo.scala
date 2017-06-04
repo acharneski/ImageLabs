@@ -120,7 +120,7 @@ class MnistDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNoteb
   val outputSize = Array[Int](10)
   val trainingTime = 5
 
-  lazy val model = log.eval {
+  model = log.eval {
     var model: PipelineNetwork = new PipelineNetwork
     model.add(new MonitoringWrapper(new BiasLayer(inputSize: _*)).addTo(monitoringRoot, "inbias"))
     model.add(new MonitoringWrapper(new DenseSynapseLayer(inputSize, outputSize)

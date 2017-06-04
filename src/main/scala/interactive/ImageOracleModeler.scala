@@ -72,7 +72,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     })
   )
 
-  def model = {
+  model = {
     var network: PipelineNetwork = new PipelineNetwork
 
     val input = network.getInput(0)
@@ -89,7 +89,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     network
   }
 
-  def train(data: List[Array[Tensor]], model: PipelineNetwork) {
+  def train(data: List[Array[Tensor]]) {
     val monitor = new TrainingMonitor {
       var lastCheckpoint = System.currentTimeMillis()
 
@@ -166,7 +166,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
   def run(): Unit = {
     defineMonitorReports()
     out.out("<hr/>")
-    train(data, model)
+    train(data)
     IOUtil.writeKryo(model, out.file("model_final.kryo"))
     summarizeHistory()
     out.out("<hr/>")

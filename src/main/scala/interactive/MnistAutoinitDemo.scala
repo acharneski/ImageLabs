@@ -179,7 +179,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
     }
   }
 
-  lazy val model = log.eval {
+  model = log.eval {
     var model: PipelineNetwork = new PipelineNetwork
     model.add(new MonitoringWrapper(component1).addTo(monitoringRoot, "component1"))
     model.add(new MonitoringSynapse().addTo(monitoringRoot, "pre-softmax"))
