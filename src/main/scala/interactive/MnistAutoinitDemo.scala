@@ -99,6 +99,23 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
     model
   }
 
+  def normalizePosition(component : NNLayer) = log.eval {
+    var model: PipelineNetwork = new PipelineNetwork
+    val componentNode = model.add(component)
+    val means = model.add(new AvgMetaLayer(), componentNode)
+    model.add(new BiasMetaLayer(), componentNode, model.add(new LinearActivationLayer().setScale(-1).freeze(), means))
+    model
+  }
+
+  def normalizeScale(component : NNLayer) = log.eval {
+    var model: PipelineNetwork = new PipelineNetwork
+    val componentNode = model.add(component)
+    model.add(new SqActivationLayer(), componentNode)
+    val variances = model.add(new AvgMetaLayer(), componentNode)
+    model.add(new ScaleMetaLayer(), componentNode, model.add(new NthPowerActivationLayer().setPower(-0.5), variances))
+    model
+  }
+
   def autoinitializer(component : NNLayer) = log.eval {
     var model: PipelineNetwork = new PipelineNetwork
     model.add(new MonitoringWrapper(component).addTo(monitoringRoot, "component1init"))

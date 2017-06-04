@@ -25,7 +25,7 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-import _root_.util._
+import _root_.util.{NetworkMetaNormalizers, _}
 import com.simiacryptus.mindseye.layers.NNLayer
 import com.simiacryptus.mindseye.layers.activation.{HyperbolicActivationLayer, LinearActivationLayer, ReLuActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
@@ -105,6 +105,8 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
       .setWeights(Java8Util.cvt(() ⇒ 0.1 * (Random.nextDouble()-0.5)))).addTo(monitoringRoot, "synapse3"))
     network.add(new MonitoringWrapper(new HyperbolicActivationLayer().setScale(0.01).setName("hypr3")).addTo(monitoringRoot))
     network.add(new MonitoringWrapper(new BiasLayer(outputSize: _*)).addTo(monitoringRoot, "outbias"))
+    network.add(NetworkMetaNormalizers.positionNormalizer2)
+    network.add(NetworkMetaNormalizers.scaleNormalizer2)
     network.add(new MonitoringWrapper(new LinearActivationLayer().setScale(0.001).setName("OutputLinear")).addTo(monitoringRoot))
     network.add(new MonitoringSynapse().addTo(monitoringRoot, "output3"))
     network.add(new SoftmaxActivationLayer)
@@ -118,14 +120,14 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
       val executorFunction = ScheduledSampleTrainable.Pow(data.toArray, trainingNetwork, 50,1.0,0.0).setShuffled(false)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction).setCurrentIteration(iterationCounter)
-      trainer.setOrientation(new TrustRegionStrategy(new GradientDescent) {
+      trainer.setOrientation(new TrustRegionStrategy(new LBFGS) {
         override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
           case _: MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
-          case _: DenseSynapseLayer ⇒ new LinearSumConstraint
-          case _: ImgConvolutionSynapseLayer ⇒ new LinearSumConstraint
+          case _: DenseSynapseLayer ⇒ null // new LinearSumConstraint
+          case _: ImgConvolutionSynapseLayer ⇒ null // new LinearSumConstraint
           case _: BiasLayer ⇒ null
           case _: ImgBandBiasLayer ⇒ null
-          case _ ⇒ new StaticConstraint
+          case _ ⇒ null
         }
       })
       trainer.setMonitor(monitor)

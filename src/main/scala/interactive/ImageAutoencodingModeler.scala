@@ -89,7 +89,7 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
     val executor = ScheduledSampleTrainable.Pow(data.toArray, trainingNetwork, 100, 1.0, 0.0).setShuffled(true)
     val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executor)
     trainer.setMonitor(monitor)
-    trainer.setTimeout(3, TimeUnit.HOURS)
+    trainer.setTimeout(12, TimeUnit.HOURS)
     trainer.setOrientation(new MomentumStrategy(
       new LBFGS().setMinHistory(10).setMaxHistory(20)
     ).setCarryOver(0.2))
@@ -97,7 +97,8 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
     trainer
   }.run()
 
-  val dropoutNoiseLayer = new DropoutNoiseLayer(0.5)
+  private val dropoutFactor = 0.3
+  val dropoutNoiseLayer = new DropoutNoiseLayer(dropoutFactor)
   val gainAdjLayer = new LinearActivationLayer().freeze().asInstanceOf[LinearActivationLayer]
   lazy val model: PipelineNetwork = {
     var network: PipelineNetwork = new PipelineNetwork
@@ -113,9 +114,9 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
 
   override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
     dropoutNoiseLayer.setValue(0.0)
-    gainAdjLayer.setScale(0.5)
+    gainAdjLayer.setScale(1/(1-dropoutFactor))
     modelCheckpoint = KryoUtil.kryo().copy(model)
-    dropoutNoiseLayer.setValue(0.5)
+    dropoutNoiseLayer.setValue(dropoutFactor)
     gainAdjLayer.setScale(1.0)
     dropoutNoiseLayer.shuffle()
   }
