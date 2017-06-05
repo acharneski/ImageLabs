@@ -21,11 +21,12 @@ package interactive
 
 import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
-import java.io.File
+import java.io.{File, FileInputStream}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 import _root_.util.{NetworkMetaNormalizers, _}
+import com.google.gson.{GsonBuilder, JsonObject}
 import com.simiacryptus.mindseye.layers.NNLayer
 import com.simiacryptus.mindseye.layers.activation.{HyperbolicActivationLayer, LinearActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
@@ -42,6 +43,7 @@ import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.test.ImageTiles.ImageTensorLoader
 import com.simiacryptus.util.test.LabeledObject
 import com.simiacryptus.util.text.TableOutput
+import org.apache.commons.io.IOUtils
 import org.apache.spark.sql.SparkSession
 import util.Java8Util._
 
@@ -85,7 +87,6 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
   )
   val outputSize = Array[Int](3)
   val sampleTiles = 1000
-  val iterationCounter = new AtomicInteger(0)
 
   lazy val (categories: Map[String, Int], data: List[Array[Tensor]]) = {
     out.p("Loading data from " + source)
@@ -116,7 +117,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     defineMonitorReports()
     declareTestHandler()
     out.out("<hr/>")
-    step1()
+    if(!new File("initialized.json").exists()) step1()
     step2()
     profit()
     waitForExit()
@@ -145,13 +146,14 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     network.add(new MonitoringWrapper(new HyperbolicActivationLayer().setScale(0.01).setName("hypr3")).addTo(monitoringRoot))
     val outputBias = new BiasLayer(outputSize: _*)
     network.add(new MonitoringWrapper(outputBias).addTo(monitoringRoot, "outbias"))
-    network.add(NetworkMetaNormalizers.positionNormalizer2)
-    network.add(NetworkMetaNormalizers.scaleNormalizer2)
+    //network.add(NetworkMetaNormalizers.positionNormalizer2)
+    //network.add(NetworkMetaNormalizers.scaleNormalizer2)
     network.add(new MonitoringWrapper(new LinearActivationLayer().setScale(0.001).setName("OutputLinear")).addTo(monitoringRoot))
     network.add(new MonitoringSynapse().addTo(monitoringRoot, "output3"))
     network.add(new SoftmaxActivationLayer)
     network.asInstanceOf[NNLayer]
   }, (model: NNLayer) ⇒ {
+    val iterationCounter = new AtomicInteger(0)
     val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
     val executorFunction = ScheduledSampleTrainable.Pow(data.toArray, trainingNetwork, 50, 1.0, 0.0).setShuffled(true)
     val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
@@ -170,14 +172,13 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     trainer.setTimeout(1, TimeUnit.HOURS)
     trainer.setTerminateThreshold(0.0)
     trainer.setMaxIterations(10)
-    trainer.run()
+    require(trainer.run() < 2.0)
   }: Unit, "initialized.json")
 
   def step2() = phase("initialized.json", (model: NNLayer) ⇒ {
     val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
     val executorFunction = ScheduledSampleTrainable.Pow(data.toArray, trainingNetwork, 50, 1.0, 0.0).setShuffled(true)
     val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
-      .setCurrentIteration(iterationCounter)
       .setIterationsPerSample(5)
     trainer.setOrientation(new TrustRegionStrategy(new MomentumStrategy(new GradientDescent).setCarryOver(0.3)) {
       override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {

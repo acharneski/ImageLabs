@@ -306,10 +306,14 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
 
   def phase(initializer: ⇒ NNLayer, fn: NNLayer ⇒ NNLayer, onComplete: NNLayer ⇒ Unit): Unit = {
     model = initializer
-    model = fn(model)
-    summarizeHistory(out)
-    Await.result(regenerateReports, Duration(1,TimeUnit.MINUTES))
-    onComplete(model)
+    try {
+      onComplete(fn(model))
+    } catch {
+      case e : Throwable ⇒ throw e
+    } finally {
+      summarizeHistory(out)
+      Await.result(regenerateReports, Duration(1,TimeUnit.MINUTES))
+    }
   }
 
 }
