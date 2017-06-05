@@ -69,9 +69,9 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
 
     override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
       try {
-        modelCheckpoint = KryoUtil.kryo().copy(model)
         history += currentPoint
         if(0 == currentPoint.iteration % checkpointFrequency) {
+          modelCheckpoint = KryoUtil.kryo().copy(model)
           IOUtil.writeKryo(model, out.file("model_checkpoint_" + currentPoint.iteration + ".kryo"))
           IOUtil.writeString(model.getJsonString, out.file("../model_checkpoint.json"))
         }

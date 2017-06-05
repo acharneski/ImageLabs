@@ -86,7 +86,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     })
   )
   val outputSize = Array[Int](3)
-  val sampleTiles = 1000
+  val sampleTiles = 20000
 
   lazy val (categories: Map[String, Int], data: List[Array[Tensor]]) = {
     out.p("Loading data from " + source)
@@ -177,7 +177,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
 
   def step2() = phase("initialized.json", (model: NNLayer) ⇒ {
     val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
-    val executorFunction = ScheduledSampleTrainable.Pow(data.toArray, trainingNetwork, 50, 1.0, 0.0).setShuffled(true)
+    val executorFunction = ScheduledSampleTrainable.Pow(data.toArray, trainingNetwork, 1000, 1.0, 0.0).setShuffled(true)
     val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
       .setIterationsPerSample(5)
     trainer.setOrientation(new TrustRegionStrategy(new MomentumStrategy(new GradientDescent).setCarryOver(0.3)) {
