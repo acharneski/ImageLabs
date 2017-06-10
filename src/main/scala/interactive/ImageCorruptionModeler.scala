@@ -22,12 +22,13 @@ package interactive
 import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
 import java.io.{File, FileInputStream}
+import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-import _root_.util.{NetworkMetaNormalizers, _}
+import _root_.util._
 import com.google.gson.{GsonBuilder, JsonObject}
-import com.simiacryptus.mindseye.layers.NNLayer
+import com.simiacryptus.mindseye.layers.{NNLayer, NNResult}
 import com.simiacryptus.mindseye.layers.activation.{HyperbolicActivationLayer, LinearActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer, MaxSubsampleLayer, SumSubsampleLayer}
@@ -35,8 +36,9 @@ import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
+import com.simiacryptus.mindseye.opt.line.ArmijoWolfeConditions
 import com.simiacryptus.mindseye.opt.region._
-import com.simiacryptus.mindseye.opt.trainable.ScheduledSampleTrainable
+import com.simiacryptus.mindseye.opt.trainable.{ArrayTrainable, LinkedExampleArrayTrainable, ScheduledSampleTrainable}
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.HtmlNotebookOutput
 import com.simiacryptus.util.ml.Tensor
@@ -78,33 +80,73 @@ object ImageCorruptionModeler extends ServiceNotebook {
 
 class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 
-  val corruptors = Map[String, Tensor ⇒ Tensor](
-    "resample8x" → (imgTensor ⇒ {
-      Tensor.fromRGB(resize(resize(imgTensor.toRgbImage, 8), 64))
-    }), "resample4x" → (imgTensor ⇒ {
-      Tensor.fromRGB(resize(resize(imgTensor.toRgbImage, 16), 64))
-    })
-  )
-  val outputSize = Array[Int](3)
-  val sampleTiles = 20000
+  val corruptors = {
+    def resize(source: BufferedImage, size: Int) = {
+      val image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB)
+      val graphics = image.getGraphics.asInstanceOf[Graphics2D]
+      graphics.asInstanceOf[Graphics2D].setRenderingHints(new RenderingHints(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC))
+      graphics.drawImage(source, 0, 0, size, size, null)
+      image
+    }
+    Map[String, Tensor ⇒ Tensor](
+      "resample8x" → (imgTensor ⇒ {
+        Tensor.fromRGB(resize(resize(imgTensor.toRgbImage, 8), 64))
+      }), "resample4x" → (imgTensor ⇒ {
+        Tensor.fromRGB(resize(resize(imgTensor.toRgbImage, 16), 64))
+      })
+    )
+  }
 
-  lazy val (categories: Map[String, Int], data: List[Array[Tensor]]) = {
+  val outputSize = Array[Int](3)
+  val sampleTiles = 1000
+  val iterationCounter = new AtomicInteger(0)
+
+  lazy val (categories: Map[String, Int], data: Array[Array[Array[Tensor]]]) = {
+    def toOut(label: String, max: Int): Int = {
+      (0 until max).find(label == "[" + _ + "]").get
+    }
+    def toOutNDArray(out: Int, max: Int): Tensor = {
+      val ndArray = new Tensor(max)
+      ndArray.set(out, 1)
+      ndArray
+    }
+
+    val labels = List("original") ++ corruptors.keys.toList.sorted
+    val categories: Map[String, Int] = labels.zipWithIndex.toMap
+
+    val filename = "filterNetwork.json"
+    val preFilter : Seq[Tensor] ⇒ Seq[Tensor] = if(new File(filename).exists()) {
+      val filterNetwork = NNLayer.fromJson(new GsonBuilder().create().fromJson(IOUtils.toString(new FileInputStream(filename), "UTF-8"), classOf[JsonObject]))
+      (obj:Seq[Tensor]) ⇒ {
+        filterNetwork.eval(NNResult.batchResultArray(obj.map(y⇒Array(y)).toArray):_*).data.zip(obj).filter(x⇒{
+          val (result,obj) = x
+          val certianty = categories.toList.sortBy(_._2).map(_._1)
+            .zip(result.getData.map(_ * 100.0))
+            .sortBy(_._2).reverse.head._2
+          certianty > 50
+        }).map(_._2)
+      }
+    } else {
+      x⇒x
+    }
+
     out.p("Loading data from " + source)
     val loader = new ImageTensorLoader(new File(source), 64, 64, 64, 64, 10, 10)
-    val rawData: List[LabeledObject[Tensor]] = loader.stream().iterator().asScala.toStream.flatMap(tile ⇒ List(
+    val unfilteredData = loader.stream().iterator().asScala.take(sampleTiles).toArray
+    loader.stop()
+    out.p("Preparing training dataset")
+
+    val rawData: List[List[LabeledObject[Tensor]]] = preFilter(unfilteredData).map(tile ⇒ List(
       new LabeledObject[Tensor](tile, "original")
     ) ++ corruptors.map(e ⇒ {
       new LabeledObject[Tensor](e._2(tile), e._1)
     })).take(sampleTiles).toList
-    loader.stop()
-    val labels = List("original") ++ corruptors.keys.toList.sorted
-    val categories: Map[String, Int] = labels.zipWithIndex.toMap
     out.p("<ol>" + categories.toList.sortBy(_._2).map(x ⇒ "<li>" + x + "</li>").mkString("\n") + "</ol>")
-    val data: List[Array[Tensor]] = rawData.map((labeledObj: LabeledObject[Tensor]) ⇒ {
+    val data: Array[Array[Array[Tensor]]] = rawData.map(rawData⇒rawData.map((labeledObj: LabeledObject[Tensor]) ⇒ {
       Array(labeledObj.data, toOutNDArray(categories(labeledObj.label), categories.size))
-    })
+    }).toArray).toArray
     out.eval {
-      TableOutput.create(rawData.take(100).map(testObj ⇒ Map[String, AnyRef](
+      TableOutput.create(rawData.flatten.take(100).map(testObj ⇒ Map[String, AnyRef](
         "Image" → out.image(testObj.data.toRgbImage(), testObj.data.toString),
         "Label" → testObj.label
       ).asJava): _*)
@@ -118,44 +160,77 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     declareTestHandler()
     out.out("<hr/>")
     if(!new File("initialized.json").exists()) step1()
-    step2()
+    if(!new File("trained.json").exists()) step2()
+    adversarialTraining()
     profit()
     waitForExit()
   }
 
-  def profit() = {
-    out.out("<hr/>")
-  }
-
   def step1() = phase({
     var network: PipelineNetwork = new PipelineNetwork
-    network.add(new MonitoringWrapper(new ImgBandBiasLayer(3)).addTo(monitoringRoot, "inbias"))
+    network.add(new MonitoringWrapper(new ImgBandBiasLayer(3).setName("inbias")).addTo(monitoringRoot))
     network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5, 5, 36)
-      .setWeights(Java8Util.cvt(() ⇒ 0.1 * (Random.nextDouble() - 0.5)))).addTo(monitoringRoot, "synapse1"))
+      .setWeights(Java8Util.cvt(() ⇒ 0.1 * (Random.nextDouble() - 0.5))).setName("synapse1")).addTo(monitoringRoot))
     network.add(new MonitoringWrapper(new HyperbolicActivationLayer().setScale(0.01).setName("hypr1")).addTo(monitoringRoot))
-    network.add(new MonitoringWrapper(new MaxSubsampleLayer(2, 2, 1)).addTo(monitoringRoot, "max1"))
+    network.add(new MonitoringWrapper(new MaxSubsampleLayer(2, 2, 1).setName("max1")).addTo(monitoringRoot))
+    //network.add(NetworkMetaNormalizers.scaleNormalizer2)
     network.add(new MonitoringSynapse().addTo(monitoringRoot, "output1"))
+
+    // 32 * 32 * 12
     network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5, 5, 240)
-      .setWeights(Java8Util.cvt(() ⇒ 0.05 * (Random.nextDouble() - 0.5)))).addTo(monitoringRoot, "synapse2"))
+      .setWeights(Java8Util.cvt(() ⇒ 0.05 * (Random.nextDouble() - 0.5))).setName("synapse2")).addTo(monitoringRoot))
     network.add(new MonitoringWrapper(new HyperbolicActivationLayer().setScale(0.01).setName("hypr2")).addTo(monitoringRoot))
-    network.add(new MonitoringWrapper(new MaxSubsampleLayer(2, 2, 1)).addTo(monitoringRoot, "max2"))
-    network.add(new MonitoringWrapper(new SumSubsampleLayer(16, 16, 1)).addTo(monitoringRoot, "max3"))
+    network.add(new MonitoringWrapper(new MaxSubsampleLayer(2, 2, 1).setName("max2")).addTo(monitoringRoot))
+    //network.add(NetworkMetaNormalizers.scaleNormalizer2)
     network.add(new MonitoringSynapse().addTo(monitoringRoot, "output2"))
-    network.add(new MonitoringWrapper(new DenseSynapseLayer(Array[Int](1, 1, 20), outputSize)
-      .setWeights(Java8Util.cvt(() ⇒ 0.1 * (Random.nextDouble() - 0.5)))).addTo(monitoringRoot, "synapse3"))
+
+    // 16 * 16 * 20
+    network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5, 5, 400)
+      .setWeights(Java8Util.cvt(() ⇒ 0.05 * (Random.nextDouble() - 0.5))).setName("synapse3")).addTo(monitoringRoot))
     network.add(new MonitoringWrapper(new HyperbolicActivationLayer().setScale(0.01).setName("hypr3")).addTo(monitoringRoot))
-    val outputBias = new BiasLayer(outputSize: _*)
-    network.add(new MonitoringWrapper(outputBias).addTo(monitoringRoot, "outbias"))
+    network.add(new MonitoringWrapper(new MaxSubsampleLayer(2, 2, 1).setName("max3")).addTo(monitoringRoot))
+    //network.add(NetworkMetaNormalizers.scaleNormalizer2)
+    network.add(new MonitoringSynapse().addTo(monitoringRoot, "output3"))
+
+    // 8 * 8 * 20
+    network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5, 5, 400)
+      .setWeights(Java8Util.cvt(() ⇒ 0.05 * (Random.nextDouble() - 0.5))).setName("synapse4")).addTo(monitoringRoot))
+    network.add(new MonitoringWrapper(new HyperbolicActivationLayer().setScale(0.01).setName("hypr4")).addTo(monitoringRoot))
+    network.add(new MonitoringWrapper(new MaxSubsampleLayer(2, 2, 1).setName("max4")).addTo(monitoringRoot))
     //network.add(NetworkMetaNormalizers.positionNormalizer2)
     //network.add(NetworkMetaNormalizers.scaleNormalizer2)
+    network.add(new MonitoringSynapse().addTo(monitoringRoot, "output4"))
+
+    // 4 * 4 * 20
+    network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5, 5, 400)
+      .setWeights(Java8Util.cvt(() ⇒ 0.05 * (Random.nextDouble() - 0.5))).setName("synapse5")).addTo(monitoringRoot))
+    network.add(new MonitoringWrapper(new HyperbolicActivationLayer().setScale(0.01).setName("hypr5")).addTo(monitoringRoot))
+    network.add(new MonitoringWrapper(new MaxSubsampleLayer(2, 2, 1).setName("max5")).addTo(monitoringRoot))
+    //network.add(NetworkMetaNormalizers.scaleNormalizer2)
+    network.add(new MonitoringSynapse().addTo(monitoringRoot, "output5"))
+
+    // 2 * 2 * 20
+    network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5, 5, 800)
+      .setWeights(Java8Util.cvt(() ⇒ 0.05 * (Random.nextDouble() - 0.5))).setName("synapse6")).addTo(monitoringRoot))
+    network.add(new MonitoringWrapper(new HyperbolicActivationLayer().setScale(0.01).setName("hypr6")).addTo(monitoringRoot))
+    network.add(new MonitoringWrapper(new MaxSubsampleLayer(2, 2, 1).setName("max6")).addTo(monitoringRoot))
+    //network.add(NetworkMetaNormalizers.scaleNormalizer2)
+    network.add(new MonitoringSynapse().addTo(monitoringRoot, "output6"))
+
+    // 1 * 1 * 40
+    network.add(new MonitoringWrapper(new DenseSynapseLayer(Array[Int](1, 1, 40), outputSize)
+      .setWeights(Java8Util.cvt(() ⇒ 0.1 * (Random.nextDouble() - 0.5))).setName("synapseF")).addTo(monitoringRoot))
+    network.add(new MonitoringWrapper(new HyperbolicActivationLayer().setScale(0.01).setName("hyprF")).addTo(monitoringRoot))
+    val outputBias = new BiasLayer(outputSize: _*)
+    network.add(new MonitoringWrapper(outputBias.setName("biasF")).addTo(monitoringRoot))
+
     network.add(new MonitoringWrapper(new LinearActivationLayer().setScale(0.001).setName("OutputLinear")).addTo(monitoringRoot))
-    network.add(new MonitoringSynapse().addTo(monitoringRoot, "output3"))
+    network.add(new MonitoringSynapse().addTo(monitoringRoot, "outputF"))
     network.add(new SoftmaxActivationLayer)
     network.asInstanceOf[NNLayer]
   }, (model: NNLayer) ⇒ {
-    val iterationCounter = new AtomicInteger(0)
     val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
-    val executorFunction = ScheduledSampleTrainable.Pow(data.toArray, trainingNetwork, 50, 1.0, 0.0).setShuffled(true)
+    val executorFunction = new LinkedExampleArrayTrainable(data, trainingNetwork, 50)
     val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
       .setCurrentIteration(iterationCounter)
       .setIterationsPerSample(1)
@@ -164,7 +239,6 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
         case _: MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
         case _: DenseSynapseLayer ⇒ new MeanVarianceGradient
         case _: ImgConvolutionSynapseLayer ⇒ new MeanVarianceGradient
-        case _: BiasLayer ⇒ new StaticConstraint
         case _ ⇒ null
       }
     })
@@ -177,23 +251,159 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
 
   def step2() = phase("initialized.json", (model: NNLayer) ⇒ {
     val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
-    val executorFunction = ScheduledSampleTrainable.Pow(data.toArray, trainingNetwork, 1000, 1.0, 0.0).setShuffled(true)
+    val executorFunction = new LinkedExampleArrayTrainable(data, trainingNetwork, 50)
     val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
-      .setIterationsPerSample(5)
-    trainer.setOrientation(new TrustRegionStrategy(new MomentumStrategy(new GradientDescent).setCarryOver(0.3)) {
+      .setIterationsPerSample(10)
+    trainer.setLineSearchFactory(Java8Util.cvt(()⇒new ArmijoWolfeConditions().setC1(1e-4).setC2(0.7)))
+    trainer.setOrientation(new TrustRegionStrategy(new MomentumStrategy(new GradientDescent()).setCarryOver(0.2)) {
       override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
         case _: MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
-        case _: DenseSynapseLayer ⇒ null
-        case _: ImgConvolutionSynapseLayer ⇒ null
-        case _ ⇒ new StaticConstraint
+        //        case _: HyperbolicActivationLayer ⇒ new StaticConstraint
+        //        case _: DenseSynapseLayer ⇒ new LinearSumConstraint
+        //        case _: LinearActivationLayer ⇒ new StaticConstraint
+        //        case _: ImgConvolutionSynapseLayer ⇒ null
+        //        case _: BiasLayer ⇒ new StaticConstraint
+        case _ ⇒ null
       }
     })
     trainer.setMonitor(monitor)
-    trainer.setTimeout(6, TimeUnit.HOURS)
+    trainer.setTimeout(2, TimeUnit.HOURS)
     trainer.setTerminateThreshold(0.0)
     trainer.setMaxIterations(5000)
     trainer.run()
   }: Unit, "trained.json")
+
+  def adversarialTraining() = phase("trained2.json", (model: NNLayer) ⇒ {
+    Random.shuffle(data.map(_.head.toList.toArray).toList).grouped(5).take(5).foreach(srcimages⇒{
+      val adversarialTrainingSet: Array[Array[Array[Tensor]]] = srcimages.map((testObj: Array[Tensor]) ⇒ {
+        (corruptors.map(x ⇒{
+          val (name,fn) = x
+          val corruptedImage = fn.apply(testObj(0))
+          val corruptedData = corruptedImage
+          val adversarial = buildAdversarialImage(model, corruptedData, "original")
+          Array(adversarial, new Tensor(categories.size).set(categories(name), 1.0))
+        }) ++ List(testObj)).toArray
+      }).toArray
+      out.eval {
+        TableOutput.create(adversarialTrainingSet.flatMap(testObj ⇒ {
+          testObj.map((testObj: Array[Tensor]) ⇒{
+            Map[String, AnyRef](
+              "Image" → out.image(testObj(0).toRgbImage(), "Image"),
+              "Class" → testObj(1),
+              "Predicted" → categories.toList.sortBy(_._2).map(_._1)
+                .zip(getModelCheckpoint.eval(testObj(0)).data.head.getData.map(_ * 100.0))
+            ).asJava
+          })
+        }).take(10): _*)
+      }
+      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
+      val executorFunction = new ArrayTrainable(adversarialTrainingSet.flatten, trainingNetwork)
+      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
+      trainer.setLineSearchFactory(Java8Util.cvt(()⇒new ArmijoWolfeConditions().setC1(1e-4).setC2(0.99)))
+      trainer.setOrientation(new TrustRegionStrategy(new LBFGS) {
+        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
+          case _: MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
+          case _: DenseSynapseLayer ⇒ new LinearSumConstraint
+          case _: ImgConvolutionSynapseLayer ⇒ null
+          case _ ⇒ new StaticConstraint
+        }
+      })
+      trainer.setMonitor(monitor)
+      trainer.setTimeout(1, TimeUnit.HOURS)
+      trainer.setTerminateThreshold(0.9)
+      trainer.setMaxIterations(100)
+      trainer.run()
+    })
+  }: Unit, "trained2.json")
+
+  def resize(source: BufferedImage, size: Int) = {
+    val image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB)
+    val graphics = image.getGraphics.asInstanceOf[Graphics2D]
+    graphics.asInstanceOf[Graphics2D].setRenderingHints(new RenderingHints(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC))
+    graphics.drawImage(source, 0, 0, size, size, null)
+    image
+  }
+
+  def profit() = phase("trained2.json", (model: NNLayer) ⇒ {
+    out.eval {
+      TableOutput.create(Random.shuffle(data.map(_.head).toList).take(10).map(testObj ⇒ {
+        val corruptedImage = resize(resize(testObj(0).toRgbImage, 16), 64)
+        val corruptedData = Tensor.fromRGB(corruptedImage)
+        val reconstructed = reconstructImage(model, corruptedData, "original").toRgbImage
+        Map[String, AnyRef](
+          "Original Image" → out.image(testObj(0).toRgbImage(), "Original Image"),
+          "Corrupted" → out.image(corruptedImage, "Corrupted Image"),
+          "Reconstructed" → out.image(reconstructed,"Reconstructed Image")
+        ).asJava
+      }): _*)
+    }
+  }: Unit)
+
+  def buildAdversarialImage(model: NNLayer, data: Tensor, targetCategory: String): Tensor = {
+    val trainableNet = new PipelineNetwork()
+    val imageCorrections = new BiasLayer(64, 64, 3)
+    val modelInput = trainableNet.add(imageCorrections)
+    trainableNet.add(model)
+    val tensor = new Tensor(categories.size)
+    val certianty = 0.95
+    tensor.setAll((1-certianty)/(categories.size-1))
+    tensor.set(categories(targetCategory), certianty)
+    val goal = trainableNet.constValue(tensor)
+    trainableNet.add(new EntropyLossLayer(), trainableNet.getHead, goal)
+    val executorFunction = new ArrayTrainable(Array(Array(data)), trainableNet)
+    val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
+    trainer.setLineSearchFactory(Java8Util.cvt(() ⇒ new ArmijoWolfeConditions().setC1(1e-4).setC2(0.7)))
+    trainer.setOrientation(new TrustRegionStrategy(new LBFGS) {
+      override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
+        case l: BiasLayer if l.id.equals(imageCorrections.getId) ⇒ new TrustRegion() {
+          override def project(history: Array[Array[Double]], point: Array[Double]): Array[Double] = {
+            point.map(x⇒Math.min(Math.max(x,-255),255))
+          }
+        }
+        case _ ⇒ new StaticConstraint
+      }
+    })
+    trainer.setMonitor(new TrainingMonitor{
+      override def log(msg: String): Unit = println(msg)
+    })
+    trainer.setTimeout(1, TimeUnit.MINUTES)
+    trainer.setTerminateThreshold(0.45)
+    trainer.setMaxIterations(20)
+    trainer.run()
+    imageCorrections.eval(data).data.head
+  }
+
+  def reconstructImage(model: NNLayer, data: Tensor, targetCategory: String): Tensor = {
+    val trainableNet = new PipelineNetwork()
+    val imageCorrections = new BiasLayer(64, 64, 3)
+    val modelInput = trainableNet.add(imageCorrections)
+    trainableNet.add(model)
+    val tensor = new Tensor(categories.size)
+    tensor.set(categories(targetCategory), 1)
+    val goal = trainableNet.constValue(tensor)
+    trainableNet.add(new EntropyLossLayer(), trainableNet.getHead, goal)
+    val executorFunction = new ArrayTrainable(Array(Array(data)), trainableNet)
+    val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
+    trainer.setLineSearchFactory(Java8Util.cvt(() ⇒ new ArmijoWolfeConditions().setC1(1e-4).setC2(0.7)))
+    trainer.setOrientation(new TrustRegionStrategy(new LBFGS) {
+      override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
+        case l: BiasLayer if l.id.equals(imageCorrections.getId) ⇒ new TrustRegion() {
+          override def project(history: Array[Array[Double]], point: Array[Double]): Array[Double] = {
+            point.map(x⇒Math.min(Math.max(x,-255),255))
+          }
+        }
+        case _ ⇒ new StaticConstraint
+      }
+    })
+    trainer.setMonitor(new TrainingMonitor{
+      override def log(msg: String): Unit = println(msg)
+    })
+    trainer.setTimeout(1, TimeUnit.MINUTES)
+    trainer.setTerminateThreshold(0.0)
+    trainer.setMaxIterations(100)
+    trainer.run()
+    imageCorrections.eval(data).data.head
+  }
 
   def declareTestHandler() = {
     out.p("<a href='test.html'>Test</a>")
@@ -201,7 +411,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
       Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(out ⇒ {
         try {
           out.eval {
-            TableOutput.create(Random.shuffle(data).take(100).map(testObj ⇒ Map[String, AnyRef](
+            TableOutput.create(Random.shuffle(data.flatten.toList).take(100).map(testObj ⇒ Map[String, AnyRef](
               "Image" → out.image(testObj(0).toRgbImage(), ""),
               "Categorization" → categories.toList.sortBy(_._2).map(_._1)
                 .zip(getModelCheckpoint.eval(testObj(0)).data.head.getData.map(_ * 100.0))
@@ -212,24 +422,6 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
         }
       })
     }), false)
-  }
-
-  def resize(source: BufferedImage, size: Int) = {
-    val image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB)
-    val graphics = image.getGraphics.asInstanceOf[Graphics2D]
-    graphics.asInstanceOf[Graphics2D].setRenderingHints(new RenderingHints(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC))
-    graphics.drawImage(source, 0, 0, size, size, null)
-    image
-  }
-
-  def toOut(label: String, max: Int): Int = {
-    (0 until max).find(label == "[" + _ + "]").get
-  }
-
-  def toOutNDArray(out: Int, max: Int): Tensor = {
-    val ndArray = new Tensor(max)
-    ndArray.set(out, 1)
-    ndArray
   }
 
 }

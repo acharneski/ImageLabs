@@ -42,6 +42,7 @@ import scala.concurrent.{Await, Future}
 import ArrayUtil._
 import com.aparapi.internal.kernel.KernelManager
 import com.google.gson.{GsonBuilder, JsonObject}
+import com.simiacryptus.mindseye.network.graph.DAGNetwork
 import org.apache.commons.io.IOUtils
 
 import scala.collection.mutable
@@ -50,7 +51,7 @@ import scala.concurrent.duration.Duration
 abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) {
 
   val history = new scala.collection.mutable.ArrayBuffer[IterativeTrainer.Step]()
-  val logOut = new TeeOutputStream(out.file("log.txt"), true)
+  val logOut = new TeeOutputStream(out.file("../log.txt"), true)
   val logPrintStream = new PrintStream(logOut)
   val monitoringRoot = new MonitoredObject()
   val dataTable = new TableOutput()
@@ -288,12 +289,12 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
     onExit.acquire()
   }
 
-  def phase(inputFile: String, fn: NNLayer ⇒ Unit, outputFile: String): Unit = {
+  def phase(inputFile: String, fn: NNLayer ⇒ Unit, outputFile: String = ""): Unit = {
     phase(NNLayer.fromJson(new GsonBuilder().create().fromJson(IOUtils.toString(new FileInputStream(inputFile), "UTF-8"), classOf[JsonObject])),
       layer ⇒ {
         fn(layer)
         layer
-      }, model ⇒ IOUtil.writeString(model.getJsonString, new FileOutputStream(outputFile)))
+      }, model ⇒ if(!outputFile.isEmpty) IOUtil.writeString(model.getJsonString, new FileOutputStream(outputFile)))
   }
 
   def phase(input: ⇒ NNLayer, fn: NNLayer ⇒ Unit, outputFile: String): Unit = {
@@ -307,12 +308,13 @@ abstract class MindsEyeNotebook(server: StreamNanoHTTPD, out: HtmlNotebookOutput
   def phase(initializer: ⇒ NNLayer, fn: NNLayer ⇒ NNLayer, onComplete: NNLayer ⇒ Unit): Unit = {
     model = initializer
     try {
+      model.asInstanceOf[DAGNetwork].attach(monitoringRoot)
       onComplete(fn(model))
     } catch {
       case e : Throwable ⇒ throw e
     } finally {
       summarizeHistory(out)
-      Await.result(regenerateReports, Duration(1,TimeUnit.MINUTES))
+      Await.result(regenerateReports, Duration(10,TimeUnit.MINUTES))
     }
   }
 

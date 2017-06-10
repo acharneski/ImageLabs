@@ -20,7 +20,8 @@
 package util
 
 import java.io.{File, FileNotFoundException}
-import java.util.UUID
+import java.text.SimpleDateFormat
+import java.util.{Date, UUID}
 
 import com.simiacryptus.util.io.HtmlNotebookOutput
 import com.simiacryptus.util.{StreamNanoHTTPD, Util}
@@ -28,7 +29,8 @@ import com.simiacryptus.util.{StreamNanoHTTPD, Util}
 trait ServiceNotebook {
   def report[T](fn: (StreamNanoHTTPD, HtmlNotebookOutput with ScalaNotebookOutput) ⇒ T,
                 port: Int = 1024 + (Math.random() * 0x700).toInt): T = try {
-    val path = new File(Util.mkString(File.separator, "www", UUID.randomUUID.toString))
+    val directoryName = new SimpleDateFormat("YYYY-MM-dd-HH-mm").format(new Date())
+    val path = new File(Util.mkString(File.separator, "www", directoryName))
     path.mkdirs
     val logFile = new File(path, "index.html")
     //val port: Int = 0x1FF + (Math.random() * 0x700).toInt
