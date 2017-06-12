@@ -162,7 +162,7 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
   var blockAtEnd: Boolean = true
 
   def run(): Unit = {
-    defineMonitorReports()
+    defineHeader()
     require(null != data)
     out.p("<a href='test.html'>Test Reconstruction</a>")
     server.addAsyncHandler("test.html", "text/html", cvt(o ⇒ {

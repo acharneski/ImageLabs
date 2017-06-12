@@ -228,7 +228,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
     log.h2("Model")
     log.p("Here we define the logic network that we are about to train: ")
     model
-    defineMonitorReports()
+    defineHeader()
 
     log.p("<a href='/test.html'>Validation Report</a>")
     server.addSyncHandler("test.html", "text/html", Java8Util.cvt(out ⇒ {

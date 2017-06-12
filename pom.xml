@@ -69,6 +69,11 @@
         </dependency>
         <dependency>
             <groupId>com.simiacryptus</groupId>
+            <artifactId>mindseye-scala</artifactId>
+            <version>1.1.1-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>com.simiacryptus</groupId>
             <artifactId>java-util</artifactId>
             <version>1.1.1-SNAPSHOT</version>
         </dependency>
