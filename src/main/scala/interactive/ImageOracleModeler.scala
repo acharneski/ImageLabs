@@ -61,6 +61,16 @@ object ImageOracleModeler extends ServiceNotebook {
 
 class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 
+  def run(): Unit = {
+    defineHeader()
+    defineTestHandler()
+    out.out("<hr/>")
+    if(findFile("oracle").isEmpty) step1()
+    step2()
+    summarizeHistory()
+    out.out("<hr/>")
+    waitForExit()
+  }
 
   def resize(source: BufferedImage, size: Int) = {
     val image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB)
@@ -117,15 +127,16 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
   }, (model: NNLayer) ⇒ {
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
-      val inner = new StochasticArrayTrainable(data.toArray, trainingNetwork, 2500)
+      val inner = new StochasticArrayTrainable(data.toArray, trainingNetwork, 5000)
       val trainer = new com.simiacryptus.mindseye.opt.RoundRobinTrainer(inner)
       trainer.setMonitor(monitor)
-      trainer.setTimeout(60, TimeUnit.MINUTES)
-      trainer.setIterationsPerSample(3)
+      trainer.setTimeout(3 * 60, TimeUnit.MINUTES)
+      trainer.setIterationsPerSample(1)
       val lbfgs = new LBFGS().setMaxHistory(50).setMinHistory(5)
       trainer.setOrientations(new TrustRegionStrategy(lbfgs) {
         override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
           case _: HyperbolicActivationLayer ⇒ new StaticConstraint
+          case _: ReLuActivationLayer ⇒ new StaticConstraint
           case _: ImgBandBiasLayer ⇒ new StaticConstraint
           case x: ImgConvolutionSynapseLayer if x.getName() == "Conv1a" ⇒ new StaticConstraint
           case _ ⇒ null
@@ -134,19 +145,9 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
         override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
           case _: HyperbolicActivationLayer ⇒ new StaticConstraint
           case _: ReLuActivationLayer ⇒ new StaticConstraint
-          case _: ImgBandBiasLayer ⇒ new StaticConstraint
-          case x: ImgConvolutionSynapseLayer if x.getName() == "Conv2a" ⇒ new StaticConstraint
           case _ ⇒ null
         }
       })
-//      trainer.setOrientations(new TrustRegionStrategy(new GradientDescent()) {
-//        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
-//          case _: HyperbolicActivationLayer ⇒ new StaticConstraint
-//          case _: ImgBandBiasLayer ⇒ new LinearSumConstraint
-//          case _ ⇒ null
-//        }
-//      })
-      //trainer.setOrientations(new GradientDescent())
       trainer.setLineSearchFactory(Java8Util.cvt((s:String)⇒(s match {
         case s if s.contains("LBFGS") ⇒ new LineBracketSearch().setCurrentRate(1)
         case _ ⇒ new LineBracketSearch().setCurrentRate(1e-5)
@@ -179,38 +180,37 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
 
   def step2() = phase("oracle", (model: NNLayer) ⇒ {
     val trainer = out.eval {
-      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new MeanSqLossLayer)
-      val inner = new StochasticArrayTrainable(data.toArray, trainingNetwork, 500)
-      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(inner)
+      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
+      val inner = new StochasticArrayTrainable(data.toArray, trainingNetwork, 5000)
+      val trainer = new com.simiacryptus.mindseye.opt.RoundRobinTrainer(inner)
       trainer.setMonitor(monitor)
-      trainer.setTimeout(3, TimeUnit.HOURS)
-      trainer.setIterationsPerSample(5)
-      trainer.setOrientation(new TrustRegionStrategy(new MomentumStrategy(
-        new LBFGS().setMinHistory(10).setMaxHistory(30)
-      ).setCarryOver(0.2)) {
+      trainer.setTimeout(3 * 60, TimeUnit.MINUTES)
+      trainer.setIterationsPerSample(1)
+      val lbfgs = new LBFGS().setMaxHistory(50).setMinHistory(5)
+      trainer.setOrientations(new TrustRegionStrategy(lbfgs) {
         override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
           case _: HyperbolicActivationLayer ⇒ new StaticConstraint
+          case _: ReLuActivationLayer ⇒ new StaticConstraint
           case _: ImgBandBiasLayer ⇒ new StaticConstraint
+          case x: ImgConvolutionSynapseLayer if x.getName() == "Conv1a" ⇒ new StaticConstraint
+          case _ ⇒ null
+        }
+      }, new TrustRegionStrategy(lbfgs) {
+        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
+          case _: HyperbolicActivationLayer ⇒ new StaticConstraint
+          case _: ReLuActivationLayer ⇒ new StaticConstraint
           case _ ⇒ null
         }
       })
-      trainer.setLineSearchFactory(()⇒new ArmijoWolfeConditions().setMaxAlpha(5))
+      trainer.setLineSearchFactory(Java8Util.cvt((s:String)⇒(s match {
+        case s if s.contains("LBFGS") ⇒ new LineBracketSearch().setCurrentRate(1)
+        case _ ⇒ new LineBracketSearch().setCurrentRate(1e-5)
+      }).asInstanceOf[LineSearchStrategy]))
       trainer.setTerminateThreshold(0.0)
       trainer
     }
     trainer.run()
   }: Unit, "oracle")
-
-  def run(): Unit = {
-    defineHeader()
-    defineTestHandler()
-    out.out("<hr/>")
-    step1()
-    step2()
-    summarizeHistory()
-    out.out("<hr/>")
-    waitForExit()
-  }
 
   def defineTestHandler() = {
     out.p("<a href='test.html'>Test Reconstruction</a>")
