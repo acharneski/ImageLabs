@@ -158,10 +158,10 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     defineHeader()
     declareTestHandler()
     out.out("<hr/>")
-    if(findFile("initialized").isEmpty) {
+    if(findFile("classifier_initialized").isEmpty) {
       step1()
     }
-    if(findFile("trained").isEmpty) {
+    if(findFile("classifier_trained").isEmpty) {
       step2()
     }
     step3()
@@ -243,9 +243,9 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     trainer.setTerminateThreshold(0.0)
     trainer.setMaxIterations(10)
     require(trainer.run() < 2.0)
-  }: Unit, "initialized")
+  }: Unit, "classifier_initialized")
 
-  def step2() = phase("initialized", (model: NNLayer) ⇒ {
+  def step2() = phase("classifier_initialized", (model: NNLayer) ⇒ {
     out.h2("Step 2")
     val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
     val executorFunction = new LinkedExampleArrayTrainable(data, trainingNetwork, 100)
@@ -264,9 +264,9 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     trainer.setTerminateThreshold(0.0)
     trainer.setMaxIterations(5000)
     trainer.run()
-  }: Unit, "trained")
+  }: Unit, "classifier_trained")
 
-  def step3() = phase("trained", (model: NNLayer) ⇒ {
+  def step3() = phase("classifier_trained", (model: NNLayer) ⇒ {
     out.h2("Step 3")
     val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
     val executorFunction = new LinkedExampleArrayTrainable(data, trainingNetwork, 500)
@@ -283,9 +283,9 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     trainer.setTerminateThreshold(0.0)
     trainer.setMaxIterations(5000)
     trainer.run()
-  }: Unit, "trained")
+  }: Unit, "classifier_trained")
 
-  def adversarialTraining() = phase("trained", (model: NNLayer) ⇒ {
+  def adversarialTraining() = phase("classifier_trained", (model: NNLayer) ⇒ {
     Random.shuffle(data.map(_.head.toList.toArray).toList).grouped(10).zipWithIndex.take(20).foreach(x⇒{
       val (srcimages,i) = x
       out.h2(s"Adversarial Training $i")
@@ -333,7 +333,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
       trainer.setMaxIterations(100)
       trainer.run()
     })
-  }: Unit, "hardened")
+  }: Unit, "classifier_hardened")
 
   def resize(source: BufferedImage, size: Int) = {
     val image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB)
@@ -343,7 +343,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     image
   }
 
-  def profit() = phase("hardened", (model: NNLayer) ⇒ testReconstruction(out, model): Unit)
+  def profit() = phase("classifier_hardened", (model: NNLayer) ⇒ testReconstruction(out, model): Unit)
 
   def testReconstruction(out: HtmlNotebookOutput with ScalaNotebookOutput, model: NNLayer) = {
     out.h2("Test Reconstruction")
@@ -364,7 +364,6 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
   def buildAdversarialImage(model: NNLayer, data: Tensor, targetCategory: String = original, certianty: Double): (Double, Tensor) = {
     val trainableNet = new PipelineNetwork()
     val imageCorrections = new BiasLayer(32, 32, 3)
-    trainableNet.add(imageCorrections)
     val result = trainableNet.add(model)
     val tensor = new Tensor(categories.size)
     tensor.setAll((1-certianty)/(categories.size-1))
@@ -404,7 +403,6 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
   def reconstructImage(model: NNLayer, data: Tensor, targetCategory: String): Tensor = {
     val trainableNet = new PipelineNetwork()
     val imageCorrections = new BiasLayer(32, 32, 3)
-    val modelInput = trainableNet.add(imageCorrections)
     trainableNet.add(model)
     val tensor = new Tensor(categories.size)
     tensor.set(categories(targetCategory), 1)

@@ -78,7 +78,6 @@ object ConvolutionalMnistDemo extends ServiceNotebook {
         trainer.setMonitor(monitor)
         trainer.setOrientation(new TrustRegionStrategy() {
           override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
-            case _: MonitoringWrapper ⇒ getRegionPolicy(layer.asInstanceOf[MonitoringWrapper].inner)
             case _: BiasLayer ⇒ null //new SingleOrthant()
             case _: DenseSynapseLayer ⇒ new LinearSumConstraint()
             case _: ImgConvolutionSynapseLayer ⇒ new GrowthSphere().setGrowthFactor(0.0).setMinRadius(0.01)
