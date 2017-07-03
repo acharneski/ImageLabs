@@ -115,7 +115,7 @@ class ImageAutoencodingModeler2(source: String, server: StreamNanoHTTPD, out: Ht
   var encoderCheckpoint : NNLayer = null
   var decoderCheckpoint : NNLayer = null
 
-  override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
+  override def onStepComplete(currentPoint: Step): Unit = {
     dropoutNoiseLayer.setValue(0.0)
     gainAdjLayer.setScale(1/(1-dropoutFactor))
     modelCheckpoint = KryoUtil.kryo().copy(model)

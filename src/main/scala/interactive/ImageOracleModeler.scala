@@ -34,7 +34,7 @@ import com.simiacryptus.mindseye.layers.reducers.{ProductInputsLayer, SumInputsL
 import com.simiacryptus.mindseye.layers.util.{ConstNNLayer, MonitoringSynapse, MonitoringWrapper}
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
-import com.simiacryptus.mindseye.opt.line.{ArmijoWolfeConditions, LineBracketSearch}
+import com.simiacryptus.mindseye.opt.line.{ArmijoWolfeConditions, LineBracketSearch, LineSearchStrategy}
 import com.simiacryptus.mindseye.opt.region.{LinearSumConstraint, StaticConstraint, TrustRegion, TrustRegionStrategy}
 import com.simiacryptus.mindseye.opt.trainable._
 import com.simiacryptus.util.io.HtmlNotebookOutput
@@ -118,26 +118,39 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
       val inner = new StochasticArrayTrainable(data.toArray, trainingNetwork, 2500)
-      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(inner)
+      val trainer = new com.simiacryptus.mindseye.opt.RoundRobinTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(60, TimeUnit.MINUTES)
-      trainer.setIterationsPerSample(1)
-      trainer.setOrientation(new TrustRegionStrategy(new LBFGS()) {
+      trainer.setIterationsPerSample(3)
+      val lbfgs = new LBFGS().setMaxHistory(50).setMinHistory(5)
+      trainer.setOrientations(new TrustRegionStrategy(lbfgs) {
         override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
           case _: HyperbolicActivationLayer ⇒ new StaticConstraint
           case _: ImgBandBiasLayer ⇒ new StaticConstraint
+          case x: ImgConvolutionSynapseLayer if x.getName() == "Conv1a" ⇒ new StaticConstraint
+          case _ ⇒ null
+        }
+      }, new TrustRegionStrategy(lbfgs) {
+        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
+          case _: HyperbolicActivationLayer ⇒ new StaticConstraint
+          case _: ReLuActivationLayer ⇒ new StaticConstraint
+          case _: ImgBandBiasLayer ⇒ new StaticConstraint
+          case x: ImgConvolutionSynapseLayer if x.getName() == "Conv2a" ⇒ new StaticConstraint
           case _ ⇒ null
         }
       })
-//      trainer.setOrientation(new TrustRegionStrategy(new GradientDescent()) {
+//      trainer.setOrientations(new TrustRegionStrategy(new GradientDescent()) {
 //        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
 //          case _: HyperbolicActivationLayer ⇒ new StaticConstraint
 //          case _: ImgBandBiasLayer ⇒ new LinearSumConstraint
 //          case _ ⇒ null
 //        }
 //      })
-      //trainer.setOrientation(new GradientDescent())
-      trainer.setLineSearchFactory(()⇒new LineBracketSearch().setCurrentRate(1e-5))
+      //trainer.setOrientations(new GradientDescent())
+      trainer.setLineSearchFactory(Java8Util.cvt((s:String)⇒(s match {
+        case s if s.contains("LBFGS") ⇒ new LineBracketSearch().setCurrentRate(1)
+        case _ ⇒ new LineBracketSearch().setCurrentRate(1e-5)
+      }).asInstanceOf[LineSearchStrategy]))
       trainer.setTerminateThreshold(0.0)
       trainer
     }

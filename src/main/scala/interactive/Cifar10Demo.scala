@@ -31,7 +31,7 @@ import com.simiacryptus.mindseye.layers.media.MaxSubsampleLayer
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.MonitoringWrapper
 import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
-import com.simiacryptus.mindseye.opt.{IterativeTrainer, TrainingMonitor}
+import com.simiacryptus.mindseye.opt.{IterativeTrainer, Step, TrainingMonitor}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, TeeOutputStream}
 import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.test.{CIFAR10, LabeledObject}
@@ -58,7 +58,7 @@ class Cifar10Demo {
   def run(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNotebookOutput) {
     val inputSize = Array[Int](256, 256, 3)
     log.h1("CIFAR 10")
-    val history = new scala.collection.mutable.ArrayBuffer[IterativeTrainer.Step]()
+    val history = new scala.collection.mutable.ArrayBuffer[Step]()
     log.p("View the convergence history: <a href='/history.html'>/history.html</a>")
     server.addAsyncHandler("history.html", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
@@ -85,7 +85,7 @@ class Cifar10Demo {
         logPrintStream.println(msg);
       }
 
-      override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
+      override def onStepComplete(currentPoint: Step): Unit = {
         history += currentPoint
       }
     }
@@ -250,7 +250,7 @@ class Cifar10Demo {
     log.out("</table>")
   }
 
-  private def summarizeHistory(log: ScalaNotebookOutput, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
+  private def summarizeHistory(log: ScalaNotebookOutput, history: List[com.simiacryptus.mindseye.opt.Step]) = {
     if(!history.isEmpty) {
       log.eval {
         val step = Math.max(Math.pow(10, Math.ceil(Math.log(history.size) / Math.log(10)) - 2), 1).toInt

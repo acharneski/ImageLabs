@@ -195,7 +195,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
     val trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
     val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
     trainer.setMonitor(monitor)
-    //trainer.setOrientation(new GradientDescent);
+    //trainer.setOrientations(new GradientDescent);
     trainer.setTimeout(5, TimeUnit.MINUTES)
     trainer.setTerminateThreshold(0.0)
     trainer

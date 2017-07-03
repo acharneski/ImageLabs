@@ -222,7 +222,7 @@ class ImageAutoencodingModeler(source: String, server: StreamNanoHTTPD, out: Htm
     new TrainingMonitor() {
       override def log(msg: String): Unit = monitor.log(msg)
 
-      override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
+      override def onStepComplete(currentPoint: Step): Unit = {
         dropoutNoiseLayer.setValue(0.0)
         gainAdjLayer.setScale(1.0)
         monitor.onStepComplete(currentPoint)

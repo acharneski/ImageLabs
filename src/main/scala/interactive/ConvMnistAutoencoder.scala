@@ -31,7 +31,7 @@ import com.simiacryptus.mindseye.layers.activation._
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.layers.synapse.DenseSynapseLayer
 import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
-import com.simiacryptus.mindseye.opt.{IterativeTrainer, LBFGS, TrainingMonitor}
+import com.simiacryptus.mindseye.opt.{IterativeTrainer, LBFGS, Step, TrainingMonitor}
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, TeeOutputStream}
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
@@ -62,7 +62,7 @@ class ConvMnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with
   val originalStdOut = System.out
 
   var data: Array[Tensor] = null
-  val history = new mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]
+  val history = new mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.Step]
   val minutesPerStep = 240
   val logOut = new TeeOutputStream(log.file("log.txt"), true)
   val monitor = new TrainingMonitor {
@@ -73,7 +73,7 @@ class ConvMnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with
       originalStdOut.println(msg)
     }
 
-    override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
+    override def onStepComplete(currentPoint: Step): Unit = {
       history += currentPoint
     }
   }
@@ -386,7 +386,7 @@ class ConvMnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with
     ndArray
   }
 
-  private def summarizeHistory(log: ScalaNotebookOutput, history: Array[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
+  private def summarizeHistory(log: ScalaNotebookOutput, history: Array[com.simiacryptus.mindseye.opt.Step]) = {
     if(!history.isEmpty) {
       log.eval {
         val plot: PlotCanvas = ScatterPlot.plot(history.map(item ⇒ Array[Double](
