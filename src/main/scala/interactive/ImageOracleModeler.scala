@@ -24,6 +24,7 @@ import java.awt.{Graphics2D, RenderingHints}
 import java.io._
 import java.lang
 import java.util.concurrent.TimeUnit
+import java.util.function.{DoubleSupplier, IntToDoubleFunction, Supplier}
 
 import _root_.util._
 import com.simiacryptus.mindseye.layers.NNLayer
@@ -32,9 +33,10 @@ import com.simiacryptus.mindseye.layers.loss.MeanSqLossLayer
 import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer}
 import com.simiacryptus.mindseye.layers.reducers.{ProductInputsLayer, SumInputsLayer}
 import com.simiacryptus.mindseye.layers.util.{ConstNNLayer, MonitoringSynapse, MonitoringWrapper}
+import com.simiacryptus.mindseye.network.graph.DAGNode
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
-import com.simiacryptus.mindseye.opt.line.{ArmijoWolfeConditions, LineBracketSearch, LineSearchStrategy}
+import com.simiacryptus.mindseye.opt.line.{ArmijoWolfeConditions, LineBracketSearch, LineSearchStrategy, StaticLearningRate}
 import com.simiacryptus.mindseye.opt.region.{LinearSumConstraint, StaticConstraint, TrustRegion, TrustRegionStrategy}
 import com.simiacryptus.mindseye.opt.trainable._
 import com.simiacryptus.util.io.HtmlNotebookOutput
@@ -65,7 +67,8 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     defineHeader()
     defineTestHandler()
     out.out("<hr/>")
-    if(findFile("oracle").isEmpty) step1()
+    //if(findFile("oracle").isEmpty)
+      step1()
     step2()
     summarizeHistory()
     out.out("<hr/>")
@@ -88,11 +91,11 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
 
   lazy val data : List[Array[Tensor]] = {
     out.p("Loading data from " + source)
-    val loader = new ImageTensorLoader(new File(source), 64, 64, 64, 64, 10, 10)
-    val data: List[Array[Tensor]] = loader.stream().iterator().asScala.toStream.flatMap(tile ⇒ corruptors.map(e ⇒ {
+    val rawList: List[Tensor] = rawData
+    System.gc()
+    val data: List[Array[Tensor]] = rawList.flatMap(tile ⇒ corruptors.map(e ⇒ {
       Array(e._2(tile), tile)
-    })).take(1000).toList
-    loader.stop()
+    }))
     out.eval {
       TableOutput.create(Random.shuffle(data).take(100).map(testObj ⇒ Map[String, AnyRef](
         "Source" → out.image(testObj(1).toRgbImage(), ""),
@@ -103,42 +106,106 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     data
   }
 
+  private def rawData() = {
+    val loader = new ImageTensorLoader(new File(source), 64, 64, 64, 64, 10, 10)
+    val rawList = loader.stream().iterator().asScala.take(10000).toList
+    loader.stop()
+    rawList
+  }
+
+  val fitnessBorderPadding = 6
+
   def step1() = phase({
     var network: PipelineNetwork = new PipelineNetwork
-
     network.add(new MonitoringSynapse().addTo(monitoringRoot, "input1"))
-    network.add(new MonitoringWrapper(new ImgBandBiasLayer(3).setWeights(Java8Util.cvt(i⇒0.0)).setName("Bias1In")).addTo(monitoringRoot));
-    network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5,5,18).setWeights(Java8Util.cvt(() ⇒ Util.R.get.nextGaussian * 0.01))
-      .setName("Conv1a")).addTo(monitoringRoot));
-    //network.add(new MonitoringWrapper(new HyperbolicActivationLayer().setName("Activation1")).addTo(monitoringRoot));
-    network.add(new MonitoringWrapper(new ReLuActivationLayer().setName("Activation1")).addTo(monitoringRoot));
-    network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5,5,18).setWeights(Java8Util.cvt(() ⇒ Util.R.get.nextGaussian * 0.01))
-      .setName("Conv2a")).addTo(monitoringRoot));
+    val zeroSeed : IntToDoubleFunction = Java8Util.cvt(_ ⇒ 0.0)
+    val layerRadius = 5
+    def buildLayer(from: Int, to: Int, layerNumber: String, root: DAGNode = network.getHead, activation: ⇒ NNLayer = new ReLuActivationLayer(), weights: Double = 0.1): DAGNode = {
+      def weightSeed : DoubleSupplier = Java8Util.cvt(() ⇒ {
+        val r = Util.R.get.nextDouble() * 2 - 1
+        r * weights
+      })
+      network.add(new MonitoringWrapper(new ImgBandBiasLayer(from).setWeights(zeroSeed).setName("bias_" + layerNumber)).addTo(monitoringRoot), root);
+      if (!layerNumber.startsWith("0") && activation != null) {
+        network.add(new MonitoringWrapper(activation.setName("activation_" + layerNumber)).addTo(monitoringRoot));
+      }
+      network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(layerRadius, layerRadius, from * to).setWeights(weightSeed).setName("conv_" + layerNumber)).addTo(monitoringRoot));
+      network.add(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
+    }
+//    List(3,12,12,3).sliding(2).map(x⇒x(0)→x(1)).zipWithIndex.foreach(x⇒{
+//      val ((from,to), layerNumber) = x
+//      buildLayer(from, to, layerNumber.toString)
+//    })
 
-//    network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5,5,18).setWeights(Java8Util.cvt(() ⇒ Util.R.get.nextGaussian * 0.01))
-//      .setName("Conv1a")).addTo(monitoringRoot));
-//    network.add(new MonitoringWrapper(new HyperbolicActivationLayer().setName("Activation1")).addTo(monitoringRoot));
-//    network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5,5,18).setWeights(Java8Util.cvt(() ⇒ Util.R.get.nextGaussian * 0.01))
-//      .setName("Conv1b")).addTo(monitoringRoot));
-//    network.add(new MonitoringWrapper(new ImgBandBiasLayer(3).setName("Bias1Out")).addTo(monitoringRoot));
+    val input = network.getHead
+    val layer2 = network.add(new SumInputsLayer(),
+      buildLayer(3, 12, "0a", input),
+      network.add(new ProductInputsLayer(),
+        buildLayer(3, 12, "0c", input, weights = 0.01),
+        buildLayer(3, 12, "0b", input, weights = 0.01)))
+    buildLayer(12, 3, "1")
 
-    network.add(new SumInputsLayer(), network.getInput(0), network.getHead)
+//    val input = network.getHead
+//    val layer1 = buildLayer(3, 12, "0a", input)
+//    val layer2 = network.add(new ProductInputsLayer(),
+//      buildLayer(12, 12, "1", layer1, activation = new HyperbolicActivationLayer()),
+//      buildLayer(3, 12, "0b", input))
+//    buildLayer(12, 3, "2")
+
+//    val layer3 = network.add(new ProductInputsLayer(),
+//      buildLayer(12, 3, "2a", layer1),
+//      buildLayer(12, 3, "2b", layer1))
+    //network.add(new SumInputsLayer(), network.getInput(0), network.getHead)
     network
   }, (model: NNLayer) ⇒ {
+    out.h1("Step 1")
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
-      val inner = new StochasticArrayTrainable(data.toArray, trainingNetwork, 5000)
+      val inner = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
       val trainer = new com.simiacryptus.mindseye.opt.RoundRobinTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(3 * 60, TimeUnit.MINUTES)
       trainer.setIterationsPerSample(1)
-      val lbfgs = new LBFGS().setMaxHistory(50).setMinHistory(5)
-      trainer.setOrientations(new TrustRegionStrategy(lbfgs) {
+      val momentum = new MomentumStrategy(new GradientDescent()).setCarryOver(0.2)
+      trainer.setOrientations(new TrustRegionStrategy(momentum) {
         override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
           case _: HyperbolicActivationLayer ⇒ new StaticConstraint
           case _: ReLuActivationLayer ⇒ new StaticConstraint
           case _: ImgBandBiasLayer ⇒ new StaticConstraint
-          case x: ImgConvolutionSynapseLayer if x.getName() == "Conv1a" ⇒ new StaticConstraint
+          case _ ⇒ null
+        }
+      }, new TrustRegionStrategy(momentum) {
+        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
+          case _: HyperbolicActivationLayer ⇒ new StaticConstraint
+          case _: ReLuActivationLayer ⇒ new StaticConstraint
+          case _ ⇒ null
+        }
+      })
+      trainer.setLineSearchFactory(Java8Util.cvt((s:String)⇒{
+        //new StaticLearningRate().setRate(1e-5)
+        new ArmijoWolfeConditions().setAlpha(1e-8)
+      }.asInstanceOf[LineSearchStrategy]))
+      trainer.setTerminateThreshold(0.0)
+      trainer
+    }
+    trainer.run()
+  }: Unit, "oracle")
+
+  def step2() = phase("oracle", (model: NNLayer) ⇒ {
+    out.h1("Step 2")
+    val trainer = out.eval {
+      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
+      val inner = new ConstL12Normalizer(new ArrayTrainable(data.toArray, trainingNetwork)).setFactor_L1(0.001)
+      val trainer = new com.simiacryptus.mindseye.opt.RoundRobinTrainer(inner)
+      trainer.setMonitor(monitor)
+      trainer.setTimeout(3 * 60, TimeUnit.MINUTES)
+      trainer.setIterationsPerSample(1)
+      val lbfgs = new LBFGS().setMaxHistory(50).setMinHistory(3)
+      trainer.setOrientations(new TrustRegionStrategy(lbfgs) {
+        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
+          case _: HyperbolicActivationLayer ⇒ new StaticConstraint
+          case _: ReLuActivationLayer ⇒ new StaticConstraint
+          case _: ImgBandBiasLayer ⇒ new LinearSumConstraint
           case _ ⇒ null
         }
       }, new TrustRegionStrategy(lbfgs) {
@@ -149,7 +216,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
         }
       })
       trainer.setLineSearchFactory(Java8Util.cvt((s:String)⇒(s match {
-        case s if s.contains("LBFGS") ⇒ new LineBracketSearch().setCurrentRate(1)
+        case s if s.contains("LBFGS") ⇒ new StaticLearningRate().setRate(1)
         case _ ⇒ new LineBracketSearch().setCurrentRate(1e-5)
       }).asInstanceOf[LineSearchStrategy]))
       trainer.setTerminateThreshold(0.0)
@@ -159,11 +226,10 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
   }: Unit, "oracle")
 
   def lossNetwork = {
-    val radius = 4
     val mask: Tensor = new Tensor(64, 64, 3).map(Java8Util.cvt((v: lang.Double, c: Coordinate) ⇒ {
-      if (c.coords(0) < radius || c.coords(0) >= (64 - radius)) {
+      if (c.coords(0) < fitnessBorderPadding || c.coords(0) >= (64 - fitnessBorderPadding)) {
         0.0
-      } else if (c.coords(1) < radius || c.coords(1) >= (64 - radius)) {
+      } else if (c.coords(1) < fitnessBorderPadding || c.coords(1) >= (64 - fitnessBorderPadding)) {
         0.0
       } else {
         1.0
@@ -178,43 +244,9 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     lossNetwork
   }
 
-  def step2() = phase("oracle", (model: NNLayer) ⇒ {
-    val trainer = out.eval {
-      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
-      val inner = new StochasticArrayTrainable(data.toArray, trainingNetwork, 5000)
-      val trainer = new com.simiacryptus.mindseye.opt.RoundRobinTrainer(inner)
-      trainer.setMonitor(monitor)
-      trainer.setTimeout(3 * 60, TimeUnit.MINUTES)
-      trainer.setIterationsPerSample(1)
-      val lbfgs = new LBFGS().setMaxHistory(50).setMinHistory(5)
-      trainer.setOrientations(new TrustRegionStrategy(lbfgs) {
-        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
-          case _: HyperbolicActivationLayer ⇒ new StaticConstraint
-          case _: ReLuActivationLayer ⇒ new StaticConstraint
-          case _: ImgBandBiasLayer ⇒ new StaticConstraint
-          case x: ImgConvolutionSynapseLayer if x.getName() == "Conv1a" ⇒ new StaticConstraint
-          case _ ⇒ null
-        }
-      }, new TrustRegionStrategy(lbfgs) {
-        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
-          case _: HyperbolicActivationLayer ⇒ new StaticConstraint
-          case _: ReLuActivationLayer ⇒ new StaticConstraint
-          case _ ⇒ null
-        }
-      })
-      trainer.setLineSearchFactory(Java8Util.cvt((s:String)⇒(s match {
-        case s if s.contains("LBFGS") ⇒ new LineBracketSearch().setCurrentRate(1)
-        case _ ⇒ new LineBracketSearch().setCurrentRate(1e-5)
-      }).asInstanceOf[LineSearchStrategy]))
-      trainer.setTerminateThreshold(0.0)
-      trainer
-    }
-    trainer.run()
-  }: Unit, "oracle")
-
   def defineTestHandler() = {
     out.p("<a href='test.html'>Test Reconstruction</a>")
-    server.addAsyncHandler("test.html", "text/html", cvt(o ⇒ {
+    server.addSyncHandler("test.html", "text/html", cvt(o ⇒ {
       Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(out ⇒ {
         try {
           out.eval {
