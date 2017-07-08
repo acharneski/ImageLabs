@@ -32,11 +32,10 @@ import com.simiacryptus.mindseye.layers.synapse.DenseSynapseLayer
 import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
 import com.simiacryptus.mindseye.opt.{IterativeTrainer, LBFGS, Step, TrainingMonitor}
 import com.simiacryptus.util.StreamNanoHTTPD
-import com.simiacryptus.util.io.{HtmlNotebookOutput, TeeOutputStream}
+import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil, TeeOutputStream}
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
 import com.simiacryptus.util.text.TableOutput
-import de.javakaffee.kryoserializers.KryoReflectionFactorySupport
 import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
 import smile.plot.{PlotCanvas, ScatterPlot}
@@ -56,7 +55,7 @@ object MnistAutoencoder extends ServiceNotebook {
 }
 
 private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNotebookOutput) {
-  def kryo = new KryoReflectionFactorySupport()
+  def kryo = KryoUtil.kryo()
   val originalStdOut = System.out
 
   var data: Array[Tensor] = null

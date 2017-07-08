@@ -32,11 +32,10 @@ import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.layers.synapse.DenseSynapseLayer
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
-import com.simiacryptus.util.io.IOUtil
+import com.simiacryptus.util.io.{IOUtil, KryoUtil}
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.{ImageTiles, MNIST}
 import com.simiacryptus.util.text.TableOutput
-import de.javakaffee.kryoserializers.KryoReflectionFactorySupport
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}
 import util.Java8Util._
@@ -49,13 +48,13 @@ import scala.util.Random
 class AutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook {
 
   var data: Array[Tensor] = null
-  val history = new mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]
+  val history = new mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.Step]
   var monitor = new TrainingMonitor {
     override def log(msg: String): Unit = {
       System.err.println(msg)
     }
 
-    override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
+    override def onStepComplete(currentPoint: Step): Unit = {
       history += currentPoint
     }
   }
@@ -123,9 +122,9 @@ class AutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook {
         val categorizationAdapter = new DenseSynapseLayer(Array[Int](5, 5, 1), Array[Int](10))
         categorizationAdapter.setWeights(cvt((c:Coordinate)⇒Random.nextGaussian() * 0.001))
         var categorizationNetwork = log.eval {
-          val kryo = new KryoReflectionFactorySupport()
+          val kryo = KryoUtil.kryo()
           val categorizationNetwork = new PipelineNetwork()
-          categorizationNetwork.add(kryo.copy(autoencoder.getEncoder).freeze())
+          categorizationNetwork.add(KryoUtil.kryo().copy(autoencoder.getEncoder).freeze())
           categorizationNetwork.add(categorizationAdapter)
           categorizationNetwork.add(new SoftmaxActivationLayer)
           val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(categorizationNetwork, new EntropyLossLayer)
@@ -140,7 +139,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook {
         }
         mnistClassificationReport(log, categorizationNetwork)
         categorizationNetwork = log.eval {
-          val kryo = new KryoReflectionFactorySupport()
+          val kryo = KryoUtil.kryo()
           val categorizationNetwork = new PipelineNetwork()
           categorizationNetwork.add(kryo.copy(autoencoder.getEncoder))
           categorizationNetwork.add(categorizationAdapter)

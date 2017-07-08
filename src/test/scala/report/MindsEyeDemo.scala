@@ -100,7 +100,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
 
         log.h2("Training")
         log.p("We newTrainer using a standard iterative L-BFGS strategy: ")
-        val history = new scala.collection.mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]()
+        val history = new scala.collection.mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.Step]()
         val _log = log
         val trainer = log.eval {
           val trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
@@ -111,7 +111,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
               _log.p(msg)
             }
 
-            override def onStepComplete(currentPoint: com.simiacryptus.mindseye.opt.IterativeTrainer.Step): Unit = {
+            override def onStepComplete(currentPoint: com.simiacryptus.mindseye.opt.Step): Unit = {
               history += currentPoint
             }
           })
@@ -420,7 +420,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
         networkGraph(log, dagNetwork)
 
         log.p("Now we define a standard L-BFGS trainer to optimize the reconstruction")
-        val history = new scala.collection.mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]()
+        val history = new scala.collection.mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.Step]()
         val trainer = log.eval {
           val trainable = new StochasticArrayTrainable(Seq(Array(zeroInput, blurredImage)).toArray, dagNetwork, 1000)
           val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
@@ -429,7 +429,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
               System.err.println(msg)
             }
 
-            override def onStepComplete(currentPoint: com.simiacryptus.mindseye.opt.IterativeTrainer.Step): Unit = {
+            override def onStepComplete(currentPoint: com.simiacryptus.mindseye.opt.Step): Unit = {
               history += currentPoint
             }
           })
@@ -484,7 +484,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
     ndArray
   }
 
-  private def summarizeHistory(log: ScalaNotebookOutput, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
+  private def summarizeHistory(log: ScalaNotebookOutput, history: List[com.simiacryptus.mindseye.opt.Step]) = {
     log.eval {
       val step = Math.max(Math.pow(10, Math.ceil(Math.log(history.size) / Math.log(10)) - 2), 1).toInt
       TableOutput.create(history.filter(0 == _.iteration % step).map(state ⇒

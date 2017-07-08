@@ -58,14 +58,14 @@ class OptimizerDemo extends WordSpec with MustMatchers with ReportNotebook {
     val (model, trainingData) = testProblem_category(log)
 
     log.h2("Training")
-    val history = new scala.collection.mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]()
+    val history = new scala.collection.mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.Step]()
     val monitor = log.eval {
       val monitor = new TrainingMonitor {
         override def log(msg: String): Unit = {
           System.err.println(msg)
         }
 
-        override def onStepComplete(currentPoint: IterativeTrainer.Step): Unit = {
+        override def onStepComplete(currentPoint: Step): Unit = {
           history += currentPoint
         }
       }
@@ -220,7 +220,7 @@ class OptimizerDemo extends WordSpec with MustMatchers with ReportNotebook {
     ndArray
   }
 
-  private def summarizeHistory(log: ScalaNotebookOutput, history: List[com.simiacryptus.mindseye.opt.IterativeTrainer.Step]) = {
+  private def summarizeHistory(log: ScalaNotebookOutput, history: List[com.simiacryptus.mindseye.opt.Step]) = {
     log.eval {
       val step = Math.max(Math.pow(10, Math.ceil(Math.log(history.size) / Math.log(10)) - 2), 1).toInt
       TableOutput.create(history.filter(0 == _.iteration % step).map(state ⇒

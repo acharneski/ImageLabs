@@ -33,11 +33,10 @@ import com.simiacryptus.mindseye.layers.synapse.DenseSynapseLayer
 import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
 import com.simiacryptus.mindseye.opt.{IterativeTrainer, LBFGS, Step, TrainingMonitor}
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD}
-import com.simiacryptus.util.io.{HtmlNotebookOutput, TeeOutputStream}
+import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil, TeeOutputStream}
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
 import com.simiacryptus.util.text.TableOutput
-import de.javakaffee.kryoserializers.KryoReflectionFactorySupport
 import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
 import smile.plot.{PlotCanvas, ScatterPlot}
@@ -58,7 +57,6 @@ object ConvMnistAutoencoder extends ServiceNotebook {
 }
 
 class ConvMnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNotebookOutput) {
-  def kryo = new KryoReflectionFactorySupport()
   val originalStdOut = System.out
 
   var data: Array[Tensor] = null
@@ -165,7 +163,7 @@ class ConvMnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with
     categorizationAdapter.setWeights(cvt((c:Coordinate)⇒Random.nextGaussian() * 0.001))
     var categorizationNetwork = log.eval {
       val categorizationNetwork = new PipelineNetwork()
-      categorizationNetwork.add(kryo.copy(autoencoder.getEncoder).freeze())
+      categorizationNetwork.add(KryoUtil.kryo().copy(autoencoder.getEncoder).freeze())
       categorizationNetwork.add(categorizationAdapter)
       categorizationNetwork.add(new SoftmaxActivationLayer)
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(categorizationNetwork, new EntropyLossLayer)
@@ -181,7 +179,7 @@ class ConvMnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with
     mnistClassificationReport(log, categorizationNetwork)
     categorizationNetwork = log.eval {
       val categorizationNetwork = new PipelineNetwork()
-      categorizationNetwork.add(kryo.copy(autoencoder.getEncoder))
+      categorizationNetwork.add(KryoUtil.kryo().copy(autoencoder.getEncoder))
       categorizationNetwork.add(categorizationAdapter)
       categorizationNetwork.add(new SoftmaxActivationLayer)
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(categorizationNetwork, new EntropyLossLayer)
