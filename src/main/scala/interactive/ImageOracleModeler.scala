@@ -37,7 +37,7 @@ import com.simiacryptus.mindseye.network.graph.DAGNode
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line.{ArmijoWolfeConditions, LineBracketSearch, LineSearchStrategy, StaticLearningRate}
-import com.simiacryptus.mindseye.opt.region.{LinearSumConstraint, StaticConstraint, TrustRegion, TrustRegionStrategy}
+import com.simiacryptus.mindseye.opt.region._
 import com.simiacryptus.mindseye.opt.trainable._
 import com.simiacryptus.util.io.HtmlNotebookOutput
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
@@ -164,21 +164,13 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
       inner = new ConstL12Normalizer(inner).setFactor_L1(0.001)
       val trainer = new com.simiacryptus.mindseye.opt.RoundRobinTrainer(inner)
       trainer.setMonitor(monitor)
-      trainer.setTimeout(3 * 60, TimeUnit.MINUTES)
+      trainer.setTimeout(1 * 60, TimeUnit.MINUTES)
       trainer.setIterationsPerSample(1)
       val momentum = new MomentumStrategy(new GradientDescent()).setCarryOver(0.2)
       trainer.setOrientations(new TrustRegionStrategy(momentum) {
         override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
-          case _: HyperbolicActivationLayer ⇒ new StaticConstraint
-          case _: ReLuActivationLayer ⇒ new StaticConstraint
-          case _: ImgBandBiasLayer ⇒ new StaticConstraint
-          case _ ⇒ null
-        }
-      }, new TrustRegionStrategy(momentum) {
-        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
-          case _: HyperbolicActivationLayer ⇒ new StaticConstraint
-          case _: ReLuActivationLayer ⇒ new StaticConstraint
-          case _ ⇒ null
+          case _: ImgConvolutionSynapseLayer ⇒ new MeanVarianceGradient
+          case _ ⇒ new StaticConstraint
         }
       })
       trainer.setLineSearchFactory(Java8Util.cvt((s:String)⇒{
@@ -193,6 +185,42 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
 
   def step2() = phase("oracle", (model: NNLayer) ⇒ {
     out.h1("Step 2")
+    val trainer = out.eval {
+      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
+      var inner: Trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
+      inner = new ConstL12Normalizer(inner).setFactor_L1(0.001)
+      val trainer = new com.simiacryptus.mindseye.opt.RoundRobinTrainer(inner)
+      trainer.setMonitor(monitor)
+      trainer.setTimeout(4 * 60, TimeUnit.MINUTES)
+      trainer.setIterationsPerSample(1)
+      val lbfgs = new LBFGS().setMaxHistory(50).setMinHistory(3)
+      trainer.setOrientations(new TrustRegionStrategy(lbfgs) {
+        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
+          case _: HyperbolicActivationLayer ⇒ new StaticConstraint
+          case _: ReLuActivationLayer ⇒ new StaticConstraint
+          case _: ImgBandBiasLayer ⇒ new LinearSumConstraint
+          case _ ⇒ null
+        }
+      }, new TrustRegionStrategy(lbfgs) {
+        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
+          case _: HyperbolicActivationLayer ⇒ new StaticConstraint
+          case _: ReLuActivationLayer ⇒ new StaticConstraint
+          case _: ImgBandBiasLayer ⇒ new StaticConstraint
+          case _ ⇒ null
+        }
+      })
+      trainer.setLineSearchFactory(Java8Util.cvt((s:String)⇒(s match {
+        case s if s.contains("LBFGS") ⇒ new StaticLearningRate().setRate(1)
+        case _ ⇒ new LineBracketSearch().setCurrentRate(1e-5)
+      }).asInstanceOf[LineSearchStrategy]))
+      trainer.setTerminateThreshold(0.0)
+      trainer
+    }
+    trainer.run()
+  }: Unit, "oracle")
+
+  def step3() = phase("oracle", (model: NNLayer) ⇒ {
+    out.h1("Step 3")
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
       var inner: Trainable = new ArrayTrainable(data.toArray, trainingNetwork, 1000)
