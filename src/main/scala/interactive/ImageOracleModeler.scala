@@ -107,7 +107,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
 
   private def rawData() = {
     val loader = new ImageTensorLoader(new File(source), 64, 64, 64, 64, 10, 10)
-    val rawList = loader.stream().iterator().asScala.take(10000).toList
+    val rawList = loader.stream().iterator().asScala.take(5000).toList
     loader.stop()
     rawList
   }
@@ -138,10 +138,10 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
 
     val input = network.getHead
     val layer2 = network.add(new SumInputsLayer(),
-      buildLayer(3, 12, "0a", input),
+      buildLayer(3, 12, "0a", input, weights = 0.001),
       network.add(new ProductInputsLayer(),
-        buildLayer(3, 12, "0c", input, weights = 0.01),
-        buildLayer(3, 12, "0b", input, weights = 0.01)))
+        buildLayer(3, 12, "0c", input, weights = 0.005),
+        buildLayer(3, 12, "0b", input, weights = 0.005)))
     buildLayer(12, 3, "1")
 
 //    val input = network.getHead
@@ -160,7 +160,8 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     out.h1("Step 1")
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
-      val inner = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
+      var inner: Trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
+      inner = new ConstL12Normalizer(inner).setFactor_L1(0.001)
       val trainer = new com.simiacryptus.mindseye.opt.RoundRobinTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(3 * 60, TimeUnit.MINUTES)
@@ -194,7 +195,8 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     out.h1("Step 2")
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
-      val inner = new ConstL12Normalizer(new ArrayTrainable(data.toArray, trainingNetwork, 5000)).setFactor_L1(0.001)
+      var inner: Trainable = new ArrayTrainable(data.toArray, trainingNetwork, 1000)
+      inner = new ConstL12Normalizer(inner).setFactor_L1(0.001)
       val trainer = new com.simiacryptus.mindseye.opt.RoundRobinTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(3 * 60, TimeUnit.MINUTES)
