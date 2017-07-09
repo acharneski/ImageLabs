@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit
 import java.util.function.{DoubleSupplier, IntToDoubleFunction, Supplier}
 
 import _root_.util._
-import com.simiacryptus.mindseye.layers.NNLayer
+import com.simiacryptus.mindseye.layers.{DeltaBuffer, NNLayer}
 import com.simiacryptus.mindseye.layers.activation.{HyperbolicActivationLayer, LinearActivationLayer, ReLuActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.MeanSqLossLayer
 import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer}
@@ -39,11 +39,17 @@ import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line.{ArmijoWolfeConditions, LineBracketSearch, LineSearchStrategy, StaticLearningRate}
 import com.simiacryptus.mindseye.opt.region._
 import com.simiacryptus.mindseye.opt.trainable._
+import com.simiacryptus.util.data.DoubleStatistics
 import com.simiacryptus.util.io.HtmlNotebookOutput
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.ImageTiles.ImageTensorLoader
 import com.simiacryptus.util.text.TableOutput
-import com.simiacryptus.util.{StreamNanoHTTPD, Util}
+import com.simiacryptus.util.{ArrayUtil, StreamNanoHTTPD, Util}
+import org.apache.commons.math3.analysis.MultivariateFunction
+import org.apache.commons.math3.optim.{InitialGuess, MaxEval, MaxIter, PointValuePair}
+import org.apache.commons.math3.optim.nonlinear.scalar.{GoalType, ObjectiveFunction}
+import org.apache.commons.math3.optim.nonlinear.scalar.noderiv.{PowellOptimizer, SimplexOptimizer}
+import org.apache.commons.math3.optimization.OptimizationData
 import util.Java8Util.cvt
 
 import scala.collection.JavaConverters._
@@ -67,7 +73,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     defineHeader()
     defineTestHandler()
     out.out("<hr/>")
-    if(findFile("oracle").isEmpty || System.getProperties.contains("rebuild")) step1()
+    if(findFile("oracle").isEmpty || System.getProperties.containsKey("rebuild")) step1()
     step2()
     summarizeHistory()
     out.out("<hr/>")
@@ -115,47 +121,95 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
   val fitnessBorderPadding = 6
 
   def step1() = phase({
-    var network: PipelineNetwork = new PipelineNetwork
-    network.add(new MonitoringSynapse().addTo(monitoringRoot, "input1"))
-    val zeroSeed : IntToDoubleFunction = Java8Util.cvt(_ ⇒ 0.0)
-    val layerRadius = 5
-    def buildLayer(from: Int, to: Int, layerNumber: String, root: DAGNode = network.getHead, activation: ⇒ NNLayer = new ReLuActivationLayer(), weights: Double = 0.1): DAGNode = {
-      def weightSeed : DoubleSupplier = Java8Util.cvt(() ⇒ {
-        val r = Util.R.get.nextDouble() * 2 - 1
-        r * weights
-      })
-      network.add(new MonitoringWrapper(new ImgBandBiasLayer(from).setWeights(zeroSeed).setName("bias_" + layerNumber)).addTo(monitoringRoot), root);
-      if (!layerNumber.startsWith("0") && activation != null) {
-        network.add(new MonitoringWrapper(activation.setName("activation_" + layerNumber)).addTo(monitoringRoot));
-      }
-      network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(layerRadius, layerRadius, from * to).setWeights(weightSeed).setName("conv_" + layerNumber)).addTo(monitoringRoot));
-      network.add(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
+
+    case class NetworkMetaparameters(
+      weight1 : Double,
+      weight2 : Double,
+      weight3 : Double
+    ) {
+      def this(v: Array[Double]) = this(v(0),v(1),v(2))
+      def toArray(): Array[Double] = Array(weight1, weight2, weight3)
     }
-//    List(3,12,12,3).sliding(2).map(x⇒x(0)→x(1)).zipWithIndex.foreach(x⇒{
-//      val ((from,to), layerNumber) = x
-//      buildLayer(from, to, layerNumber.toString)
-//    })
 
-    val input = network.getHead
-    val layer2 = network.add(new SumInputsLayer(),
-      buildLayer(3, 12, "0a", input, weights = 0.001),
-      network.add(new ProductInputsLayer(),
-        buildLayer(3, 12, "0c", input, weights = 0.005),
-        buildLayer(3, 12, "0b", input, weights = 0.005)))
-    buildLayer(12, 3, "1")
+    def getNetwork(parameters : NetworkMetaparameters) : PipelineNetwork = {
+      monitor.log(s"Building network with parameters $parameters")
+      var network: PipelineNetwork = new PipelineNetwork
+      network.add(new MonitoringSynapse().addTo(monitoringRoot, "input1"))
+      val zeroSeed : IntToDoubleFunction = Java8Util.cvt(_ ⇒ 0.0)
+      val layerRadius = 5
+      def buildLayer(from: Int, to: Int, layerNumber: String, root: DAGNode = network.getHead, activation: ⇒ NNLayer = new ReLuActivationLayer(), weights: Double = 0.1): DAGNode = {
+        def weightSeed : DoubleSupplier = Java8Util.cvt(() ⇒ {
+          val r = Util.R.get.nextDouble() * 2 - 1
+          r * weights
+        })
+        network.add(new MonitoringWrapper(new ImgBandBiasLayer(from).setWeights(zeroSeed).setName("bias_" + layerNumber)).addTo(monitoringRoot), root);
+        if (!layerNumber.startsWith("0") && activation != null) {
+          network.add(new MonitoringWrapper(activation.setName("activation_" + layerNumber)).addTo(monitoringRoot));
+        }
+        network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(layerRadius, layerRadius, from * to).setWeights(weightSeed).setName("conv_" + layerNumber)).addTo(monitoringRoot));
+        network.add(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
+      }
+      //    List(3,12,12,3).sliding(2).map(x⇒x(0)→x(1)).zipWithIndex.foreach(x⇒{
+      //      val ((from,to), layerNumber) = x
+      //      buildLayer(from, to, layerNumber.toString)
+      //    })
 
-//    val input = network.getHead
-//    val layer1 = buildLayer(3, 12, "0a", input)
-//    val layer2 = network.add(new ProductInputsLayer(),
-//      buildLayer(12, 12, "1", layer1, activation = new HyperbolicActivationLayer()),
-//      buildLayer(3, 12, "0b", input))
-//    buildLayer(12, 3, "2")
+      val input = network.getHead
+      val layer2 = network.add(new SumInputsLayer(),
+        buildLayer(3, 12, "0a", input, weights = parameters.weight1),
+        network.add(new ProductInputsLayer(),
+          buildLayer(3, 12, "0c", input, weights = parameters.weight2),
+          buildLayer(3, 12, "0b", input, weights = parameters.weight3)))
+      buildLayer(12, 3, "1")
 
-//    val layer3 = network.add(new ProductInputsLayer(),
-//      buildLayer(12, 3, "2a", layer1),
-//      buildLayer(12, 3, "2b", layer1))
-    //network.add(new SumInputsLayer(), network.getInput(0), network.getHead)
-    network
+      //    val input = network.getHead
+      //    val layer1 = buildLayer(3, 12, "0a", input)
+      //    val layer2 = network.add(new ProductInputsLayer(),
+      //      buildLayer(12, 12, "1", layer1, activation = new HyperbolicActivationLayer()),
+      //      buildLayer(3, 12, "0b", input))
+      //    buildLayer(12, 3, "2")
+
+      //    val layer3 = network.add(new ProductInputsLayer(),
+      //      buildLayer(12, 3, "2a", layer1),
+      //      buildLayer(12, 3, "2b", layer1))
+      //network.add(new SumInputsLayer(), network.getInput(0), network.getHead)
+      network
+    }
+
+    def evalNetwork(network : PipelineNetwork) : Double = {
+      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(network, lossNetwork)
+      var inner: Trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 100)
+      inner = new ConstL12Normalizer(inner).setFactor_L1(0.001)
+      val measure = inner.measure()
+
+      def fn(x: (NNLayer, DeltaBuffer)) : Double = {
+        val w = measure.weights.map.get(x._1)
+        val d = x._2
+        val wx = w.sumSq()
+        val dx = d.sumSq()
+        val zeroTol = 1e-15
+        val abs = if(Math.abs(dx)<zeroTol || Math.abs(wx)<zeroTol) 0 else Math.abs(Math.log(wx / dx))
+        //monitor.log(s"Network entropy for layer ${x._1.getName} $abs = $dx / $wx")
+        abs
+      }
+      val average = new DoubleStatistics().accept(measure.delta.map.asScala.map((x: (NNLayer, DeltaBuffer)) ⇒fn(x)).toArray).getAverage
+      monitor.log(s"Network entropy network $average")
+      average
+    }
+
+    import org.apache.commons.math.analysis.MultivariateRealFunction
+    val optimizer = new PowellOptimizer(1e-5, 1e-10)
+    val initialMetaparameters = NetworkMetaparameters(0.01, 0.01, 0.01)
+    val optimalMetaparameters = new NetworkMetaparameters(optimizer.optimize(
+      new ObjectiveFunction(new MultivariateFunction {
+        override def value(doubles: Array[Double]): Double = {
+          evalNetwork(getNetwork(new NetworkMetaparameters(doubles)))
+        }
+      }),
+      new InitialGuess(initialMetaparameters.toArray()),
+      GoalType.MINIMIZE, new MaxIter(100), new MaxEval(100)
+    ).getPoint)
+    getNetwork(optimalMetaparameters)
   }, (model: NNLayer) ⇒ {
     out.h1("Step 1")
     val trainer = out.eval {
