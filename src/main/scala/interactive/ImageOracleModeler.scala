@@ -194,7 +194,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     out.h1("Step 2")
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
-      val inner = new ConstL12Normalizer(new ArrayTrainable(data.toArray, trainingNetwork, 1000)).setFactor_L1(0.001)
+      val inner = new ConstL12Normalizer(new ArrayTrainable(data.toArray, trainingNetwork, 5000)).setFactor_L1(0.001)
       val trainer = new com.simiacryptus.mindseye.opt.RoundRobinTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(3 * 60, TimeUnit.MINUTES)
