@@ -29,7 +29,7 @@
     </parent>
 
     <artifactId>image-labs</artifactId>
-    <version>1.0.1-SNAPSHOT</version>
+    <version>1.2-SNAPSHOT</version>
     <description>Experiments with Image Analysis</description>
 
     <properties>
@@ -104,18 +104,25 @@
             <groupId>org.scala-lang</groupId>
             <artifactId>scala-library</artifactId>
             <version>${scala.version}</version>
+            <!--
             <scope>provided</scope>
+            -->
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.scala-lang</groupId>
             <artifactId>scala-compiler</artifactId>
             <version>${scala.version}</version>
+            <!--
             <scope>provided</scope>
+            -->
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.scala-lang.modules</groupId>
             <artifactId>scala-xml_${scala.mjversion}</artifactId>
             <version>1.0.6</version>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -169,23 +176,28 @@
             <groupId>org.nanohttpd</groupId>
             <artifactId>nanohttpd</artifactId>
             <version>2.2.0</version>
+            <scope>compile</scope>
+            <!--
             <optional>true</optional>
+            -->
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-core_2.11</artifactId>
             <version>2.1.1</version>
+            <scope>compile</scope>
             <!--
-            -->
             <scope>provided</scope>
+            -->
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-sql_2.11</artifactId>
             <version>2.1.1</version>
+            <scope>compile</scope>
             <!--
-            -->
             <scope>provided</scope>
+            -->
         </dependency>
         <dependency>
             <groupId>com.aparapi</groupId>
