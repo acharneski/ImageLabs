@@ -30,9 +30,10 @@ import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.MonitoringWrapper
 import com.simiacryptus.mindseye.network.graph._
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.opt.region.{SingleOrthant, TrustRegion, TrustRegionStrategy}
+import com.simiacryptus.mindseye.opt.orient.{GradientDescent, LBFGS, TrustRegionStrategy}
+import com.simiacryptus.mindseye.opt.region.{SingleOrthant, TrustRegion}
 import com.simiacryptus.mindseye.opt.trainable.{HoldoverSampleTrainable, L12Normalizer, StochasticArrayTrainable}
-import com.simiacryptus.mindseye.opt.{GradientDescent, IterativeTrainer, LBFGS}
+import com.simiacryptus.mindseye.opt.IterativeTrainer
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil, MarkdownNotebookOutput}
 import com.simiacryptus.util.ml.Tensor

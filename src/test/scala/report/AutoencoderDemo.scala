@@ -31,6 +31,7 @@ import com.simiacryptus.mindseye.layers.activation.SoftmaxActivationLayer
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.layers.synapse.DenseSynapseLayer
 import com.simiacryptus.mindseye.opt._
+import com.simiacryptus.mindseye.opt.orient.LBFGS
 import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
 import com.simiacryptus.util.io.{IOUtil, KryoUtil}
 import com.simiacryptus.util.ml.{Coordinate, Tensor}

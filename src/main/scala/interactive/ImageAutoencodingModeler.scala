@@ -34,7 +34,8 @@ import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapp
 import com.simiacryptus.mindseye.network.graph.DAGNetwork
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
-import com.simiacryptus.mindseye.opt.region.{LinearSumConstraint, StaticConstraint, TrustRegion, TrustRegionStrategy}
+import com.simiacryptus.mindseye.opt.orient.{LBFGS, MomentumStrategy, TrustRegionStrategy}
+import com.simiacryptus.mindseye.opt.region.{LinearSumConstraint, StaticConstraint, TrustRegion}
 import com.simiacryptus.mindseye.opt.trainable.{ScheduledSampleTrainable, StochasticArrayTrainable}
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.HtmlNotebookOutput

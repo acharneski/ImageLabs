@@ -31,7 +31,8 @@ import com.simiacryptus.mindseye.layers.activation.{ReLuActivationLayer, Softmax
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.opt._
-import com.simiacryptus.mindseye.opt.line.ArmijoWolfeConditions
+import com.simiacryptus.mindseye.opt.line.ArmijoWolfeSearch
+import com.simiacryptus.mindseye.opt.orient.{GradientDescent, LBFGS, OwlQn}
 import com.simiacryptus.mindseye.opt.trainable.{ConstL12Normalizer, StochasticArrayTrainable, Trainable}
 import com.simiacryptus.util.Util
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
@@ -137,7 +138,7 @@ class OptimizerDemo extends WordSpec with MustMatchers with ReportNotebook {
           val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
           trainer.setOrientation(new OwlQn())
           // Not needed, just for illustration:
-          trainer.setLineSearchFactory(()⇒new ArmijoWolfeConditions().setC2(0.8).setAlpha(1e-6))
+          trainer.setLineSearchFactory(()⇒new ArmijoWolfeSearch().setC2(0.8).setAlpha(1e-6))
           trainer
         })
       })

@@ -31,13 +31,14 @@ import com.google.gson.{GsonBuilder, JsonObject}
 import com.simiacryptus.mindseye.layers.{NNLayer, NNResult}
 import com.simiacryptus.mindseye.layers.activation.{HyperbolicActivationLayer, LinearActivationLayer, SoftmaxActivationLayer, SqActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer, MaxSubsampleLayer, AvgSubsampleLayer}
+import com.simiacryptus.mindseye.layers.media.{AvgSubsampleLayer, ImgBandBiasLayer, ImgConvolutionSynapseLayer, MaxSubsampleLayer}
 import com.simiacryptus.mindseye.layers.reducers.{SumInputsLayer, SumReducerLayer}
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
-import com.simiacryptus.mindseye.opt.line.ArmijoWolfeConditions
+import com.simiacryptus.mindseye.opt.line.ArmijoWolfeSearch
+import com.simiacryptus.mindseye.opt.orient.{GradientDescent, LBFGS, MomentumStrategy, TrustRegionStrategy}
 import com.simiacryptus.mindseye.opt.region._
 import com.simiacryptus.mindseye.opt.trainable.{ArrayTrainable, LinkedExampleArrayTrainable, ScheduledSampleTrainable}
 import com.simiacryptus.util.StreamNanoHTTPD
@@ -251,7 +252,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     val executorFunction = new LinkedExampleArrayTrainable(data, trainingNetwork, 100)
     val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
       .setIterationsPerSample(1)
-    trainer.setLineSearchFactory(Java8Util.cvt(()⇒new ArmijoWolfeConditions().setC1(1e-4).setC2(0.7)))
+    trainer.setLineSearchFactory(Java8Util.cvt(()⇒new ArmijoWolfeSearch().setC1(1e-4).setC2(0.7)))
     trainer.setOrientation(new TrustRegionStrategy(new MomentumStrategy(new GradientDescent()).setCarryOver(0.2)) {
       override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
         case _: DenseSynapseLayer ⇒ new LinearSumConstraint
@@ -272,7 +273,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     val executorFunction = new LinkedExampleArrayTrainable(data, trainingNetwork, 500)
     val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
       .setIterationsPerSample(50)
-    trainer.setLineSearchFactory(Java8Util.cvt(()⇒new ArmijoWolfeConditions().setC1(1e-6).setC2(0.9)))
+    trainer.setLineSearchFactory(Java8Util.cvt(()⇒new ArmijoWolfeSearch().setC1(1e-6).setC2(0.9)))
     trainer.setOrientation(new TrustRegionStrategy(new LBFGS().setMaxHistory(30)) {
       override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
         case _ ⇒ null
@@ -317,7 +318,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
       val executorFunction = new ArrayTrainable(adversarialTrainingSet.flatten, trainingNetwork)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
-      trainer.setLineSearchFactory(Java8Util.cvt(()⇒new ArmijoWolfeConditions().setC1(1e-6).setC2(0.99)))
+      trainer.setLineSearchFactory(Java8Util.cvt(()⇒new ArmijoWolfeSearch().setC1(1e-6).setC2(0.99)))
       trainer.setOrientation(new TrustRegionStrategy(new LBFGS) {
         override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
           case _: DenseSynapseLayer ⇒ new LinearSumConstraint
@@ -377,7 +378,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     trainableNet.add(new SumInputsLayer(), trainableNet.getHead, entropyNode)
     val executorFunction = new ArrayTrainable(Array(Array(data)), trainableNet)
     val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
-    trainer.setLineSearchFactory(Java8Util.cvt(() ⇒ new ArmijoWolfeConditions().setC1(1e-6).setC2(0.9)))
+    trainer.setLineSearchFactory(Java8Util.cvt(() ⇒ new ArmijoWolfeSearch().setC1(1e-6).setC2(0.9)))
     trainer.setOrientation(new TrustRegionStrategy(new GradientDescent) {
       override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
         case l: BiasLayer if l.id.equals(imageCorrections.getId) ⇒ new TrustRegion() {
@@ -415,7 +416,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     trainableNet.add(new SumInputsLayer(), trainableNet.getHead, entropyNode)
     val executorFunction = new ArrayTrainable(Array(Array(data)), trainableNet)
     val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
-    trainer.setLineSearchFactory(Java8Util.cvt(() ⇒ new ArmijoWolfeConditions().setC1(1e-6).setC2(0.9)))
+    trainer.setLineSearchFactory(Java8Util.cvt(() ⇒ new ArmijoWolfeSearch().setC1(1e-6).setC2(0.9)))
     trainer.setOrientation(new TrustRegionStrategy(new LBFGS) {
       override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
         case l: BiasLayer if l.id.equals(imageCorrections.getId) ⇒ new TrustRegion() {

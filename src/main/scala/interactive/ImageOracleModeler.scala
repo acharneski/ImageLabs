@@ -37,6 +37,7 @@ import com.simiacryptus.mindseye.network.graph.DAGNode
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
+import com.simiacryptus.mindseye.opt.orient.{GradientDescent, LBFGS, MomentumStrategy, TrustRegionStrategy}
 import com.simiacryptus.mindseye.opt.region._
 import com.simiacryptus.mindseye.opt.trainable._
 import com.simiacryptus.util.data.DoubleStatistics
@@ -95,6 +96,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     defineTestHandler()
     out.out("<hr/>")
     if(findFile("oracle").isEmpty || System.getProperties.containsKey("rebuild")) step1()
+    step_diagnostic()
     step2()
     summarizeHistory()
     out.out("<hr/>")
@@ -236,26 +238,32 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
       val dataArray = data.toArray
-      val factory: Supplier[Trainable] = Java8Util.cvt(() ⇒ new StochasticArrayTrainable(dataArray, trainingNetwork, 1000))
-      var inner: Trainable = new UncertiantyEstimateTrainable(3, factory, monitor)
-      inner = factory.get()
-      //inner = new ConstL12Normalizer(inner).setFactor_L1(0.001)
-      val trainer = new LayerRateDiagnosticTrainer(inner)
+      var inner: Trainable = new StochasticArrayTrainable(dataArray, trainingNetwork, 1000)
+      inner = new ConstL12Normalizer(inner).setFactor_L1(0.001)
+      val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(1 * 60, TimeUnit.MINUTES)
       trainer.setIterationsPerSample(1)
       val momentum = new MomentumStrategy(new GradientDescent()).setCarryOver(0.2)
-//      trainer.setOrientations(new TrustRegionStrategy(momentum) {
-//        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
-//          case _: ImgConvolutionSynapseLayer ⇒ null
-//          case _ ⇒ new StaticConstraint
-//        }
-//      })
-//      trainer.setLineSearchFactory(Java8Util.cvt((s:String)⇒{
-//        //new StaticLearningRate().setRate(1e-5)
-//        //new ArmijoWolfeConditions().setAlpha(1e-8)
-//        new QuadraticSearch()
-//      }.asInstanceOf[LineSearchStrategy]))
+      trainer.setOrientation(momentum)
+      trainer.setLineSearchFactory(()⇒new ArmijoWolfeSearch)
+      trainer.setTerminateThreshold(0.0)
+      trainer
+    }
+    trainer.run()
+  }: Unit, "oracle")
+
+  def step_diagnostic() = phase("oracle", (model: NNLayer) ⇒ {
+    out.h1("Diagnostics")
+    val trainer = out.eval {
+      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
+      val dataArray = data.toArray
+      val factory: Supplier[Trainable] = Java8Util.cvt(() ⇒ new StochasticArrayTrainable(dataArray, trainingNetwork, 1000))
+      var inner: Trainable = new UncertiantyEstimateTrainable(3, factory, monitor)
+      val trainer = new LayerRateDiagnosticTrainer(inner).setStrict(true).setMaxIterations(1)
+      trainer.setMonitor(monitor)
+      trainer.setTimeout(1 * 60, TimeUnit.MINUTES)
+      trainer.setIterationsPerSample(1)
       trainer.setTerminateThreshold(0.0)
       trainer
     }
@@ -290,7 +298,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
       })
       trainer.setLineSearchFactory(Java8Util.cvt((s:String)⇒(s match {
         case s if s.contains("LBFGS") ⇒ new StaticLearningRate().setRate(1)
-        case _ ⇒ new LineBracketSearch().setCurrentRate(1e-5)
+        case _ ⇒ new BisectionSearch().setCurrentRate(1e-5)
       }).asInstanceOf[LineSearchStrategy]))
       trainer.setTerminateThreshold(0.0)
       trainer
@@ -325,7 +333,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
       })
       trainer.setLineSearchFactory(Java8Util.cvt((s:String)⇒(s match {
         case s if s.contains("LBFGS") ⇒ new StaticLearningRate().setRate(1)
-        case _ ⇒ new LineBracketSearch().setCurrentRate(1e-5)
+        case _ ⇒ new BisectionSearch().setCurrentRate(1e-5)
       }).asInstanceOf[LineSearchStrategy]))
       trainer.setTerminateThreshold(0.0)
       trainer

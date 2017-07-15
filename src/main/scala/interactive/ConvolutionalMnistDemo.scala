@@ -30,7 +30,8 @@ import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt.IterativeTrainer
-import com.simiacryptus.mindseye.opt.region.{GrowthSphere, TrustRegionStrategy, LinearSumConstraint, TrustRegion}
+import com.simiacryptus.mindseye.opt.orient.TrustRegionStrategy
+import com.simiacryptus.mindseye.opt.region.{GrowthSphere, LinearSumConstraint, TrustRegion}
 import com.simiacryptus.mindseye.opt.trainable.{L12Normalizer, ScheduledSampleTrainable}
 import com.simiacryptus.util.ml.Tensor
 
