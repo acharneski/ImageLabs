@@ -17,26 +17,25 @@
  * under the License.
  */
 
-package interactive
+package interactive.superres
 
 import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
 import java.io._
 import java.util.concurrent.TimeUnit
-import java.util.function.DoubleUnaryOperator
 
 import _root_.util._
-import com.simiacryptus.mindseye.layers.{NNLayer, NNResult}
 import com.simiacryptus.mindseye.layers.activation._
 import com.simiacryptus.mindseye.layers.loss.MeanSqLossLayer
 import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper, VariableLayer}
+import com.simiacryptus.mindseye.layers.{NNLayer, NNResult}
 import com.simiacryptus.mindseye.network.graph.DAGNetwork
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.orient.{LBFGS, MomentumStrategy, TrustRegionStrategy}
 import com.simiacryptus.mindseye.opt.region.{LinearSumConstraint, StaticConstraint, TrustRegion}
-import com.simiacryptus.mindseye.opt.trainable.{ScheduledSampleTrainable, StochasticArrayTrainable}
+import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.HtmlNotebookOutput
 import com.simiacryptus.util.ml.Tensor

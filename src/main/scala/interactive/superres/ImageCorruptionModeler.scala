@@ -17,30 +17,29 @@
  * under the License.
  */
 
-package interactive
+package interactive.superres
 
 import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
 import java.io.{File, FileInputStream}
-import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 import _root_.util._
 import com.google.gson.{GsonBuilder, JsonObject}
-import com.simiacryptus.mindseye.layers.{NNLayer, NNResult}
 import com.simiacryptus.mindseye.layers.activation.{HyperbolicActivationLayer, LinearActivationLayer, SoftmaxActivationLayer, SqActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.layers.media.{AvgSubsampleLayer, ImgBandBiasLayer, ImgConvolutionSynapseLayer, MaxSubsampleLayer}
+import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer, MaxSubsampleLayer}
 import com.simiacryptus.mindseye.layers.reducers.{SumInputsLayer, SumReducerLayer}
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
+import com.simiacryptus.mindseye.layers.{NNLayer, NNResult}
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line.ArmijoWolfeSearch
 import com.simiacryptus.mindseye.opt.orient.{GradientDescent, LBFGS, MomentumStrategy, TrustRegionStrategy}
 import com.simiacryptus.mindseye.opt.region._
-import com.simiacryptus.mindseye.opt.trainable.{ArrayTrainable, LinkedExampleArrayTrainable, ScheduledSampleTrainable}
+import com.simiacryptus.mindseye.opt.trainable.{ArrayTrainable, LinkedExampleArrayTrainable}
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.HtmlNotebookOutput
 import com.simiacryptus.util.ml.Tensor

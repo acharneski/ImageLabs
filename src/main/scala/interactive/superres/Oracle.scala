@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package interactive
+package interactive.superres
 
 import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
@@ -27,15 +27,15 @@ import java.util.concurrent.TimeUnit
 import java.util.function.{DoubleSupplier, IntToDoubleFunction, Supplier}
 
 import _root_.util._
-import com.simiacryptus.mindseye.layers.{DeltaBuffer, NNLayer}
-import com.simiacryptus.mindseye.layers.activation.{HyperbolicActivationLayer, LinearActivationLayer, ReLuActivationLayer}
+import com.simiacryptus.mindseye.layers.activation.{HyperbolicActivationLayer, ReLuActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.MeanSqLossLayer
-import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer}
+import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer, ImgReshapeLayer}
 import com.simiacryptus.mindseye.layers.reducers.{ProductInputsLayer, SumInputsLayer}
 import com.simiacryptus.mindseye.layers.util.{ConstNNLayer, MonitoringSynapse, MonitoringWrapper}
+import com.simiacryptus.mindseye.layers.{DeltaBuffer, NNLayer}
 import com.simiacryptus.mindseye.network.graph.DAGNode
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.opt._
+import com.simiacryptus.mindseye.opt.{TrainingMonitor, _}
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient.{GradientDescent, LBFGS, MomentumStrategy, TrustRegionStrategy}
 import com.simiacryptus.mindseye.opt.region._
@@ -45,57 +45,89 @@ import com.simiacryptus.util.io.HtmlNotebookOutput
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.ImageTiles.ImageTensorLoader
 import com.simiacryptus.util.text.TableOutput
-import com.simiacryptus.util.{ArrayUtil, StreamNanoHTTPD, Util}
-import org.apache.commons.math3.analysis.MultivariateFunction
-import org.apache.commons.math3.optim.{InitialGuess, MaxEval, MaxIter, PointValuePair}
-import org.apache.commons.math3.optim.nonlinear.scalar.{GoalType, ObjectiveFunction}
-import org.apache.commons.math3.optim.nonlinear.scalar.noderiv.{MultiDirectionalSimplex, PowellOptimizer, SimplexOptimizer}
-import org.apache.commons.math3.optimization.OptimizationData
+import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
 import util.Java8Util.cvt
 
 import scala.collection.JavaConverters._
 import scala.util.Random
+import Optimizer._
 
-object ImageOracleModeler extends ServiceNotebook {
+object Oracle extends ServiceNotebook {
 
   def main(args: Array[String]): Unit = {
 
     report((server, out) ⇒ args match {
-      case Array(source) ⇒ new ImageOracleModeler(source, server, out).run()
-      case _ ⇒ new ImageOracleModeler("E:\\testImages\\256_ObjectCategories", server, out).run()
+      case Array(source) ⇒ new Oracle(source, server, out).run()
+      case _ ⇒ new Oracle("E:\\testImages\\256_ObjectCategories", server, out).run()
     })
 
   }
 
-  trait OptimizedData {
-    def toArray() : Array[Double]
-  }
+}
 
-  def optimize[T <: OptimizedData,U](factory : Array[Double] ⇒ T, initialMetaparameters : T, getNetwork: (T) ⇒ U, evalNetwork: (U) ⇒ Double): U = {
-    val optimizer = new SimplexOptimizer(1e-2, 1e-2)
-    val dimensions = initialMetaparameters.toArray().length
-    val optimalMetaparameters = factory(optimizer.optimize(
-      new ObjectiveFunction(new MultivariateFunction {
-        override def value(doubles: Array[Double]): Double = {
-          evalNetwork(getNetwork(factory(doubles)))
-        }
-      }),
-      new InitialGuess(initialMetaparameters.toArray()),
-      GoalType.MINIMIZE, new MaxIter(1000), new MaxEval(1000),
-      new MultiDirectionalSimplex(dimensions)
-    ).getPoint)
-    getNetwork(optimalMetaparameters)
+case class NetworkConstructor(
+                                  weight1 : Double,
+                                  weight2 : Double,
+                                  weight3 : Double,
+                                  weight4 : Double
+                                ) extends OptimizationParameters {
+  def getNetwork(monitor: TrainingMonitor, monitoringRoot : MonitoredObject) : PipelineNetwork = {
+    val parameters = this
+    monitor.log(s"Building network with parameters $parameters")
+    var network: PipelineNetwork = new PipelineNetwork
+    val zeroSeed : IntToDoubleFunction = Java8Util.cvt(_ ⇒ 0.0)
+    val layerRadius = 3
+    def buildLayer(from: Int, to: Int, layerNumber: String, root: DAGNode = network.getHead, activation: ⇒ NNLayer = new ReLuActivationLayer(), weights: Double = 0.1): DAGNode = {
+      def weightSeed : DoubleSupplier = Java8Util.cvt(() ⇒ {
+        val r = Util.R.get.nextDouble() * 2 - 1
+        r * weights
+      })
+      network.add(new MonitoringWrapper(new ImgBandBiasLayer(from).setWeights(zeroSeed).setName("bias_" + layerNumber)).addTo(monitoringRoot), root);
+      if (!layerNumber.startsWith("0") && activation != null) {
+        network.add(new MonitoringWrapper(activation.setName("activation_" + layerNumber)).addTo(monitoringRoot));
+      }
+      network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(layerRadius, layerRadius, from * to).setWeights(weightSeed).setName("conv_" + layerNumber)).addTo(monitoringRoot));
+      //network.add(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
+    }
+
+    //    List(3,12,12,3).sliding(2).map(x⇒x(0)→x(1)).zipWithIndex.foreach(x⇒{
+    //      val ((from,to), layerNumber) = x
+    //      buildLayer(from, to, layerNumber.toString)
+    //    })
+
+    network.add(new ImgReshapeLayer(4,4,false))
+    val input = network.getHead
+    val layer2 = network.add(new SumInputsLayer(),
+      buildLayer(48, 48, "0a", input, weights = parameters.weight1),
+      network.add(new ProductInputsLayer(),
+        buildLayer(48, 48, "0c", input, weights = parameters.weight2),
+        buildLayer(48, 48, "0b", input, weights = parameters.weight3)))
+    buildLayer(48, 48, "1", weights = parameters.weight4)
+    network.add(new ImgReshapeLayer(4,4,true))
+
+    //    val input = network.getHead
+    //    val layer1 = buildLayer(3, 12, "0a", input)
+    //    val layer2 = network.add(new ProductInputsLayer(),
+    //      buildLayer(12, 12, "1", layer1, activation = new HyperbolicActivationLayer()),
+    //      buildLayer(3, 12, "0b", input))
+    //    buildLayer(12, 3, "2")
+
+    //    val layer3 = network.add(new ProductInputsLayer(),
+    //      buildLayer(12, 3, "2a", layer1),
+    //      buildLayer(12, 3, "2b", layer1))
+    //network.add(new SumInputsLayer(), network.getInput(0), network.getHead)
+    network
   }
 
 }
 
-class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
+class Oracle(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 
   def run(): Unit = {
     defineHeader()
     defineTestHandler()
     out.out("<hr/>")
-    if(findFile("oracle").isEmpty || System.getProperties.containsKey("rebuild")) step1()
+    if(findFile(modelName).isEmpty || System.getProperties.containsKey("rebuild")) step1()
     step_diagnostic()
     step2()
     summarizeHistory()
@@ -143,59 +175,6 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
 
   val fitnessBorderPadding = 6
 
-  case class NetworkMetaparameters(
-    weight1 : Double,
-    weight2 : Double,
-    weight3 : Double
-  ) extends ImageOracleModeler.OptimizedData {
-    def this(v: Array[Double]) = this(v(0),v(1),v(2))
-    def toArray(): Array[Double] = Array(weight1, weight2, weight3)
-  }
-
-  def getNetwork(parameters : NetworkMetaparameters) : PipelineNetwork = {
-    monitor.log(s"Building network with parameters $parameters")
-    var network: PipelineNetwork = new PipelineNetwork
-    network.add(new MonitoringSynapse().addTo(monitoringRoot, "input1"))
-    val zeroSeed : IntToDoubleFunction = Java8Util.cvt(_ ⇒ 0.0)
-    val layerRadius = 5
-    def buildLayer(from: Int, to: Int, layerNumber: String, root: DAGNode = network.getHead, activation: ⇒ NNLayer = new ReLuActivationLayer(), weights: Double = 0.1): DAGNode = {
-      def weightSeed : DoubleSupplier = Java8Util.cvt(() ⇒ {
-        val r = Util.R.get.nextDouble() * 2 - 1
-        r * weights
-      })
-      network.add(new MonitoringWrapper(new ImgBandBiasLayer(from).setWeights(zeroSeed).setName("bias_" + layerNumber)).addTo(monitoringRoot), root);
-      if (!layerNumber.startsWith("0") && activation != null) {
-        network.add(new MonitoringWrapper(activation.setName("activation_" + layerNumber)).addTo(monitoringRoot));
-      }
-      network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(layerRadius, layerRadius, from * to).setWeights(weightSeed).setName("conv_" + layerNumber)).addTo(monitoringRoot));
-      network.add(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
-    }
-    //    List(3,12,12,3).sliding(2).map(x⇒x(0)→x(1)).zipWithIndex.foreach(x⇒{
-    //      val ((from,to), layerNumber) = x
-    //      buildLayer(from, to, layerNumber.toString)
-    //    })
-
-    val input = network.getHead
-    val layer2 = network.add(new SumInputsLayer(),
-      buildLayer(3, 12, "0a", input, weights = parameters.weight1),
-      network.add(new ProductInputsLayer(),
-        buildLayer(3, 12, "0c", input, weights = parameters.weight2),
-        buildLayer(3, 12, "0b", input, weights = parameters.weight3)))
-    buildLayer(12, 3, "1")
-
-    //    val input = network.getHead
-    //    val layer1 = buildLayer(3, 12, "0a", input)
-    //    val layer2 = network.add(new ProductInputsLayer(),
-    //      buildLayer(12, 12, "1", layer1, activation = new HyperbolicActivationLayer()),
-    //      buildLayer(3, 12, "0b", input))
-    //    buildLayer(12, 3, "2")
-
-    //    val layer3 = network.add(new ProductInputsLayer(),
-    //      buildLayer(12, 3, "2a", layer1),
-    //      buildLayer(12, 3, "2b", layer1))
-    //network.add(new SumInputsLayer(), network.getInput(0), network.getHead)
-    network
-  }
 
   def evalNetwork_GradientDistribution(network : PipelineNetwork) : Double = {
     val N = 2
@@ -228,17 +207,18 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     }).sum/N
   }
 
+  val modelName = System.getProperty("modelName","oracle1")
+
   def step1() = phase({
-
-    //ImageOracleModeler.optimize(x⇒new NetworkMetaparameters(x), new NetworkMetaparameters(0.1,0.1,0.1), getNetwork, evalNetwork_Value)
-    getNetwork(new NetworkMetaparameters(0.6,0.025,0.0372))
-
+    NetworkConstructor(3.03671875,0.08046875,0.017968750000000012,0.017968750000000012)
+      //.optimize(x⇒evalNetwork_Value(x.getNetwork(monitor, monitoringRoot)))
+      .getNetwork(monitor, monitoringRoot)
   }, (model: NNLayer) ⇒ {
     out.h1("Step 1")
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
       val dataArray = data.toArray
-      var inner: Trainable = new StochasticArrayTrainable(dataArray, trainingNetwork, 1000)
+      var inner: Trainable = new StochasticArrayTrainable(dataArray, trainingNetwork, 100)
       inner = new ConstL12Normalizer(inner).setFactor_L1(0.001)
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
@@ -251,30 +231,43 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
       trainer
     }
     trainer.run()
-  }: Unit, "oracle")
+  }: Unit, modelName)
 
-  def step_diagnostic() = phase("oracle", (model: NNLayer) ⇒ {
-    out.h1("Diagnostics")
-    val trainer = out.eval {
-      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
-      val dataArray = data.toArray
-      val factory: Supplier[Trainable] = Java8Util.cvt(() ⇒ new StochasticArrayTrainable(dataArray, trainingNetwork, 1000))
-      var inner: Trainable = new UncertiantyEstimateTrainable(3, factory, monitor)
-      val trainer = new LayerRateDiagnosticTrainer(inner).setStrict(true).setMaxIterations(1)
+  def step_diagnostic() = phase(modelName, (model: NNLayer) ⇒ {
+    out.h1("Diagnostics - Evaluation Stability")
+    val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
+    val dataArray = data.toArray
+    val factory: Supplier[Trainable] = Java8Util.cvt(() ⇒ new StochasticArrayTrainable(dataArray, trainingNetwork, 1000))
+    var uncertiantyEstimator = new UncertiantyEstimateTrainable(3, factory, monitor)
+    val uncertiantyProbe = out.eval {
+      val trainer = new IterativeTrainer(uncertiantyEstimator).setMaxIterations(1)
       trainer.setMonitor(monitor)
-      trainer.setTimeout(1 * 60, TimeUnit.MINUTES)
-      trainer.setIterationsPerSample(1)
       trainer.setTerminateThreshold(0.0)
       trainer
     }
-    trainer.run()
-  }: Unit, "oracle")
+    uncertiantyProbe.run()
+    out.eval {
+      uncertiantyEstimator.getUncertianty()
+    }
+    out.h1("Diagnostics - Layer Rates")
+    val layerRateProbe = out.eval {
+      var inner: Trainable = new StochasticArrayTrainable(dataArray, trainingNetwork, 1000)
+      val trainer = new LayerRateDiagnosticTrainer(inner).setStrict(true).setMaxIterations(1)
+      trainer.setMonitor(monitor)
+      trainer.setTerminateThreshold(0.0)
+      trainer
+    }
+    layerRateProbe.run()
+    out.eval {
+      layerRateProbe.getLayerRates()
+    }
+  }: Unit, modelName)
 
-  def step2() = phase("oracle", (model: NNLayer) ⇒ {
+  def step2() = phase(modelName, (model: NNLayer) ⇒ {
     out.h1("Step 2")
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
-      var inner: Trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 100)
+      var inner: Trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
       inner = new ConstL12Normalizer(inner).setFactor_L1(0.001)
       val trainer = new com.simiacryptus.mindseye.opt.RoundRobinTrainer(inner)
       trainer.setMonitor(monitor)
@@ -304,42 +297,7 @@ class ImageOracleModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
       trainer
     }
     trainer.run()
-  }: Unit, "oracle")
-
-  def step3() = phase("oracle", (model: NNLayer) ⇒ {
-    out.h1("Step 3")
-    val trainer = out.eval {
-      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
-      var inner: Trainable = new ArrayTrainable(data.toArray, trainingNetwork, 1000)
-      inner = new ConstL12Normalizer(inner).setFactor_L1(0.001)
-      val trainer = new com.simiacryptus.mindseye.opt.RoundRobinTrainer(inner)
-      trainer.setMonitor(monitor)
-      trainer.setTimeout(3 * 60, TimeUnit.MINUTES)
-      trainer.setIterationsPerSample(1)
-      val lbfgs = new LBFGS().setMaxHistory(50).setMinHistory(3)
-      trainer.setOrientations(new TrustRegionStrategy(lbfgs) {
-        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
-          case _: HyperbolicActivationLayer ⇒ new StaticConstraint
-          case _: ReLuActivationLayer ⇒ new StaticConstraint
-          case _: ImgBandBiasLayer ⇒ new LinearSumConstraint
-          case _ ⇒ null
-        }
-      }, new TrustRegionStrategy(lbfgs) {
-        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
-          case _: HyperbolicActivationLayer ⇒ new StaticConstraint
-          case _: ReLuActivationLayer ⇒ new StaticConstraint
-          case _ ⇒ null
-        }
-      })
-      trainer.setLineSearchFactory(Java8Util.cvt((s:String)⇒(s match {
-        case s if s.contains("LBFGS") ⇒ new StaticLearningRate().setRate(1)
-        case _ ⇒ new BisectionSearch().setCurrentRate(1e-5)
-      }).asInstanceOf[LineSearchStrategy]))
-      trainer.setTerminateThreshold(0.0)
-      trainer
-    }
-    trainer.run()
-  }: Unit, "oracle")
+  }: Unit, modelName)
 
   def lossNetwork = {
     val mask: Tensor = new Tensor(64, 64, 3).map(Java8Util.cvt((v: lang.Double, c: Coordinate) ⇒ {
