@@ -105,17 +105,6 @@ case class NetworkConstructor(
     buildLayer(48, 48, "1", weights = parameters.weight4)
     network.add(new ImgReshapeLayer(4,4,true))
 
-    //    val input = network.getHead
-    //    val layer1 = buildLayer(3, 12, "0a", input)
-    //    val layer2 = network.add(new ProductInputsLayer(),
-    //      buildLayer(12, 12, "1", layer1, activation = new HyperbolicActivationLayer()),
-    //      buildLayer(3, 12, "0b", input))
-    //    buildLayer(12, 3, "2")
-
-    //    val layer3 = network.add(new ProductInputsLayer(),
-    //      buildLayer(12, 3, "2a", layer1),
-    //      buildLayer(12, 3, "2b", layer1))
-    //network.add(new SumInputsLayer(), network.getInput(0), network.getHead)
     network
   }
 
@@ -130,6 +119,8 @@ class Oracle(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput wi
     if(findFile(modelName).isEmpty || System.getProperties.containsKey("rebuild")) step1()
     step_diagnostic()
     step2()
+    step_diagnostic()
+    step3()
     summarizeHistory()
     out.out("<hr/>")
     waitForExit()
@@ -168,7 +159,7 @@ class Oracle(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput wi
 
   private def rawData() = {
     val loader = new ImageTensorLoader(new File(source), 64, 64, 64, 64, 10, 10)
-    val rawList = loader.stream().iterator().asScala.take(500).toList
+    val rawList = loader.stream().iterator().asScala.take(10000).toList
     loader.stop()
     rawList
   }
@@ -222,23 +213,24 @@ class Oracle(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput wi
       inner = new ConstL12Normalizer(inner).setFactor_L1(0.001)
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
-      trainer.setTimeout(1 * 60, TimeUnit.MINUTES)
+      trainer.setTimeout(20, TimeUnit.MINUTES)
       trainer.setIterationsPerSample(1)
       val momentum = new MomentumStrategy(new GradientDescent()).setCarryOver(0.2)
       trainer.setOrientation(momentum)
       trainer.setLineSearchFactory(()⇒new ArmijoWolfeSearch)
-      trainer.setTerminateThreshold(0.0)
+      trainer.setTerminateThreshold(5000.0)
       trainer
     }
     trainer.run()
   }: Unit, modelName)
 
-  def step_diagnostic() = phase(modelName, (model: NNLayer) ⇒ {
+  def step_diagnostic(sampleSize : Int = 1000) = phase(modelName, (model: NNLayer) ⇒ {
     out.h1("Diagnostics - Evaluation Stability")
     val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
     val dataArray = data.toArray
-    val factory: Supplier[Trainable] = Java8Util.cvt(() ⇒ new StochasticArrayTrainable(dataArray, trainingNetwork, 1000))
-    var uncertiantyEstimator = new UncertiantyEstimateTrainable(3, factory, monitor)
+    val n = 3
+    val factory: Supplier[Trainable] = Java8Util.cvt(() ⇒ new StochasticArrayTrainable(dataArray, trainingNetwork, sampleSize / n))
+    var uncertiantyEstimator = new UncertiantyEstimateTrainable(n, factory, monitor)
     val uncertiantyProbe = out.eval {
       val trainer = new IterativeTrainer(uncertiantyEstimator).setMaxIterations(1)
       trainer.setMonitor(monitor)
@@ -251,7 +243,7 @@ class Oracle(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput wi
     }
     out.h1("Diagnostics - Layer Rates")
     val layerRateProbe = out.eval {
-      var inner: Trainable = new StochasticArrayTrainable(dataArray, trainingNetwork, 1000)
+      var inner: Trainable = new StochasticArrayTrainable(dataArray, trainingNetwork, sampleSize)
       val trainer = new LayerRateDiagnosticTrainer(inner).setStrict(true).setMaxIterations(1)
       trainer.setMonitor(monitor)
       trainer.setTerminateThreshold(0.0)
@@ -267,8 +259,29 @@ class Oracle(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput wi
     out.h1("Step 2")
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
-      var inner: Trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
+      val dataArray = data.toArray
+      var inner: Trainable = new StochasticArrayTrainable(dataArray, trainingNetwork, 1000)
       inner = new ConstL12Normalizer(inner).setFactor_L1(0.001)
+      val trainer = new IterativeTrainer(inner)
+      trainer.setMonitor(monitor)
+      trainer.setTimeout(1 * 60, TimeUnit.MINUTES)
+      trainer.setIterationsPerSample(1)
+      val momentum = new MomentumStrategy(new GradientDescent()).setCarryOver(0.2)
+      trainer.setOrientation(momentum)
+      trainer.setLineSearchFactory(()⇒new ArmijoWolfeSearch)
+      trainer.setTerminateThreshold(0.0)
+      trainer
+    }
+    trainer.run()
+  }: Unit, modelName)
+
+  def step3() = phase(modelName, (model: NNLayer) ⇒ {
+    out.h1("Step 2")
+    val trainer = out.eval {
+      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
+
+      val factory: Supplier[Trainable] = Java8Util.cvt(() ⇒ new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000))
+      var inner = new UncertiantyEstimateTrainable(5, factory, monitor)
       val trainer = new com.simiacryptus.mindseye.opt.RoundRobinTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(4 * 60, TimeUnit.MINUTES)
@@ -292,7 +305,7 @@ class Oracle(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput wi
       trainer.setLineSearchFactory(Java8Util.cvt((s:String)⇒(s match {
         case s if s.contains("LBFGS") ⇒ new StaticLearningRate().setRate(1)
         case _ ⇒ new BisectionSearch().setCurrentRate(1e-5)
-      }).asInstanceOf[LineSearchStrategy]))
+      })))
       trainer.setTerminateThreshold(0.0)
       trainer
     }
