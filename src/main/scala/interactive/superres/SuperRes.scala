@@ -22,22 +22,22 @@ package interactive.superres
 import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
 import java.io._
-import java.lang
+import java.{lang, util}
 import java.util.concurrent.TimeUnit
 import java.util.function.{DoubleSupplier, IntToDoubleFunction, Supplier}
 
 import _root_.util._
-import com.simiacryptus.mindseye.layers.activation.{HyperbolicActivationLayer, ReLuActivationLayer}
+import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, HyperbolicActivationLayer, LinearActivationLayer, ReLuActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.MeanSqLossLayer
 import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer, ImgReshapeLayer}
-import com.simiacryptus.mindseye.layers.reducers.{ProductInputsLayer, SumInputsLayer}
+import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer}
 import com.simiacryptus.mindseye.layers.util.{ConstNNLayer, MonitoringWrapper}
 import com.simiacryptus.mindseye.layers.{DeltaBuffer, NNLayer}
-import com.simiacryptus.mindseye.network.graph.DAGNode
+import com.simiacryptus.mindseye.network.graph.{DAGNetwork, DAGNode}
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
-import com.simiacryptus.mindseye.opt.orient.{GradientDescent, LBFGS, MomentumStrategy, TrustRegionStrategy}
+import com.simiacryptus.mindseye.opt.orient._
 import com.simiacryptus.mindseye.opt.region._
 import com.simiacryptus.mindseye.opt.trainable._
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
@@ -46,7 +46,8 @@ import com.simiacryptus.util.io.HtmlNotebookOutput
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.ImageTiles.ImageTensorLoader
 import com.simiacryptus.util.text.TableOutput
-import util.Java8Util.cvt
+import _root_.util.Java8Util.cvt
+import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
 
 import scala.collection.JavaConverters._
 import scala.util.Random
@@ -65,41 +66,79 @@ object SuperRes extends ServiceNotebook {
 
 }
 
-case class QuadraticNetworkSuperRes(
-                             weight1 : Double,
-                             weight2 : Double,
-                             weight3 : Double,
-                             weight4 : Double
-                           ) {
-  def getNetwork(monitor: TrainingMonitor, monitoringRoot : MonitoredObject) : PipelineNetwork = {
+import NNLayerUtil._
+
+case class DeepNetworkSuperRes(
+                                     weight1 : Double,
+                                     weight2 : Double,
+                                     weight3 : Double
+                                   ) {
+
+  def getNetwork(monitor: TrainingMonitor,
+                 monitoringRoot : MonitoredObject,
+                 fitness : Boolean = false) : NNLayer = {
     val parameters = this
     monitor.log(s"Building network with parameters $parameters")
-    var network: PipelineNetwork = new PipelineNetwork
+    var network: PipelineNetwork = if(fitness) {
+      new PipelineNetwork(2)
+    } else {
+      new PipelineNetwork(1)
+    }
     val zeroSeed : IntToDoubleFunction = Java8Util.cvt(_ ⇒ 0.0)
-    val layerRadius = 3
-    def buildLayer(from: Int, to: Int, layerNumber: String, root: DAGNode = network.getHead, activation: ⇒ NNLayer = new ReLuActivationLayer(), weights: Double = 0.1): DAGNode = {
+    def buildLayer(from: Int,
+                   to: Int,
+                   layerNumber: String,
+                   weights: Double,
+                   layerRadius: Int = 3,
+                   activationLayer: NNLayer = new ReLuActivationLayer()) = {
       def weightSeed : DoubleSupplier = Java8Util.cvt(() ⇒ {
         val r = Util.R.get.nextDouble() * 2 - 1
         r * weights
       })
-      network.add(new MonitoringWrapper(new ImgBandBiasLayer(from).setWeights(zeroSeed).setName("bias_" + layerNumber)).addTo(monitoringRoot), root);
-      if (!layerNumber.startsWith("0") && activation != null) {
-        network.add(new MonitoringWrapper(activation.setName("activation_" + layerNumber)).addTo(monitoringRoot));
+      network.add(new ImgBandBiasLayer(from).setWeights(zeroSeed).setName("bias_" + layerNumber).addTo(monitoringRoot))
+      if (null != activationLayer) {
+        network.add(activationLayer.setName("activation_" + layerNumber).freeze.addTo(monitoringRoot))
       }
-      network.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(layerRadius, layerRadius, from * to).setWeights(weightSeed).setName("conv_" + layerNumber)).addTo(monitoringRoot));
+      network.add(new ImgConvolutionSynapseLayer(layerRadius, layerRadius, from * to).setWeights(weightSeed).setName("conv_" + layerNumber).addTo(monitoringRoot));
       //network.add(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
     }
 
-    val input = network.getHead
-    val layer2 = network.add(new SumInputsLayer(),
-      buildLayer(3, 48, "0a", input, weights = parameters.weight1),
+    val l1 = buildLayer(3, 64, "0", weights = Math.pow(10, parameters.weight1), activationLayer = null)
+    val l2 = buildLayer(64, 32, "1", weights = Math.pow(10, parameters.weight2), activationLayer = new HyperbolicActivationLayer())
+    network.add(new ImgReshapeLayer(2,2,true))
+    buildLayer(8, 12, "2", weights = Math.pow(10, parameters.weight3), activationLayer = new HyperbolicActivationLayer())
+    network.add(new ImgReshapeLayer(2,2,true))
+
+    if(fitness) {
+      val output = network.getHead
+      def normalizeStdDev(layer:DAGNode, target:Double) = network.add(new AbsActivationLayer(),
+        network.add(new SumInputsLayer(),
+          network.add(new AvgReducerLayer(), network.add(new StdDevMetaLayer(), layer)),
+          network.add(new ConstNNLayer(new Tensor(1).set(0,-target)))
+        )
+      )
       network.add(new ProductInputsLayer(),
-        buildLayer(3, 48, "0c", input, weights = parameters.weight2),
-        buildLayer(3, 48, "0b", input, weights = parameters.weight3)))
-    buildLayer(3, 48, "1", input, weights = parameters.weight4)
-    network.add(new ImgReshapeLayer(4,4,true))
+        network.add(new MeanSqLossLayer(), output, network.getInput(1)),
+        network.add(new SumInputsLayer(),
+          network.add(new ConstNNLayer(new Tensor(1).set(0,10))),
+          normalizeStdDev(l1,100),
+          normalizeStdDev(l2,100)
+        )
+      )
+    }
 
     network
+  }
+
+  def fitness(monitor: TrainingMonitor, monitoringRoot : MonitoredObject, data: Array[Array[Tensor]], n: Int = 3) : Double = {
+    val values = (1 to n).map(i ⇒ {
+      val network = getNetwork(monitor, monitoringRoot, fitness = true)
+      val measure = new ArrayTrainable(data, network).measure()
+      measure.value
+    }).toList
+    val avg = values.sum / n
+    monitor.log(s"Network result: $avg ($values)")
+    avg
   }
 
 }
@@ -107,8 +146,8 @@ case class QuadraticNetworkSuperRes(
 
 class SuperRes(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 
-  val modelName = System.getProperty("modelName","oracle2")
-
+  val modelName = System.getProperty("modelName","superres_8")
+  val tileSize = 128
   val fitnessBorderPadding = 8
 
   def run(): Unit = {
@@ -116,13 +155,11 @@ class SuperRes(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput 
     defineTestHandler()
     out.out("<hr/>")
     if(findFile(modelName).isEmpty || System.getProperties.containsKey("rebuild")) step_Generate()
-    //step_diagnostic()
-    step_SGD(50, 2*60, reshufflePeriod = 10)
-    step_SGD(100, 2*60, reshufflePeriod = 10)
-    step_SGD(200, 2*60, reshufflePeriod = 10)
-    step_SGD(500, 2*60, reshufflePeriod = 5)
-    step_SGD(1000, 4*60, reshufflePeriod = 5)
-    step_LBFGS(1000, 4 * 60)
+    val rates = step_diagnostics_layerRates().map(e⇒e._1.getName→e._2.rate).toMap
+    step_SGD(100, 30, reshufflePeriod = 5, rates = rates)
+    step_diagnostics_layerRates()
+    step_LBFGS(100, 30, 100)
+    step_diagnostics_layerRates()
     summarizeHistory()
     out.out("<hr/>")
     waitForExit()
@@ -140,7 +177,7 @@ class SuperRes(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput 
     out.p("Loading data from " + source)
     val rawList: List[Tensor] = rawData
     System.gc()
-    val data: List[Array[Tensor]] = rawList.map(tile ⇒ Array(Tensor.fromRGB(resize(tile.toRgbImage, 16)), tile))
+    val data: List[Array[Tensor]] = rawList.map(tile ⇒ Array(Tensor.fromRGB(resize(tile.toRgbImage, tileSize/4)), tile))
     out.eval {
       TableOutput.create(Random.shuffle(data).take(100).map(testObj ⇒ Map[String, AnyRef](
         "Source" → out.image(testObj(1).toRgbImage(), ""),
@@ -152,51 +189,20 @@ class SuperRes(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput 
   }
 
   private def rawData() = {
-    val loader = new ImageTensorLoader(new File(source), 64, 64, 64, 64, 10, 10)
+    val loader = new ImageTensorLoader(new File(source), tileSize, tileSize, tileSize, tileSize, 10, 10)
     val rawList = loader.stream().iterator().asScala.take(10000).toList
     loader.stop()
     rawList
   }
 
 
-  def evalNetwork_GradientDistribution(network : PipelineNetwork) : Double = {
-    val N = 2
-    (0 until N).map(i⇒{
-      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(network, lossNetwork)
-      var inner: Trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 100)
-      inner = new ConstL12Normalizer(inner).setFactor_L1(0.001)
-      val measure = inner.measure()
-      val zeroTol = 1e-15
-      val vecMap = measure.delta.map.asScala.map((x: (NNLayer, DeltaBuffer)) ⇒(x._1, (measure.weights.map.get(x._1).sumSq(), x._2.sumSq()))).toMap
-      val average = new DoubleStatistics().accept(vecMap.values.filterNot(x⇒Math.abs(x._1)<zeroTol || Math.abs(x._2)<zeroTol).map(x⇒{
-        val (wx,dx) = x
-        Math.abs(Math.log(wx / dx))
-      }).toArray).getStandardDeviation
-      monitor.log(s"Network entropy network $average: $vecMap")
-      average
-    }).sum/N
-  }
-
-  def evalNetwork_Value(network : PipelineNetwork) : Double = {
-    val N = 2
-    (0 until N).map(i⇒{
-      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(network, lossNetwork)
-      var inner: Trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 50)
-      inner = new ConstL12Normalizer(inner).setFactor_L1(0.001)
-      val measure = inner.measure()
-      measure.value
-      monitor.log(s"Network result: ${measure.value}")
-      measure.value
-    }).sum/N
-  }
-
   def step_Generate() = {
     phase({
-        QuadraticNetworkSuperRes(5.28671875,4.95546875,4.89296875,0.01796875372529031)
-//      SimplexOptimizer.apply[QuadraticNetworkSuperRes](
-//        x ⇒ evalNetwork_Value(x.getNetwork(monitor, monitoringRoot))
-//      )
-        .getNetwork(monitor, monitoringRoot)
+      val optTraining: Array[Array[Tensor]] = Random.shuffle(data).take(10).toArray
+      SimplexOptimizer[DeepNetworkSuperRes](
+        DeepNetworkSuperRes(-0.19628151652396514,-1.120332072478063,-1.5337950986957058),
+        x ⇒ x.fitness(monitor, monitoringRoot, optTraining, n=2), relativeTolerance=0.3
+      ).getNetwork(monitor, monitoringRoot)
     }, (model: NNLayer) ⇒ {
       out.h1("Step 1")
       val trainer = out.eval {
@@ -206,50 +212,33 @@ class SuperRes(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput 
         inner = new ConstL12Normalizer(inner).setFactor_L1(0.001)
         val trainer = new IterativeTrainer(inner)
         trainer.setMonitor(monitor)
-        trainer.setTimeout(45, TimeUnit.MINUTES)
+        trainer.setTimeout(15, TimeUnit.MINUTES)
         trainer.setIterationsPerSample(1)
-        val momentum = new MomentumStrategy(new GradientDescent()).setCarryOver(0.2)
+        val momentum = new GradientDescent()
         trainer.setOrientation(momentum)
-        trainer.setLineSearchFactory(() ⇒ new ArmijoWolfeSearch)
-        trainer.setTerminateThreshold(5000.0)
+        trainer.setLineSearchFactory(Java8Util.cvt((s) ⇒ new QuadraticSearch))
+        trainer.setTerminateThreshold(2500.0)
         trainer
       }
       trainer.run()
     }: Unit, modelName)
   }
 
-  def step_diagnostic(sampleSize : Int = 1000) = phase(modelName, (model: NNLayer) ⇒ {
-    out.h1("Diagnostics - Evaluation Stability")
+  def step_diagnostics_layerRates(sampleSize : Int = 100) = phase[Map[NNLayer, LayerRateDiagnosticTrainer.LayerStats]](
+    modelName, (model: NNLayer) ⇒ {
     val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
     val dataArray = data.toArray
-    val n = 3
-    val factory: Supplier[Trainable] = Java8Util.cvt(() ⇒ new StochasticArrayTrainable(dataArray, trainingNetwork, sampleSize / n))
-    var uncertiantyEstimator = new UncertiantyEstimateTrainable(n, factory, monitor)
-    val uncertiantyProbe = out.eval {
-      val trainer = new IterativeTrainer(uncertiantyEstimator).setMaxIterations(1)
-      trainer.setMonitor(monitor)
-      trainer.setTerminateThreshold(0.0)
-      trainer
-    }
-    uncertiantyProbe.run()
-    out.eval {
-      uncertiantyEstimator.getUncertianty()
-    }
     out.h1("Diagnostics - Layer Rates")
-    val layerRateProbe = out.eval {
+    out.eval {
       var inner: Trainable = new StochasticArrayTrainable(dataArray, trainingNetwork, sampleSize)
       val trainer = new LayerRateDiagnosticTrainer(inner).setStrict(true).setMaxIterations(1)
       trainer.setMonitor(monitor)
-      trainer.setTerminateThreshold(0.0)
-      trainer
+      trainer.run()
+      trainer.getLayerRates().asScala.toMap
     }
-    layerRateProbe.run()
-    out.eval {
-      layerRateProbe.getLayerRates()
-    }
-  }: Unit, modelName)
+  }, modelName)
 
-  def step_SGD(sampleSize: Int, timeoutMin: Int, termValue: Double = 0.0, momentum: Double = 0.2, maxIterations: Int = Integer.MAX_VALUE, reshufflePeriod: Int = 1) = phase(modelName, (model: NNLayer) ⇒ {
+  def step_SGD(sampleSize: Int, timeoutMin: Int, termValue: Double = 0.0, momentum: Double = 0.2, maxIterations: Int = Integer.MAX_VALUE, reshufflePeriod: Int = 1,rates: Map[String, Double] = Map.empty) = phase(modelName, (model: NNLayer) ⇒ {
     out.h1(s"SGD(sampleSize=$sampleSize,timeoutMin=$timeoutMin)")
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
@@ -261,8 +250,16 @@ class SuperRes(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput 
       trainer.setTimeout(timeoutMin, TimeUnit.MINUTES)
       trainer.setIterationsPerSample(reshufflePeriod)
       val momentumStrategy = new MomentumStrategy(new GradientDescent()).setCarryOver(momentum)
-      trainer.setOrientation(momentumStrategy)
-      trainer.setLineSearchFactory(()⇒new ArmijoWolfeSearch().setAlpha(1e-12))
+      val reweight = new LayerReweightingStrategy(momentumStrategy) {
+        override def getRegionPolicy(layer: NNLayer): lang.Double = layer.getName match {
+          case key if rates.contains(key) ⇒ rates(key)
+          case _ ⇒ 1.0
+        }
+        override def reset(): Unit = {}
+      }
+      trainer.setOrientation(reweight)
+      trainer.setLineSearchFactory(Java8Util.cvt((s)⇒new ArmijoWolfeSearch().setAlpha(1e-12)))
+      //trainer.setLineSearchFactory(Java8Util.cvt((s)⇒new BisectionSearch()))
       trainer.setTerminateThreshold(termValue)
       trainer.setMaxIterations(maxIterations)
       trainer
@@ -270,38 +267,19 @@ class SuperRes(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput 
     trainer.run()
   }: Unit, modelName)
 
-  def step_LBFGS(sampleSize: Int, timeoutMin: Int): Unit = phase(modelName, (model: NNLayer) ⇒ {
+  def step_LBFGS(sampleSize: Int, timeoutMin: Int, iterationSize: Int): Unit = phase(modelName, (model: NNLayer) ⇒ {
     out.h1(s"LBFGS(sampleSize=$sampleSize,timeoutMin=$timeoutMin)")
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
-      var allowReset = true
-      val factory: Supplier[Trainable] = Java8Util.cvt(() ⇒ new StochasticArrayTrainable(data.toArray, trainingNetwork, sampleSize) {
-        override def resetSampling(): Boolean = if(allowReset) super.resetSampling() else false
-      })
-      var inner = new UncertiantyEstimateTrainable(5, factory, monitor)
-      allowReset = false
-      val trainer = new com.simiacryptus.mindseye.opt.RoundRobinTrainer(inner)
+      val inner = new StochasticArrayTrainable(data.toArray, trainingNetwork, sampleSize)
+      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(timeoutMin, TimeUnit.MINUTES)
-      trainer.setIterationsPerSample(1)
-      val lbfgs = new LBFGS().setMaxHistory(25).setMinHistory(3)
-      trainer.setOrientations(new TrustRegionStrategy(lbfgs) {
-        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
-          case _: HyperbolicActivationLayer ⇒ new StaticConstraint
-          case _: ReLuActivationLayer ⇒ new StaticConstraint
-          case _: ImgBandBiasLayer ⇒ new LinearSumConstraint
-          case _ ⇒ null
-        }
-      }, new TrustRegionStrategy(lbfgs) {
-        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
-          case _: HyperbolicActivationLayer ⇒ new StaticConstraint
-          case _: ReLuActivationLayer ⇒ new StaticConstraint
-          case _: ImgBandBiasLayer ⇒ new StaticConstraint
-          case _ ⇒ null
-        }
-      })
+      trainer.setIterationsPerSample(iterationSize)
+      val lbfgs = new LBFGS().setMaxHistory(35).setMinHistory(4)
+      trainer.setOrientation(lbfgs)
       trainer.setLineSearchFactory(Java8Util.cvt((s:String)⇒(s match {
-        case s if s.contains("LBFGS") ⇒ new StaticLearningRate().setRate(1)
+        case s if s.contains("LBFGS") ⇒ new StaticLearningRate().setRate(1.0)
         case _ ⇒ new BisectionSearch().setCurrentRate(1e-5)
       })))
       trainer.setTerminateThreshold(0.0)

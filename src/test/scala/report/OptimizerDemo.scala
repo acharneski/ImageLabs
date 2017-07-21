@@ -34,12 +34,13 @@ import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line.ArmijoWolfeSearch
 import com.simiacryptus.mindseye.opt.orient.{GradientDescent, LBFGS, OwlQn}
 import com.simiacryptus.mindseye.opt.trainable.{ConstL12Normalizer, StochasticArrayTrainable, Trainable}
-import com.simiacryptus.util.Util
+import com.simiacryptus.util._
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.MNIST
 import com.simiacryptus.util.text.TableOutput
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}
+import _root_.util.Java8Util
 
 import scala.collection.JavaConverters._
 
@@ -138,7 +139,7 @@ class OptimizerDemo extends WordSpec with MustMatchers with ReportNotebook {
           val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
           trainer.setOrientation(new OwlQn())
           // Not needed, just for illustration:
-          trainer.setLineSearchFactory(()⇒new ArmijoWolfeSearch().setC2(0.8).setAlpha(1e-6))
+          trainer.setLineSearchFactory(Java8Util.cvt((s)⇒new ArmijoWolfeSearch().setC2(0.8).setAlpha(1e-6)))
           trainer
         })
       })

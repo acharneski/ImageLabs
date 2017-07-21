@@ -102,7 +102,7 @@ case class QuadraticNetwork2(
       network.add(new ProductInputsLayer(),
         buildLayer(48, 48, "0c", input, weights = parameters.weight2),
         buildLayer(48, 48, "0b", input, weights = parameters.weight3)))
-    buildLayer(48, 48, "1", input, weights = parameters.weight4)
+    buildLayer(48, 48, "1", layer2, weights = parameters.weight4)
     network.add(new ImgReshapeLayer(4,4,true))
 
     network
@@ -266,7 +266,7 @@ class Oracle(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput wi
       trainer.setIterationsPerSample(1)
       val momentum = new MomentumStrategy(new GradientDescent()).setCarryOver(0.2)
       trainer.setOrientation(momentum)
-      trainer.setLineSearchFactory(()⇒new ArmijoWolfeSearch)
+      trainer.setLineSearchFactory(Java8Util.cvt((s)⇒new ArmijoWolfeSearch))
       trainer.setTerminateThreshold(5000.0)
       trainer
     }
@@ -317,7 +317,7 @@ class Oracle(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput wi
       trainer.setIterationsPerSample(reshufflePeriod)
       val momentumStrategy = new MomentumStrategy(new GradientDescent()).setCarryOver(momentum)
       trainer.setOrientation(momentumStrategy)
-      trainer.setLineSearchFactory(()⇒new ArmijoWolfeSearch().setAlpha(1e-12))
+      trainer.setLineSearchFactory(Java8Util.cvt((s)⇒new ArmijoWolfeSearch().setAlpha(1e-12)))
       trainer.setTerminateThreshold(termValue)
       trainer.setMaxIterations(maxIterations)
       trainer
