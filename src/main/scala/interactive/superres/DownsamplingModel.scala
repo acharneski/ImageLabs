@@ -113,7 +113,7 @@ class DownsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
   val fitnessBorderPadding = 0
   val scaleFactor: Double = (64 * 64.0) / (tileSize * tileSize)
 
-  def run(): Unit = {
+  def run(awaitExit:Boolean=true): Unit = {
     defineHeader()
     defineTestHandler()
     out.out("<hr/>")
@@ -121,9 +121,8 @@ class DownsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
     def rates = step_diagnostics_layerRates().map(e⇒e._1.getName→e._2.rate)
     step_LBFGS((100 * scaleFactor).toInt, 5, 50)
     step_LBFGS((1000 * scaleFactor).toInt, 5, 50)
-    summarizeHistory()
     out.out("<hr/>")
-    waitForExit()
+    if(awaitExit) waitForExit()
   }
 
   def resize(source: BufferedImage, size: Int) = {
@@ -165,6 +164,7 @@ class DownsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
         x ⇒ x.fitness(monitor, monitoringRoot, optTraining, n=2), relativeTolerance=0.1
       ).getNetwork(monitor, monitoringRoot)
     }, (model: NNLayer) ⇒ {
+      monitor.clear()
       out.h1("Step 1")
       val trainer = out.eval {
         val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
@@ -182,24 +182,28 @@ class DownsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
         trainer
       }
       trainer.run()
+      summarizeHistory()
     }: Unit, modelName)
   }
 
-  def step_diagnostics_layerRates(sampleSize : Int = (100 * scaleFactor).toInt) = phase[Map[NNLayer, LayerRateDiagnosticTrainer.LayerStats]](
-    modelName, (model: NNLayer) ⇒ {
+  def step_diagnostics_layerRates(sampleSize : Int = (100 * scaleFactor).toInt) = phase[Map[NNLayer, LayerRateDiagnosticTrainer.LayerStats]](modelName, (model: NNLayer) ⇒ {
+    monitor.clear()
     val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
     val dataArray = data.toArray
     out.h1("Diagnostics - Layer Rates")
-    out.eval {
+    val result = out.eval {
       var inner: Trainable = new StochasticArrayTrainable(dataArray, trainingNetwork, sampleSize)
       val trainer = new LayerRateDiagnosticTrainer(inner).setStrict(true).setMaxIterations(1)
       trainer.setMonitor(monitor)
       trainer.run()
       trainer.getLayerRates().asScala.toMap
     }
+    summarizeHistory()
+    result
   }, modelName)
 
   def step_SGD(sampleSize: Int, timeoutMin: Int, termValue: Double = 0.0, momentum: Double = 0.2, maxIterations: Int = Integer.MAX_VALUE, reshufflePeriod: Int = 1,rates: Map[String, Double] = Map.empty) = phase(modelName, (model: NNLayer) ⇒ {
+    monitor.clear()
     out.h1(s"SGD(sampleSize=$sampleSize,timeoutMin=$timeoutMin)")
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
@@ -219,16 +223,18 @@ class DownsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
         override def reset(): Unit = {}
       }
       trainer.setOrientation(reweight)
-      trainer.setLineSearchFactory(Java8Util.cvt((s)⇒new ArmijoWolfeSearch().setAlpha(1e-12).setC1(0).setC2(0)))
+      trainer.setLineSearchFactory(Java8Util.cvt((s)⇒new ArmijoWolfeSearch().setAlpha(1e-12).setC1(0).setC2(1)))
       //trainer.setLineSearchFactory(Java8Util.cvt((s)⇒new BisectionSearch()))
       trainer.setTerminateThreshold(termValue)
       trainer.setMaxIterations(maxIterations)
       trainer
     }
     trainer.run()
+    summarizeHistory()
   }, modelName)
 
   def step_LBFGS(sampleSize: Int, timeoutMin: Int, iterationSize: Int): Unit = phase(modelName, (model: NNLayer) ⇒ {
+    monitor.clear()
     out.h1(s"LBFGS(sampleSize=$sampleSize,timeoutMin=$timeoutMin)")
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
@@ -247,6 +253,7 @@ class DownsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
       trainer
     }
     trainer.run()
+    summarizeHistory()
   }, modelName)
 
   def lossNetwork = {

@@ -43,7 +43,7 @@ import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
 import com.simiacryptus.mindseye.opt.trainable._
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
-import com.simiacryptus.util.io.HtmlNotebookOutput
+import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
 import com.simiacryptus.util.ml.{Coordinate, Tensor}
 import com.simiacryptus.util.test.ImageTiles.ImageTensorLoader
 import com.simiacryptus.util.test.LabeledObject
@@ -55,6 +55,7 @@ import scala.util.Random
 import NNLayerUtil._
 import com.simiacryptus.mindseye.layers.synapse.BiasLayer
 import com.simiacryptus.mindseye.opt.region.{StaticConstraint, TrustRegion}
+import interactive.superres.UpsamplingOptimizer.{reconstructImage, resize}
 
 case class DeepNetworkDescriminator(
                                 weight1 : Double,
@@ -151,21 +152,21 @@ class BicubicDiscriminatorModel(source: String, server: StreamNanoHTTPD, out: Ht
   val tileSize = 64
   val fitnessBorderPadding = 8
   val scaleFactor: Double = (64 * 64.0) / (tileSize * tileSize)
-  val sampleTiles = 10000
+  val sampleTiles = 1000
 
-  def run(): Unit = {
+  def run(awaitExit:Boolean=true): Unit = {
     defineHeader()
     declareTestHandler()
     out.out("<hr/>")
     if(findFile(modelName).isEmpty || System.getProperties.containsKey("rebuild")) step_Generate()
+    for(i ← 1 to 10) step_Adversarial((10 * scaleFactor).toInt, 60, reshufflePeriod = 1)
     //step_LBFGS((50 * scaleFactor).toInt, 30, 50)
     //step_SGD((100 * scaleFactor).toInt, 30, reshufflePeriod = 5)
-    step_LBFGS((500 * scaleFactor).toInt, 60, 50)
-    var rates = step_diagnostics_layerRates().map(e⇒e._1.getName→e._2.rate)
-    step_SGD((500 * scaleFactor).toInt, 60, reshufflePeriod = 1, rates = rates)
-    summarizeHistory()
+//    step_LBFGS((500 * scaleFactor).toInt, 60, 50)
+//    var rates = step_diagnostics_layerRates().map(e⇒e._1.getName→e._2.rate)
+//    step_SGD((500 * scaleFactor).toInt, 60, reshufflePeriod = 1, rates = rates)
     out.out("<hr/>")
-    waitForExit()
+    if(awaitExit) waitForExit()
   }
 
   def resize(source: BufferedImage, size: Int) = {
@@ -216,6 +217,7 @@ class BicubicDiscriminatorModel(source: String, server: StreamNanoHTTPD, out: Ht
   }, modelName)
 
   def step_SGD(sampleSize: Int, timeoutMin: Int, termValue: Double = 0.0, momentum: Double = 0.2, maxIterations: Int = Integer.MAX_VALUE, reshufflePeriod: Int = 1,rates: Map[String, Double] = Map.empty) = phase(modelName, (model: NNLayer) ⇒ {
+    monitor.clear()
     out.h1(s"SGD(sampleSize=$sampleSize,timeoutMin=$timeoutMin)")
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer())
@@ -234,15 +236,71 @@ class BicubicDiscriminatorModel(source: String, server: StreamNanoHTTPD, out: Ht
         override def reset(): Unit = {}
       }
       trainer.setOrientation(reweight)
-      trainer.setLineSearchFactory(Java8Util.cvt((s)⇒new ArmijoWolfeSearch().setAlpha(1e-12).setC1(0).setC2(0)))
+      trainer.setLineSearchFactory(Java8Util.cvt((s)⇒new ArmijoWolfeSearch().setAlpha(1e-12).setC1(0).setC2(1)))
       trainer.setTerminateThreshold(termValue)
       trainer.setMaxIterations(maxIterations)
       trainer
     }
     trainer.run()
+    summarizeHistory()
+  }, modelName)
+
+  lazy val forwardNetwork = loadModel("downsample_1")
+
+  def step_Adversarial(sampleSize: Int, timeoutMin: Int, termValue: Double = 0.0, momentum: Double = 0.2, maxIterations: Int = Integer.MAX_VALUE, reshufflePeriod: Int = 1,rates: Map[String, Double] = Map.empty) = phase(modelName, (model: NNLayer) ⇒ {
+    monitor.clear()
+    out.h1(s"Adversarial(sampleSize=$sampleSize,timeoutMin=$timeoutMin)")
+    lazy val startModel = KryoUtil.kryo().copy(model)
+    lazy val adversarialData = Random.shuffle(data.toList).take(sampleSize).toStream.map((x: Array[Array[Tensor]]) ⇒{
+      assert(3 == x.length)
+      assert(2 == x(0).length)
+      val original = x(0)(0)
+      val downsampled = Tensor.fromRGB(UpsamplingOptimizer.resize(original.toRgbImage, tileSize / 4))
+      val reconstruct = UpsamplingOptimizer.reconstructImage(forwardNetwork, startModel, downsampled, monitor)
+      x ++ Array(Array(reconstruct, new Tensor(3).set(2,1)))
+    })
+    out.eval {
+      TableOutput.create(adversarialData.map((data: Array[Array[Tensor]]) ⇒ {
+        assert(4 == data.length)
+        assert(2 == data(0).length)
+        assert(data.forall(2 == _.length))
+        assert(data.forall(3 == _(1).dim()))
+        Map[String, AnyRef](
+          "Original Image" → out.image(data(0)(0).toRgbImage, ""),
+          "Reconsructed" → out.image(data(3)(0).toRgbImage, "")
+        ).asJava
+      }): _*)
+    }
+    summarizeHistory()
+    monitor.clear()
+    val trainer = out.eval {
+      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer())
+      var inner: Trainable = new ArrayTrainable(adversarialData.toList.flatten.toArray, trainingNetwork)
+      //inner = new ConstL12Normalizer(inner).setFactor_L1(0.001)
+      val trainer = new IterativeTrainer(inner)
+      trainer.setMonitor(monitor)
+      trainer.setTimeout(timeoutMin, TimeUnit.MINUTES)
+      trainer.setIterationsPerSample(reshufflePeriod)
+      val momentumStrategy = new MomentumStrategy(new GradientDescent()).setCarryOver(momentum)
+      val reweight = new LayerReweightingStrategy(momentumStrategy) {
+        override def getRegionPolicy(layer: NNLayer): lang.Double = layer.getName match {
+          case key if rates.contains(key) ⇒ rates(key)
+          case _ ⇒ 1.0
+        }
+        override def reset(): Unit = {}
+      }
+      trainer.setOrientation(reweight)
+      trainer.setLineSearchFactory(Java8Util.cvt((s)⇒new ArmijoWolfeSearch().setAlpha(1e-12).setC1(0).setC2(1)))
+      trainer.setTerminateThreshold(termValue)
+      trainer.setMaxIterations(maxIterations)
+      trainer
+    }
+    trainer.run()
+    summarizeHistory()
   }, modelName)
 
   def step_LBFGS(sampleSize: Int, timeoutMin: Int, iterationSize: Int): Unit = phase(modelName, (model: NNLayer) ⇒ {
+    monitor.clear()
     out.h1(s"LBFGS(sampleSize=$sampleSize,timeoutMin=$timeoutMin)")
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer())
@@ -261,6 +319,7 @@ class BicubicDiscriminatorModel(source: String, server: StreamNanoHTTPD, out: Ht
       trainer
     }
     trainer.run()
+    summarizeHistory()
   }, modelName)
 
   def declareTestHandler() = {
@@ -286,7 +345,7 @@ class BicubicDiscriminatorModel(source: String, server: StreamNanoHTTPD, out: Ht
     }
   }
 
-  val corruptors = Map[String, Tensor ⇒ Tensor](
+  val corruptors = List[(String, Tensor ⇒ Tensor)](
     "noise" → (imgTensor ⇒ {
       imgTensor.map(Java8Util.cvt((x:Double)⇒Math.min(Math.max(x+(50.0*(Random.nextDouble()-0.5)), 0.0), 256.0)))
     }), "resample" → (imgTensor ⇒ {
@@ -305,8 +364,7 @@ class BicubicDiscriminatorModel(source: String, server: StreamNanoHTTPD, out: Ht
       ndArray
     }
 
-    val labels = List("original") ++ corruptors.keys.toList.sorted
-    val categories: Map[String, Int] = labels.zipWithIndex.toMap
+    val categories: Map[String, Int] = (List("original") ++ corruptors.map(_._1)).zipWithIndex.toMap
 
     val filename = "filterNetwork.json"
     val preFilter : Seq[Tensor] ⇒ Seq[Tensor] = if(new File(filename).exists()) {
@@ -356,20 +414,15 @@ class BicubicDiscriminatorModel(source: String, server: StreamNanoHTTPD, out: Ht
     (categories, data)
   }
 
-
-
 }
-
-
-
 
 object BicubicDiscriminatorModel extends Report {
 
   def main(args: Array[String]): Unit = {
 
     report((server, out) ⇒ args match {
-      case Array(source) ⇒ new UpsamplingOptimizer(source, server, out).run()
-      case _ ⇒ new UpsamplingOptimizer("E:\\testImages\\256_ObjectCategories", server, out).run()
+      case Array(source) ⇒ new BicubicDiscriminatorModel(source, server, out).run()
+      case _ ⇒ new BicubicDiscriminatorModel("E:\\testImages\\256_ObjectCategories", server, out).run()
     })
 
   }

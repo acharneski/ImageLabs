@@ -55,7 +55,6 @@ import scala.util.Random
 import NNLayerUtil._
 import com.simiacryptus.mindseye.layers.synapse.BiasLayer
 import com.simiacryptus.mindseye.opt.region.{StaticConstraint, TrustRegion}
-import UpsamplingOptimizer._
 
 class UpsamplingOptimizer(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 
@@ -73,14 +72,14 @@ class UpsamplingOptimizer(source: String, server: StreamNanoHTTPD, out: HtmlNote
   lazy val discriminatorNetwork = loadModel("descriminator_1")
   lazy val forwardNetwork = loadModel("downsample_1")
 
-  def run(): Unit = {
+  def run(awaitExit:Boolean=true): Unit = {
     defineHeader()
     out.out("<hr/>")
-    Random.shuffle(rawData).grouped(10).map(data ⇒ {
+    Random.shuffle(rawData.toList).grouped(10).map(data ⇒ {
       out.eval {
         TableOutput.create(data.map(original ⇒ {
-          val downsampled = Tensor.fromRGB(resize(original.toRgbImage, tileSize / 4))
-          val reconstructed = reconstructImage(forwardNetwork, discriminatorNetwork, downsampled, monitor)
+          val downsampled = Tensor.fromRGB(UpsamplingOptimizer.resize(original.toRgbImage, tileSize / 4))
+          val reconstructed = UpsamplingOptimizer.reconstructImage(forwardNetwork, discriminatorNetwork, downsampled, monitor)
           Map[String, AnyRef](
             "Original Image" → out.image(original.toRgbImage, ""),
             "Downsampled" → out.image(downsampled.toRgbImage, ""),
@@ -90,7 +89,7 @@ class UpsamplingOptimizer(source: String, server: StreamNanoHTTPD, out: HtmlNote
       }
     })
     out.out("<hr/>")
-    waitForExit()
+    if(awaitExit) waitForExit()
   }
 
 }
@@ -113,8 +112,6 @@ object UpsamplingOptimizer extends Report {
     val targetNode = network.constValue(targetTensor)
     targetNode.getLayer.asInstanceOf[ConstNNLayer].setFrozen(false)
 
-    new Tensor(3).set(0, 1)
-
     val wrongness = network.add(new MeanSqLossLayer(),
       network.add(forwardModel.freeze(), targetNode),
       network.constValue(originalTensor))
@@ -123,9 +120,8 @@ object UpsamplingOptimizer extends Report {
       network.add(discriminatorModel.freeze(), targetNode),
       network.constValue(new Tensor(3).set(0, 1)))
 
-    network.add(new ProductInputsLayer(),
-      network.add(new SumInputsLayer(), wrongness, network.constValue(new Tensor(1).set(0, 1))),
-      fakeness)
+    network.add(new ProductInputsLayer(), fakeness,
+      network.add(new SumInputsLayer(), wrongness, network.constValue(new Tensor(1).set(0, 1))))
     assert(!targetNode.getLayer.asInstanceOf[ConstNNLayer].isFrozen)
 
     val executorFunction = new ArrayTrainable(Array(Array()), network)
