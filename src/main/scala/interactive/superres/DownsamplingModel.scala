@@ -198,7 +198,6 @@ class DownsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
       trainer.run()
       trainer.getLayerRates().asScala.toMap
     }
-    summarizeHistory()
     result
   }, modelName)
 
@@ -230,7 +229,6 @@ class DownsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
       trainer
     }
     trainer.run()
-    summarizeHistory()
   }, modelName)
 
   def step_LBFGS(sampleSize: Int, timeoutMin: Int, iterationSize: Int): Unit = phase(modelName, (model: NNLayer) ⇒ {
@@ -253,7 +251,6 @@ class DownsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
       trainer
     }
     trainer.run()
-    summarizeHistory()
   }, modelName)
 
   def lossNetwork = {

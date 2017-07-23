@@ -212,7 +212,6 @@ class UpsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebook
         trainer
       }
       trainer.run()
-      summarizeHistory()
     }: Unit, modelName)
   }
 
@@ -228,7 +227,6 @@ class UpsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebook
       trainer.run()
       trainer.getLayerRates().asScala.toMap
     }
-    summarizeHistory()
     result
   }, modelName)
 
@@ -260,7 +258,6 @@ class UpsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebook
       trainer
     }
     val result = trainer.run()
-    summarizeHistory()
     result
   }, modelName)
 
@@ -284,7 +281,6 @@ class UpsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebook
       trainer
     }
     trainer.run()
-    summarizeHistory()
   }, modelName)
 
   def lossNetwork = {

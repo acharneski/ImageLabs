@@ -32,7 +32,7 @@ import com.google.gson.{GsonBuilder, JsonObject}
 import com.simiacryptus.mindseye.layers.{NNLayer, NNResult}
 import com.simiacryptus.mindseye.layers.activation._
 import com.simiacryptus.mindseye.layers.loss.{EntropyLossLayer, MeanSqLossLayer}
-import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer, ImgReshapeLayer, MaxSubsampleLayer}
+import com.simiacryptus.mindseye.layers.media._
 import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
 import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer, SumReducerLayer}
 import com.simiacryptus.mindseye.layers.util.{ConstNNLayer, MonitoringWrapper}
@@ -79,6 +79,7 @@ case class DeepNetworkDescriminator(
                    layerNumber: String,
                    weights: Double,
                    layerRadius: Int = 5,
+                   simpleBorder: Boolean = false,
                    activationLayer: NNLayer = new ReLuActivationLayer()) = {
       def weightSeed : DoubleSupplier = Java8Util.cvt(() ⇒ {
         val r = Util.R.get.nextDouble() * 2 - 1
@@ -88,23 +89,24 @@ case class DeepNetworkDescriminator(
       if (null != activationLayer) {
         network.add(activationLayer.setName("activation_" + layerNumber).freeze.addTo(monitoringRoot))
       }
-      network.add(new ImgConvolutionSynapseLayer(layerRadius, layerRadius, from * to).setWeights(weightSeed).setName("conv_" + layerNumber).addTo(monitoringRoot));
+      network.add(new ImgConvolutionSynapseLayer(layerRadius, layerRadius, from * to, simpleBorder)
+        .setWeights(weightSeed).setName("conv_" + layerNumber).addTo(monitoringRoot));
       //network.add(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
     }
 
     // 64 x 64 x 3
     val l1 = buildLayer(3, 5, "0", weights = Math.pow(10, parameters.weight1), activationLayer = null)
-    network.add(new MaxSubsampleLayer(2, 2, 1).setName("max0").addTo(monitoringRoot))
-    // 32 x 32 x 64
-    val l2 = buildLayer(5, 10, "1", weights = Math.pow(10, parameters.weight2), activationLayer = new HyperbolicActivationLayer().setScale(5).freeze())
-    network.add(new MaxSubsampleLayer(2, 2, 1).setName("max1").addTo(monitoringRoot))
-    // 16 x 16 x 64
-    val l3 = buildLayer(10, 20, "2", weights = Math.pow(10, parameters.weight3), activationLayer = new HyperbolicActivationLayer().setScale(5).freeze())
-    network.add(new MaxSubsampleLayer(2, 2, 1).setName("max3").addTo(monitoringRoot))
-    // 8 x 8 x 32
-    val l4 = buildLayer(20, 3, "3", weights = Math.pow(10, parameters.weight4), activationLayer = new HyperbolicActivationLayer().setScale(5).freeze())
-    network.add(new MaxSubsampleLayer(8, 8, 1).setName("max4").addTo(monitoringRoot))
-    // 1 x 1 x 2
+    network.add(new AvgSubsampleLayer(2, 2, 1).setName("avg0").addTo(monitoringRoot))
+    // 30
+    val l2 = buildLayer(5, 10, "1", layerRadius = 5, weights = Math.pow(10, parameters.weight2), activationLayer = new HyperbolicActivationLayer().setScale(5).freeze())
+    network.add(new AvgSubsampleLayer(2, 2, 1).setName("avg1").addTo(monitoringRoot))
+    // 14
+    val l3 = buildLayer(10, 20, "2", layerRadius = 4, weights = Math.pow(10, parameters.weight3), activationLayer = new HyperbolicActivationLayer().setScale(5).freeze())
+    network.add(new AvgSubsampleLayer(2, 2, 1).setName("avg3").addTo(monitoringRoot))
+    // 5
+    val l4 = buildLayer(20, 3, "3", layerRadius = 3, weights = Math.pow(10, parameters.weight4), activationLayer = new HyperbolicActivationLayer().setScale(5).freeze())
+
+    network.add(new AvgImageBandLayer().setName("avgFinal").addTo(monitoringRoot))
     network.add(new SoftmaxActivationLayer)
 
     //network.add(new ImgReshapeLayer(2,2,true))
@@ -159,12 +161,12 @@ class BicubicDiscriminatorModel(source: String, server: StreamNanoHTTPD, out: Ht
     declareTestHandler()
     out.out("<hr/>")
     if(findFile(modelName).isEmpty || System.getProperties.containsKey("rebuild")) step_Generate()
-    for(i ← 1 to 10) step_Adversarial((10 * scaleFactor).toInt, 60, reshufflePeriod = 1)
-    //step_LBFGS((50 * scaleFactor).toInt, 30, 50)
-    //step_SGD((100 * scaleFactor).toInt, 30, reshufflePeriod = 5)
-//    step_LBFGS((500 * scaleFactor).toInt, 60, 50)
+    step_LBFGS((50 * scaleFactor).toInt, 30, 50)
+    step_SGD((100 * scaleFactor).toInt, 30, reshufflePeriod = 5)
+    step_LBFGS((500 * scaleFactor).toInt, 60, 50)
 //    var rates = step_diagnostics_layerRates().map(e⇒e._1.getName→e._2.rate)
 //    step_SGD((500 * scaleFactor).toInt, 60, reshufflePeriod = 1, rates = rates)
+    if(null != forwardNetwork) for(i ← 1 to 10) step_Adversarial((10 * scaleFactor).toInt, 60, reshufflePeriod = 1)
     out.out("<hr/>")
     if(awaitExit) waitForExit()
   }
@@ -242,7 +244,6 @@ class BicubicDiscriminatorModel(source: String, server: StreamNanoHTTPD, out: Ht
       trainer
     }
     trainer.run()
-    summarizeHistory()
   }, modelName)
 
   lazy val forwardNetwork = loadModel("downsample_1")
@@ -296,7 +297,6 @@ class BicubicDiscriminatorModel(source: String, server: StreamNanoHTTPD, out: Ht
       trainer
     }
     trainer.run()
-    summarizeHistory()
   }, modelName)
 
   def step_LBFGS(sampleSize: Int, timeoutMin: Int, iterationSize: Int): Unit = phase(modelName, (model: NNLayer) ⇒ {
@@ -319,7 +319,6 @@ class BicubicDiscriminatorModel(source: String, server: StreamNanoHTTPD, out: Ht
       trainer
     }
     trainer.run()
-    summarizeHistory()
   }, modelName)
 
   def declareTestHandler() = {
