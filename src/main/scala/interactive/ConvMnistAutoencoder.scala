@@ -49,7 +49,7 @@ import scala.collection.mutable
 import scala.util.Random
 
 
-object ConvMnistAutoencoder extends ServiceNotebook {
+object ConvMnistAutoencoder extends Report {
 
   def main(args: Array[String]): Unit = {
     report((server,log)⇒new ConvMnistAutoencoder(server,log).run())

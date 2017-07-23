@@ -46,7 +46,7 @@ import scala.collection.JavaConverters._
 import scala.util.Random
 
 
-object Cifar10Demo extends ServiceNotebook {
+object Cifar10Demo extends Report {
 
   def main(args: Array[String]): Unit = {
     report(new Cifar10Demo().run)

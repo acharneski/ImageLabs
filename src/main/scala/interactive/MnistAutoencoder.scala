@@ -47,7 +47,7 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.Random
 
-object MnistAutoencoder extends ServiceNotebook {
+object MnistAutoencoder extends Report {
 
   def main(args: Array[String]): Unit = {
     report((server,log)⇒new MnistAutoencoder(server,log).run())

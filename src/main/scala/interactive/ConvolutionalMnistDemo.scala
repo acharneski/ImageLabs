@@ -38,7 +38,7 @@ import com.simiacryptus.util.ml.Tensor
 import scala.util.Random
 
 
-object ConvolutionalMnistDemo extends ServiceNotebook {
+object ConvolutionalMnistDemo extends Report {
 
   def main(args: Array[String]): Unit = {
     report((server,log)⇒new MnistDemo(server,log){

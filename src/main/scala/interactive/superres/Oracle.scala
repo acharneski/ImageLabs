@@ -52,7 +52,7 @@ import scala.collection.JavaConverters._
 import scala.util.Random
 import SimplexOptimizer._
 
-object Oracle extends ServiceNotebook {
+object Oracle extends Report {
 
   def main(args: Array[String]): Unit = {
 

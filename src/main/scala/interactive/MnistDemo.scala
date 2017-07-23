@@ -45,7 +45,7 @@ import scala.collection.JavaConverters._
 import scala.util.Random
 
 
-object MnistDemo extends ServiceNotebook {
+object MnistDemo extends Report {
 
   def main(args: Array[String]): Unit = {
     report((s,log)⇒new MnistDemo(s,log).run)
@@ -53,7 +53,7 @@ object MnistDemo extends ServiceNotebook {
   }
 }
 
-object MnistDemo_L1Normalizations extends ServiceNotebook {
+object MnistDemo_L1Normalizations extends Report {
 
   def main(args: Array[String]): Unit = {
     report((s,log)⇒new MnistDemo(s,log){
@@ -80,7 +80,7 @@ object MnistDemo_L1Normalizations extends ServiceNotebook {
 }
 
 
-object MnistDemo2 extends ServiceNotebook {
+object MnistDemo2 extends Report {
 
   def main(args: Array[String]): Unit = {
     report((s,log)⇒new MnistDemo(s,log){

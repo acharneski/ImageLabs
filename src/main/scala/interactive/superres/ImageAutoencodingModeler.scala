@@ -47,7 +47,7 @@ import scala.collection.JavaConverters._
 import scala.util.Random
 
 
-object ImageAutoencodingModeler extends ServiceNotebook {
+object ImageAutoencodingModeler extends Report {
 
   def main(args: Array[String]): Unit = {
 

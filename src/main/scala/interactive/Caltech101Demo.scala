@@ -49,7 +49,7 @@ import scala.collection.JavaConverters._
 import scala.util.Random
 
 
-object Caltech101Demo extends ServiceNotebook {
+object Caltech101Demo extends Report {
 
   def main(args: Array[String]): Unit = {
     report(new Caltech101Demo().run)

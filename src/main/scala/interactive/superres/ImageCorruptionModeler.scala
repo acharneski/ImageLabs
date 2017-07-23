@@ -54,7 +54,7 @@ import scala.collection.JavaConverters._
 import scala.util.Random
 
 
-object ImageCorruptionModeler extends ServiceNotebook {
+object ImageCorruptionModeler extends Report {
 
   def main(args: Array[String]): Unit = {
 
@@ -166,7 +166,7 @@ class ImageCorruptionModeler(source: String, server: StreamNanoHTTPD, out: HtmlN
     }
     step3()
     adversarialTraining()
-    profit()
+     profit()
     waitForExit()
   }
 

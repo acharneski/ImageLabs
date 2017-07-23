@@ -51,7 +51,7 @@ import scala.concurrent.duration.Duration
 import scala.util.Random
 
 
-object MnistAutoinitDemo extends ServiceNotebook {
+object MnistAutoinitDemo extends Report {
 
   def main(args: Array[String]): Unit = {
     report((s,log)⇒new MnistAutoinitDemo(s,log).run)
@@ -59,7 +59,7 @@ object MnistAutoinitDemo extends ServiceNotebook {
   }
 }
 
-object MnistAutoinitDemoConv extends ServiceNotebook {
+object MnistAutoinitDemoConv extends Report {
 
   def main(args: Array[String]): Unit = {
     report((s,log)⇒new MnistAutoinitDemo(s,log){
