@@ -182,7 +182,6 @@ class DownsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
         trainer
       }
       trainer.run()
-      summarizeHistory()
     }: Unit, modelName)
   }
 

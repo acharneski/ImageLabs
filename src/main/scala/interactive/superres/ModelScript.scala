@@ -12,12 +12,12 @@ object ModelScript extends Report {
     report((server, out) ⇒ args match {
       case Array(source) ⇒
         new DownsamplingModel(source, server, out).run(false)
-        new BicubicDiscriminatorModel(source, server, out).run(false)
+        new DiscriminatorModel(source, server, out).run(false)
         new UpsamplingOptimizer(source, server, out).run(false)
         new UpsamplingModel(source, server, out).run(false)
       case _ ⇒
         new DownsamplingModel("E:\\testImages\\256_ObjectCategories", server, out).run(false)
-        new BicubicDiscriminatorModel("E:\\testImages\\256_ObjectCategories", server, out).run(false)
+        new DiscriminatorModel("E:\\testImages\\256_ObjectCategories", server, out).run(false)
         new UpsamplingOptimizer("E:\\testImages\\256_ObjectCategories", server, out).run(false)
         new UpsamplingModel("E:\\testImages\\256_ObjectCategories", server, out).run(false)
     })

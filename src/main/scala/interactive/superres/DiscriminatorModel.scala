@@ -148,11 +148,10 @@ case class DeepNetworkDescriminator(
 
 }
 
-class BicubicDiscriminatorModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
+class DiscriminatorModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 
   val modelName = System.getProperty("modelName","descriminator_1")
   val tileSize = 64
-  val fitnessBorderPadding = 8
   val scaleFactor: Double = (64 * 64.0) / (tileSize * tileSize)
   val sampleTiles = 1000
 
@@ -187,7 +186,7 @@ class BicubicDiscriminatorModel(source: String, server: StreamNanoHTTPD, out: Ht
         x ⇒ x.fitness(monitor, monitoringRoot, optTraining, n=3), relativeTolerance=0.01
       ).getNetwork(monitor, monitoringRoot)
     }, (model: NNLayer) ⇒ {
-      out.h1("Step 1")
+      out.h1("Model Initialization")
       val trainer = out.eval {
         val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer())
         var inner: Trainable = new LinkedExampleArrayTrainable(data, trainingNetwork, (50 * scaleFactor).toInt)
@@ -415,13 +414,13 @@ class BicubicDiscriminatorModel(source: String, server: StreamNanoHTTPD, out: Ht
 
 }
 
-object BicubicDiscriminatorModel extends Report {
+object DiscriminatorModel extends Report {
 
   def main(args: Array[String]): Unit = {
 
     report((server, out) ⇒ args match {
-      case Array(source) ⇒ new BicubicDiscriminatorModel(source, server, out).run()
-      case _ ⇒ new BicubicDiscriminatorModel("E:\\testImages\\256_ObjectCategories", server, out).run()
+      case Array(source) ⇒ new DiscriminatorModel(source, server, out).run()
+      case _ ⇒ new DiscriminatorModel("E:\\testImages\\256_ObjectCategories", server, out).run()
     })
 
   }
