@@ -54,6 +54,7 @@ import scala.collection.JavaConverters._
 import scala.util.Random
 import NNLayerUtil._
 import com.simiacryptus.mindseye.layers.synapse.BiasLayer
+import com.simiacryptus.mindseye.opencl.ConvolutionLayer
 import com.simiacryptus.mindseye.opt.region.{StaticConstraint, TrustRegion}
 import interactive.superres.UpsamplingOptimizer.{reconstructImage, resize}
 
@@ -89,7 +90,7 @@ case class DeepNetworkDescriminator(
       if (null != activationLayer) {
         network.add(activationLayer.setName("activation_" + layerNumber).freeze.addTo(monitoringRoot))
       }
-      network.add(new ImgConvolutionSynapseLayer(layerRadius, layerRadius, from * to, simpleBorder)
+      network.add(new ConvolutionLayer(layerRadius, layerRadius, from * to, simpleBorder)
         .setWeights(weightSeed).setName("conv_" + layerNumber).addTo(monitoringRoot));
       //network.add(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
     }

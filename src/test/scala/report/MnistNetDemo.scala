@@ -27,8 +27,9 @@ import java.util.function.ToDoubleFunction
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.layers.media.{ImgConvolutionSynapseLayer, MaxSubsampleLayer}
+import com.simiacryptus.mindseye.layers.media.MaxSubsampleLayer
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer, ToeplitzSynapseLayer}
+import com.simiacryptus.mindseye.opencl.ConvolutionLayer
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.orient.LBFGS
 import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
@@ -185,12 +186,12 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
           trainingTimeMinutes = 60
           val middleSize = Array[Int](28, 28, 1)
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new ImgConvolutionSynapseLayer(2, 2, 2).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new ConvolutionLayer(2, 2, 2).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new AbsActivationLayer)
           model.add(new MaxSubsampleLayer(2, 2, 1))
-          model.add(new ImgConvolutionSynapseLayer(2, 2, 2).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new ConvolutionLayer(2, 2, 2).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new AbsActivationLayer)

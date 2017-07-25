@@ -43,6 +43,22 @@
     <orderEntry type="library" name="Maven: com.esotericsoftware:kryo-shaded:3.0.3" level="project" />
     <orderEntry type="module" module-name="mindseye" />
     <orderEntry type="library" name="Maven: org.jblas:jblas:1.2.4" level="project" />
+    <orderEntry type="library" name="Maven: org.jcuda:jcuda:0.8.0" level="project" />
+    <orderEntry type="library" name="Maven: org.jcuda:jcuda-natives:windows-x86_64:0.8.0" level="project" />
+    <orderEntry type="library" name="Maven: org.jcuda:jcublas:0.8.0" level="project" />
+    <orderEntry type="library" name="Maven: org.jcuda:jcublas-natives:windows-x86_64:0.8.0" level="project" />
+    <orderEntry type="library" name="Maven: org.jcuda:jcufft:0.8.0" level="project" />
+    <orderEntry type="library" name="Maven: org.jcuda:jcufft-natives:windows-x86_64:0.8.0" level="project" />
+    <orderEntry type="library" name="Maven: org.jcuda:jcusparse:0.8.0" level="project" />
+    <orderEntry type="library" name="Maven: org.jcuda:jcusparse-natives:windows-x86_64:0.8.0" level="project" />
+    <orderEntry type="library" name="Maven: org.jcuda:jcusolver:0.8.0" level="project" />
+    <orderEntry type="library" name="Maven: org.jcuda:jcusolver-natives:windows-x86_64:0.8.0" level="project" />
+    <orderEntry type="library" name="Maven: org.jcuda:jcurand:0.8.0" level="project" />
+    <orderEntry type="library" name="Maven: org.jcuda:jcurand-natives:windows-x86_64:0.8.0" level="project" />
+    <orderEntry type="library" name="Maven: org.jcuda:jnvgraph:0.8.0" level="project" />
+    <orderEntry type="library" name="Maven: org.jcuda:jnvgraph-natives:windows-x86_64:0.8.0" level="project" />
+    <orderEntry type="library" name="Maven: org.jcuda:jcudnn:0.8.0" level="project" />
+    <orderEntry type="library" name="Maven: org.jcuda:jcudnn-natives:windows-x86_64:0.8.0" level="project" />
     <orderEntry type="library" scope="TEST" name="Maven: org.georegression:georegression:0.12" level="project" />
     <orderEntry type="library" scope="TEST" name="Maven: org.ddogleg:ddogleg:0.10" level="project" />
     <orderEntry type="library" scope="TEST" name="Maven: org.ejml:core:0.30" level="project" />

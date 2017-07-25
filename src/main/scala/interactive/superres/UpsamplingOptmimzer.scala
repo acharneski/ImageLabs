@@ -32,7 +32,7 @@ import com.google.gson.{GsonBuilder, JsonObject}
 import com.simiacryptus.mindseye.layers.{NNLayer, NNResult}
 import com.simiacryptus.mindseye.layers.activation._
 import com.simiacryptus.mindseye.layers.loss.{EntropyLossLayer, MeanSqLossLayer}
-import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer, ImgReshapeLayer, MaxSubsampleLayer}
+import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgReshapeLayer, MaxSubsampleLayer}
 import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
 import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer, SumReducerLayer}
 import com.simiacryptus.mindseye.layers.util.{ConstNNLayer, MonitoringWrapper}

@@ -34,9 +34,9 @@ import com.simiacryptus.mindseye.network.graph._
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.layers.activation._
 import com.simiacryptus.mindseye.layers.loss.{EntropyLossLayer, MeanSqLossLayer}
-import com.simiacryptus.mindseye.layers.media.ImgConvolutionSynapseLayer
 import com.simiacryptus.mindseye.layers.reducers.{SumInputsLayer, SumReducerLayer}
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
+import com.simiacryptus.mindseye.opencl.ConvolutionLayer
 import com.simiacryptus.mindseye.opt.TrainingMonitor
 import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
 import com.simiacryptus.util.Util
@@ -351,8 +351,8 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
 
         log.p("First we define a forward filter, in this case a simple convolution filter emulating motion blur")
         val blurFilter = log.eval {
-          def singleConvolution: ImgConvolutionSynapseLayer = {
-            val convolution = new ImgConvolutionSynapseLayer(3, 3, 9)
+          def singleConvolution: ConvolutionLayer = {
+            val convolution = new ConvolutionLayer(3, 3, 9)
             (0 until 3).foreach(ii ⇒ {
               val i = ii + ii * 3
               convolution.kernel.set(Array[Int](0, 2, i), 0.333)

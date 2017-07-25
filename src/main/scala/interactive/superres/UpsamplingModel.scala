@@ -29,7 +29,7 @@ import java.util.function.{DoubleSupplier, IntToDoubleFunction, Supplier}
 import _root_.util._
 import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, HyperbolicActivationLayer, LinearActivationLayer, ReLuActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.MeanSqLossLayer
-import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgConvolutionSynapseLayer, ImgReshapeLayer}
+import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgReshapeLayer}
 import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer}
 import com.simiacryptus.mindseye.layers.util.{ConstNNLayer, MonitoringWrapper}
 import com.simiacryptus.mindseye.layers.{DeltaBuffer, NNLayer}
@@ -51,9 +51,8 @@ import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
 
 import scala.collection.JavaConverters._
 import scala.util.Random
-
-
 import NNLayerUtil._
+import com.simiacryptus.mindseye.opencl.ConvolutionLayer
 
 case class DeepNetworkUpsample(
                                      weight1 : Double,
@@ -86,7 +85,7 @@ case class DeepNetworkUpsample(
       if (null != activationLayer) {
         network.add(activationLayer.setName("activation_" + layerNumber).freeze.addTo(monitoringRoot))
       }
-      network.add(new ImgConvolutionSynapseLayer(layerRadius, layerRadius, from * to).setWeights(weightSeed).setName("conv_" + layerNumber).addTo(monitoringRoot));
+      network.add(new ConvolutionLayer(layerRadius, layerRadius, from * to).setWeights(weightSeed).setName("conv_" + layerNumber).addTo(monitoringRoot));
       //network.add(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
     }
 

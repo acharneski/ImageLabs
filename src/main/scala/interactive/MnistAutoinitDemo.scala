@@ -27,13 +27,14 @@ import com.simiacryptus.mindseye.layers.NNLayer
 import com.simiacryptus.mindseye.layers.activation._
 import com.simiacryptus.mindseye.layers.cross.CrossProductLayer
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.layers.media.{ImgConvolutionSynapseLayer, MaxSubsampleLayer}
+import com.simiacryptus.mindseye.layers.media.MaxSubsampleLayer
 import com.simiacryptus.mindseye.layers.meta._
 import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, SumInputsLayer, SumReducerLayer}
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
 import com.simiacryptus.mindseye.network.graph._
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.opencl.ConvolutionLayer
 import com.simiacryptus.mindseye.opt.region.{LinearSumConstraint, TrustRegion}
 import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
 import com.simiacryptus.mindseye.opt.IterativeTrainer
@@ -66,7 +67,7 @@ object MnistAutoinitDemoConv extends Report {
 
       override lazy val component1 = log.eval {
         var model: PipelineNetwork = new PipelineNetwork
-        model.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(3,3,5).setWeights(Java8Util.cvt(()⇒0.01*Math.random()))).addTo(monitoringRoot, "synapse1"))
+        model.add(new MonitoringWrapper(new ConvolutionLayer(3,3,5).setWeights(Java8Util.cvt(()⇒0.01*Math.random()))).addTo(monitoringRoot, "synapse1"))
         model.add(new MonitoringWrapper(new MaxSubsampleLayer(4,4,1)).addTo(monitoringRoot, "max1"))
         model.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu1"))
         model.add(new MonitoringWrapper(new BiasLayer(7,7,5)).addTo(monitoringRoot, "bias1"))
