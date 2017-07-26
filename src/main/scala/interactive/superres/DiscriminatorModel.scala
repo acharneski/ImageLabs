@@ -54,7 +54,7 @@ import scala.collection.JavaConverters._
 import scala.util.Random
 import NNLayerUtil._
 import com.simiacryptus.mindseye.layers.synapse.BiasLayer
-import com.simiacryptus.mindseye.opencl.ConvolutionLayer
+import com.simiacryptus.mindseye.layers.opencl.ConvolutionLayer
 import com.simiacryptus.mindseye.opt.region.{StaticConstraint, TrustRegion}
 import interactive.superres.UpsamplingOptimizer.{reconstructImage, resize}
 

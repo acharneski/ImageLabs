@@ -52,7 +52,7 @@ import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
 import scala.collection.JavaConverters._
 import scala.util.Random
 import NNLayerUtil._
-import com.simiacryptus.mindseye.opencl.ConvolutionLayer
+import com.simiacryptus.mindseye.layers.opencl.ConvolutionLayer
 
 case class DeepNetworkUpsample(
                                      weight1 : Double,

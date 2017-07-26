@@ -38,7 +38,7 @@ import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputs
 import com.simiacryptus.mindseye.layers.util.ConstNNLayer
 import com.simiacryptus.mindseye.network.PipelineNetwork
 import com.simiacryptus.mindseye.network.graph.DAGNode
-import com.simiacryptus.mindseye.opencl.ConvolutionLayer
+import com.simiacryptus.mindseye.layers.opencl.ConvolutionLayer
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
@@ -62,7 +62,7 @@ object ClassifierModeler extends Report {
 
     report((server, out) ⇒ args match {
       case Array(source) ⇒ new ClassifierModeler(source, server, out).run()
-      case _ ⇒ new ClassifierModeler("E:\\testImages\\256_ObjectCategories", server, out).run()
+      case _ ⇒ new ClassifierModeler("D:\\testImages\\256_ObjectCategories", server, out).run()
     })
 
   }
@@ -84,17 +84,19 @@ case class TestClassifier(
                            conv4 : Double = -7.5,
                            auxLearn1: Double = -1,
                            auxLearn2: Double = -1,
-                           auxLearn3: Double = -1
+                           auxLearn3: Double = -1,
+                           reduction1: Double = -1,
+                           reduction2: Double = -1
                                    ) {
 
   def getNetwork(monitor: TrainingMonitor,
                  monitoringRoot : MonitoredObject,
                  fitness : Boolean = false) : NNLayer = {
-    val parameters = this
     var network: PipelineNetwork = new PipelineNetwork(2)
     val zeroSeed : IntToDoubleFunction = Java8Util.cvt(_ ⇒ 0.0)
     val normalizedPoints = new ArrayBuffer[DAGNode]()
     val subPrediction = new mutable.HashMap[DAGNode,(Integer,Double)]()
+    def rand = Util.R.get.nextDouble() * 2 - 1
     def buildLayer(from: Int,
                    to: Int,
                    layerNumber: String,
@@ -103,29 +105,28 @@ case class TestClassifier(
                    simpleBorder: Boolean = false,
                    activationLayer: NNLayer = new ReLuActivationLayer(),
                     auxWeight : Double = Double.NaN) = {
-      def weightSeed : DoubleSupplier = Java8Util.cvt(() ⇒ {
-        val r = Util.R.get.nextDouble() * 2 - 1
-        r * weights
-      })
+      def weightSeed : DoubleSupplier = Java8Util.cvt(() ⇒ rand * weights)
       network.add(new ImgBandBiasLayer(from).setWeights(zeroSeed).setName("bias_" + layerNumber).addTo(monitoringRoot))
       if (null != activationLayer) {
         network.add(activationLayer.setName("activation_" + layerNumber).freeze.addTo(monitoringRoot))
       }
       val node = network.add(new ConvolutionLayer(layerRadius, layerRadius, from * to, simpleBorder)
-        .setWeights(weightSeed).setName("conv_" + layerNumber).addTo(monitoringRoot));
+        .setWeights(weightSeed).setName("conv_" + layerNumber).addTo(monitoringRoot))
       //network.add(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
       normalizedPoints += node
       if(!auxWeight.isNaN) subPrediction(node) = (to, auxWeight)
       node
     }
 
-    buildLayer(3, 5, "0", layerRadius = 5, weights = Math.pow(10, parameters.conv1), activationLayer = null, auxWeight = auxLearn1)
+    buildLayer(3, 8, "0", layerRadius = 5, weights = Math.pow(10, this.conv1), activationLayer = null, auxWeight = auxLearn1)
     network.add(new MaxSubsampleLayer(2, 2, 1).setName("avg0").addTo(monitoringRoot))
-    buildLayer(5, 10, "1", layerRadius = 5, weights = Math.pow(10, parameters.conv2), activationLayer = new HyperbolicActivationLayer().setScale(5).freeze(), auxWeight = auxLearn2)
+    normalizedPoints += network.add(new ConvolutionLayer(1, 1, 8 * 4, false).setWeights(()=>Math.pow(10, this.reduction1)*rand).setName("reduce1").addTo(monitoringRoot));
+    buildLayer(4, 30, "1", layerRadius = 5, weights = Math.pow(10, this.conv2), activationLayer = new ReLuActivationLayer().setWeight(1).freeze(), auxWeight = auxLearn2)
     network.add(new MaxSubsampleLayer(2, 2, 1).setName("avg1").addTo(monitoringRoot))
-    buildLayer(10, 20, "2", layerRadius = 4, weights = Math.pow(10, parameters.conv3), activationLayer = new HyperbolicActivationLayer().setScale(5).freeze(), auxWeight = auxLearn3)
+    normalizedPoints += network.add(new ConvolutionLayer(1, 1, 30 * 6, false).setWeights(()=>Math.pow(10, this.reduction2)*rand).setName("reduce2").addTo(monitoringRoot));
+    buildLayer(6, 24, "2", layerRadius = 4, weights = Math.pow(10, this.conv3), activationLayer = new ReLuActivationLayer().setWeight(1).freeze(), auxWeight = auxLearn3)
     network.add(new MaxSubsampleLayer(2, 2, 1).setName("avg3").addTo(monitoringRoot))
-    buildLayer(20, numberOfCategories, "3", layerRadius = 3, weights = Math.pow(10, parameters.conv4), activationLayer = new HyperbolicActivationLayer().setScale(5).freeze())
+    buildLayer(24, numberOfCategories, "3", layerRadius = 1, weights = Math.pow(10, this.conv4), activationLayer = new ReLuActivationLayer().setWeight(1).freeze())
     network.add(new MaxImageBandLayer().setName("avgFinal").addTo(monitoringRoot))
     val prediction = network.add(new SoftmaxActivationLayer)
 
@@ -175,7 +176,7 @@ case class TestClassifier(
 
 class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 
-  val modelName = System.getProperty("modelName","image_classifier_1")
+  val modelName = System.getProperty("modelName","image_classifier_2")
   val tileSize = 64
   val scaleFactor: Double = (64 * 64.0) / (tileSize * tileSize)
 
@@ -183,8 +184,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
     defineHeader()
     declareTestHandler()
     out.out("<hr/>")
-    //if(findFile(modelName).isEmpty || System.getProperties.containsKey("rebuild"))
-      step_Generate()
+    if(findFile(modelName).isEmpty || System.getProperties.containsKey("rebuild")) step_Generate()
     step_LBFGS((20 * scaleFactor).toInt, 60, 50)
     step_LBFGS((50 * scaleFactor).toInt, 3*60, 50)
     step_LBFGS((100 * scaleFactor).toInt, 3*60, 50)

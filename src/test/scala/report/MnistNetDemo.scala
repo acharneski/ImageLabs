@@ -29,7 +29,7 @@ import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, SoftmaxA
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.layers.media.MaxSubsampleLayer
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer, ToeplitzSynapseLayer}
-import com.simiacryptus.mindseye.opencl.ConvolutionLayer
+import com.simiacryptus.mindseye.layers.opencl.ConvolutionLayer
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.orient.LBFGS
 import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable

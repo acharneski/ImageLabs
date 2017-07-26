@@ -36,7 +36,7 @@ import com.simiacryptus.mindseye.layers.activation._
 import com.simiacryptus.mindseye.layers.loss.{EntropyLossLayer, MeanSqLossLayer}
 import com.simiacryptus.mindseye.layers.reducers.{SumInputsLayer, SumReducerLayer}
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
-import com.simiacryptus.mindseye.opencl.ConvolutionLayer
+import com.simiacryptus.mindseye.layers.opencl.ConvolutionLayer
 import com.simiacryptus.mindseye.opt.TrainingMonitor
 import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
 import com.simiacryptus.util.Util

@@ -34,7 +34,7 @@ import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
 import com.simiacryptus.mindseye.network.graph._
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.opencl.ConvolutionLayer
+import com.simiacryptus.mindseye.layers.opencl.ConvolutionLayer
 import com.simiacryptus.mindseye.opt.region.{LinearSumConstraint, TrustRegion}
 import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
 import com.simiacryptus.mindseye.opt.IterativeTrainer
