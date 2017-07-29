@@ -133,7 +133,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
         log.p("Here we examine a sample of validation rows, randomly selected: ")
         log.eval {
           TableOutput.create(MNIST.validationDataStream().iterator().asScala.toStream.take(10).map(testObj ⇒ {
-            val result = model.eval(testObj.data).data.head
+            val result = model.eval(testObj.data).data.get(0)
             Map[String, AnyRef](
               "Input" → log.image(testObj.data.toGrayImage(), testObj.label),
               "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[java.lang.Integer],
@@ -145,12 +145,12 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
         log.p("Validation rows that are mispredicted are also sampled: ")
         log.eval {
           TableOutput.create(MNIST.validationDataStream().iterator().asScala.toStream.filterNot(testObj ⇒ {
-            val result = model.eval(testObj.data).data.head
+            val result = model.eval(testObj.data).data.get(0)
             val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
             val actual = toOut(testObj.label)
             prediction == actual
           }).take(10).map(testObj ⇒ {
-            val result = model.eval(testObj.data).data.head
+            val result = model.eval(testObj.data).data.get(0)
             Map[String, AnyRef](
               "Input" → log.image(testObj.data.toGrayImage(), testObj.label),
               "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[java.lang.Integer],
@@ -163,7 +163,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
         log.p("The (mis)categorization matrix displays a count matrix for every actual/predicted category: ")
         val categorizationMatrix: Map[Int, Map[Int, Int]] = log.eval {
           MNIST.validationDataStream().iterator().asScala.toStream.map(testObj ⇒ {
-            val result = model.eval(testObj.data).data.head
+            val result = model.eval(testObj.data).data.get(0)
             val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
             val actual: Int = toOut(testObj.label)
             actual → prediction
@@ -234,7 +234,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
             }))
             validationData.foreach(testObj ⇒ {
               val row = new util.LinkedHashMap[String, AnyRef]()
-              val result = model.eval(testObj(0)).data.head
+              val result = model.eval(testObj(0)).data.get(0)
               (0 until MAX).maxBy(i ⇒ result.get(i)) match {
                 case 0 ⇒ gfx.setColor(Color.PINK)
                 case 1 ⇒ gfx.setColor(Color.BLUE)
@@ -250,7 +250,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
           }, width = 600, height = 600)
           val categorizationMatrix: Map[Int, Map[Int, Int]] = {
             validationData.map(testObj ⇒ {
-              val result = model.eval(testObj(0)).data.head
+              val result = model.eval(testObj(0)).data.get(0)
               val prediction: Int = (0 until MAX).maxBy(i ⇒ result.get(i))
               val actual: Int = (0 until MAX).maxBy(i ⇒ testObj(1).get(i))
               actual → prediction
@@ -389,13 +389,13 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
         log.p("Next we train this ideal image through our constructed filter to create a blurred image: ")
         val idealImageTensor: Tensor = Tensor.fromRGB(idealImage)
         val blurredImage: Tensor = log.eval {
-          blurFilter.eval(Array(Array(idealImageTensor))).data.head
+          blurFilter.eval(Array(Array(idealImageTensor))).data.get(0)
         }
         log.eval {
           blurredImage.toRgbImage()
         }
 
-        val inputSize: Array[Int] = idealImageTensor.getDims
+        val inputSize: Array[Int] = idealImageTensor.getDimensions
         val zeroInput = new Tensor(inputSize: _*)
 
         log.p("Now we define a reconstruction network, which adapts a bias id to find the source image" +
@@ -449,7 +449,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
 
         log.p("Now we query the reconstruction model for the source image: ")
         log.eval {
-          dagNetwork.getChild(bias.getId).asInstanceOf[BiasLayer].eval(zeroInput).data(0).toRgbImage()
+          dagNetwork.getChild(bias.getId).asInstanceOf[BiasLayer].eval(zeroInput).data.get(0).toRgbImage()
         }
 
       })

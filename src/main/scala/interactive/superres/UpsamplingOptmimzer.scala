@@ -108,7 +108,7 @@ object UpsamplingOptimizer extends Report {
 
     val network = new PipelineNetwork(0)
 
-    val targetTensor = Tensor.fromRGB(resize(originalTensor.toRgbImage, originalTensor.getDims.head * scaleFactor))
+    val targetTensor = Tensor.fromRGB(resize(originalTensor.toRgbImage, originalTensor.getDimensions.head * scaleFactor))
     val targetNode = network.constValue(targetTensor)
     targetNode.getLayer.asInstanceOf[ConstNNLayer].setFrozen(false)
 

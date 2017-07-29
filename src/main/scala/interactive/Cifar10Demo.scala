@@ -171,7 +171,7 @@ class Cifar10Demo {
     log.p("Here we examine a sample of validation rows, randomly selected: ")
     log.eval {
       TableOutput.create(validationStream.take(10).map(testObj ⇒ {
-        val result = model.eval(testObj.data).data.head
+        val result = model.eval(testObj.data).data.get(0)
         Map[String, AnyRef](
           "Input" → log.image(testObj.data.toRgbImage(), testObj.label),
           "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[Integer],
@@ -183,12 +183,12 @@ class Cifar10Demo {
     log.p("Validation rows that are mispredicted are also sampled: ")
     log.eval {
       TableOutput.create(validationStream.filterNot(testObj ⇒ {
-        val result = model.eval(testObj.data).data.head
+        val result = model.eval(testObj.data).data.get(0)
         val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
         val actual = toOut(testObj.label)
         prediction == actual
       }).take(10).map(testObj ⇒ {
-        val result = model.eval(testObj.data).data.head
+        val result = model.eval(testObj.data).data.get(0)
         Map[String, AnyRef](
           "Input" → log.image(testObj.data.toRgbImage(), testObj.label),
           "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[Integer],
@@ -201,7 +201,7 @@ class Cifar10Demo {
     log.p("The (mis)categorization matrix displays a count matrix for every actual/predicted category: ")
     val categorizationMatrix: Map[Int, Map[Int, Int]] = log.eval {
       validationStream.map(testObj ⇒ {
-        val result = model.eval(testObj.data).data.head
+        val result = model.eval(testObj.data).data.get(0)
         val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
         val actual: Int = toOut(testObj.label)
         actual → prediction

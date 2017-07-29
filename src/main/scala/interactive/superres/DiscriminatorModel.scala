@@ -22,9 +22,10 @@ package interactive.superres
 import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
 import java.io._
-import java.lang
+import java.{lang, util}
 import java.util.concurrent.TimeUnit
 import java.util.function.{DoubleSupplier, IntToDoubleFunction}
+import java.util.stream.Collectors
 
 import _root_.util.Java8Util.cvt
 import _root_.util._
@@ -336,7 +337,7 @@ class DiscriminatorModel(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
         TableOutput.create(Random.shuffle(data.flatten.toList).take(100).map(testObj ⇒ Map[String, AnyRef](
           "Image" → out.image(testObj(0).toRgbImage(), ""),
           "Categorization" → categories.toList.sortBy(_._2).map(_._1)
-            .zip(model.eval(testObj(0)).data.head.getData.map(_ * 100.0))
+            .zip(model.eval(testObj(0)).data.get(0).getData.map(_ * 100.0))
         ).asJava): _*)
       }
     } catch {
@@ -369,7 +370,10 @@ class DiscriminatorModel(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     val preFilter : Seq[Tensor] ⇒ Seq[Tensor] = if(new File(filename).exists()) {
       val filterNetwork = NNLayer.fromJson(new GsonBuilder().create().fromJson(IOUtils.toString(new FileInputStream(filename), "UTF-8"), classOf[JsonObject]))
       (obj:Seq[Tensor]) ⇒ {
-        obj.grouped(1000).toStream.flatMap(obj ⇒ filterNetwork.eval(NNResult.batchResultArray(obj.map(y ⇒ Array(y)).toArray): _*).data)
+        import scala.collection.JavaConverters._
+        obj.grouped(1000).toStream.flatMap(obj ⇒ {
+          filterNetwork.eval(NNResult.batchResultArray(obj.map(y ⇒ Array(y)).toArray): _*).data.stream().collect(Collectors.toList()).asScala
+        })
           .zip(obj).sortBy(-_._1.get(categories("noise"))).take(1000).map(_._2)
       }
     } else {
@@ -399,7 +403,7 @@ class DiscriminatorModel(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
             "Image" → out.image(testObj.data.toRgbImage(), testObj.data.toString),
             "Label" → testObj.label,
             "Categorization" → categories.toList.sortBy(_._2).map(_._1)
-              .zip(checkpoint.eval(testObj.data).data.head.getData.map(_ * 100.0)).mkString(", ")
+              .zip(checkpoint.eval(testObj.data).data.get(0).getData.map(_ * 100.0)).mkString(", ")
           ).asJava
         } else {
           Map[String, AnyRef](
