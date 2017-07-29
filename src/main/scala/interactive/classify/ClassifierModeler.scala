@@ -38,7 +38,7 @@ import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputs
 import com.simiacryptus.mindseye.layers.util.ConstNNLayer
 import com.simiacryptus.mindseye.network.PipelineNetwork
 import com.simiacryptus.mindseye.network.graph.DAGNode
-import com.simiacryptus.mindseye.layers.opencl.ConvolutionLayer
+import com.simiacryptus.mindseye.layers.cudnn.ConvolutionLayer
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
@@ -176,7 +176,7 @@ case class TestClassifier(
 
 class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 
-  val modelName = System.getProperty("modelName","image_classifier_2")
+  val modelName = System.getProperty("modelName","image_classifier_4")
   val tileSize = 64
   val scaleFactor: Double = (64 * 64.0) / (tileSize * tileSize)
 
@@ -210,15 +210,16 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
 
   def step_Generate() = {
     phase({
-      val optTraining: Array[Array[Tensor]] = Random.shuffle(data.toStream).take((2 * scaleFactor).ceil.toInt).toArray
-      SimplexOptimizer[TestClassifier](
-        TestClassifier(),
-        x ⇒ x.fitness(monitor, monitoringRoot, optTraining, n=3), relativeTolerance=0.01
-      ).getNetwork(monitor, monitoringRoot)
+      lazy val optTraining: Array[Array[Tensor]] = Random.shuffle(data.toStream).take((2 * scaleFactor).ceil.toInt).toArray
+//      SimplexOptimizer[TestClassifier](
+//        TestClassifier(),
+//        x ⇒ x.fitness(monitor, monitoringRoot, optTraining, n=3), relativeTolerance=0.01
+//      ).getNetwork(monitor, monitoringRoot)
+      TestClassifier().getNetwork(monitor, monitoringRoot)
     }, (model: NNLayer) ⇒ {
       out.h1("Model Initialization")
       val trainer = out.eval {
-        var inner: Trainable = new StochasticArrayTrainable(data, model, (50 * scaleFactor).toInt)
+        var inner: Trainable = new StochasticArrayTrainable(data, model, (20 * scaleFactor).toInt)
         val trainer = new IterativeTrainer(inner)
         trainer.setMonitor(monitor)
         trainer.setTimeout(5, TimeUnit.MINUTES)
@@ -353,8 +354,9 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
 
     val images: Seq[(Tensor, String)] = Random.shuffle(Random.shuffle(new File(source).listFiles().toStream).take(numberOfCategories).flatMap((categoryDirectory: File) ⇒ {
       val categoryName = categoryDirectory.getName.split('.').last
-      Random.shuffle(categoryDirectory.listFiles().toStream).take(imagesPerCategory).map(imageFile ⇒ {
-        val original = ImageIO.read(imageFile)
+      Random.shuffle(categoryDirectory.listFiles().toStream).take(imagesPerCategory)
+        .filterNot(_==null).map(ImageIO.read).filterNot(_==null)
+        .map(original ⇒ {
 
         //def fit(x:Int) = TestClassifier.validSizes.takeWhile(_<x).last
         def fit(x: Int) = x
