@@ -38,7 +38,7 @@ import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputs
 import com.simiacryptus.mindseye.layers.util.ConstNNLayer
 import com.simiacryptus.mindseye.network.PipelineNetwork
 import com.simiacryptus.mindseye.network.graph.DAGNode
-import com.simiacryptus.mindseye.layers.cudnn.ConvolutionLayer
+import com.simiacryptus.mindseye.layers.cudnn._
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
@@ -103,15 +103,16 @@ case class TestClassifier(
                    weights: Double,
                    layerRadius: Int = 5,
                    simpleBorder: Boolean = false,
-                   activationLayer: NNLayer = new ReLuActivationLayer(),
-                    auxWeight : Double = Double.NaN) = {
+                   activationLayer: NNLayer = new DirectActivationLayer(DirectActivationLayer.Mode.RELU),
+                    auxWeight : Double = Double.NaN): DAGNode = {
       def weightSeed : DoubleSupplier = Java8Util.cvt(() ⇒ rand * weights)
-      network.add(new ImgBandBiasLayer(from).setWeights(zeroSeed).setName("bias_" + layerNumber).addTo(monitoringRoot))
+      network.add(new DirectImgBiasLayer(from).setWeights(zeroSeed).setName("bias_" + layerNumber).addTo(monitoringRoot))
       if (null != activationLayer) {
         network.add(activationLayer.setName("activation_" + layerNumber).freeze.addTo(monitoringRoot))
       }
-      val node = network.add(new ConvolutionLayer(layerRadius, layerRadius, from * to, simpleBorder)
-        .setWeights(weightSeed).setName("conv_" + layerNumber).addTo(monitoringRoot))
+      val node = network.add(new DirectConvolutionLayer(layerRadius, layerRadius, from * to, simpleBorder)
+        .setWeights(weightSeed).setName("conv_" + layerNumber).addTo(monitoringRoot)
+      )
       //network.add(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
       normalizedPoints += node
       if(!auxWeight.isNaN) subPrediction(node) = (to, auxWeight)
@@ -119,19 +120,19 @@ case class TestClassifier(
     }
 
     buildLayer(3, 8, "0", layerRadius = 5, weights = Math.pow(10, this.conv1), activationLayer = null, auxWeight = auxLearn1)
-    network.add(new MaxSubsampleLayer(2, 2, 1).setName("avg0").addTo(monitoringRoot))
-    normalizedPoints += network.add(new ConvolutionLayer(1, 1, 8 * 4, false).setWeights(()=>Math.pow(10, this.reduction1)*rand).setName("reduce1").addTo(monitoringRoot));
-    buildLayer(4, 30, "1", layerRadius = 5, weights = Math.pow(10, this.conv2), activationLayer = new ReLuActivationLayer().setWeight(1).freeze(), auxWeight = auxLearn2)
-    network.add(new MaxSubsampleLayer(2, 2, 1).setName("avg1").addTo(monitoringRoot))
-    normalizedPoints += network.add(new ConvolutionLayer(1, 1, 30 * 6, false).setWeights(()=>Math.pow(10, this.reduction2)*rand).setName("reduce2").addTo(monitoringRoot));
-    buildLayer(6, 24, "2", layerRadius = 4, weights = Math.pow(10, this.conv3), activationLayer = new ReLuActivationLayer().setWeight(1).freeze(), auxWeight = auxLearn3)
-    network.add(new MaxSubsampleLayer(2, 2, 1).setName("avg3").addTo(monitoringRoot))
-    buildLayer(24, numberOfCategories, "3", layerRadius = 1, weights = Math.pow(10, this.conv4), activationLayer = new ReLuActivationLayer().setWeight(1).freeze())
+    network.add(new DirectPoolingLayer().setName("avg0").addTo(monitoringRoot))
+    normalizedPoints += network.add(new DirectConvolutionLayer(1, 1, 8 * 4, false).setWeights(()=>Math.pow(10, this.reduction1)*rand).setName("reduce1").addTo(monitoringRoot));
+    buildLayer(4, 30, "1", layerRadius = 5, weights = Math.pow(10, this.conv2), auxWeight = auxLearn2)
+    network.add(new DirectPoolingLayer().setName("avg1").addTo(monitoringRoot))
+    normalizedPoints += network.add(new DirectConvolutionLayer(1, 1, 30 * 6, false).setWeights(()=>Math.pow(10, this.reduction2)*rand).setName("reduce2").addTo(monitoringRoot));
+    buildLayer(6, 24, "2", layerRadius = 4, weights = Math.pow(10, this.conv3), auxWeight = auxLearn3)
+    network.add(new DirectPoolingLayer().setName("avg3").addTo(monitoringRoot))
+    buildLayer(24, numberOfCategories, "3", layerRadius = 1, weights = Math.pow(10, this.conv4))
     network.add(new MaxImageBandLayer().setName("avgFinal").addTo(monitoringRoot))
     val prediction = network.add(new SoftmaxActivationLayer)
 
     def auxEntropyLayer(source: DAGNode, bands: Int, weight: Double) = {
-      val convolution = network.add(new ConvolutionLayer(1, 1, bands * numberOfCategories, false).setWeights(() ⇒ Random.nextDouble() * weight), source)
+      val convolution = network.add(new DirectConvolutionLayer(1, 1, bands * numberOfCategories, false).setWeights(() ⇒ Random.nextDouble() * weight), source)
       normalizedPoints += convolution
       network.add(new EntropyLossLayer(), network.add(new SoftmaxActivationLayer, network.add(new MaxImageBandLayer(), convolution)), network.getInput(1))
     }
@@ -176,7 +177,7 @@ case class TestClassifier(
 
 class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 
-  val modelName = System.getProperty("modelName","image_classifier_6")
+  val modelName = System.getProperty("modelName","image_classifier_8")
   val tileSize = 64
   val scaleFactor: Double = (64 * 64.0) / (tileSize * tileSize)
 
