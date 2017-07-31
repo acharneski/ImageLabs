@@ -186,8 +186,8 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
     declareTestHandler()
     out.out("<hr/>")
     if(findFile(modelName).isEmpty || System.getProperties.containsKey("rebuild")) step_Generate()
-    step_LBFGS((50 * scaleFactor).toInt, 60, 100)
-    step_LBFGS((50 * scaleFactor).toInt, 3*60, 50)
+    step_LBFGS((25 * scaleFactor).toInt, 3*60, 150)
+    step_LBFGS((50 * scaleFactor).toInt, 3*60, 100)
     step_LBFGS((100 * scaleFactor).toInt, 3*60, 50)
     out.out("<hr/>")
     if(awaitExit) waitForExit()
@@ -220,7 +220,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
     }, (model: NNLayer) ⇒ {
       out.h1("Model Initialization")
       val trainer = out.eval {
-        var inner: Trainable = new StochasticArrayTrainable(data, model, (20 * scaleFactor).toInt)
+        var inner: Trainable = new StochasticArrayTrainable(data, model, (20 * scaleFactor).toInt, 20)
         val trainer = new IterativeTrainer(inner)
         trainer.setMonitor(monitor)
         trainer.setTimeout(5, TimeUnit.MINUTES)
@@ -250,7 +250,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
     monitor.clear()
     out.h1(s"SGD(sampleSize=$sampleSize,timeoutMin=$timeoutMin)")
     val trainer = out.eval {
-      var inner: Trainable = new StochasticArrayTrainable(data, model, sampleSize)
+      var inner: Trainable = new StochasticArrayTrainable(data, model, sampleSize, 20)
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(timeoutMin, TimeUnit.MINUTES)
@@ -278,7 +278,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
     monitor.clear()
     out.h1(s"LBFGS(sampleSize=$sampleSize,timeoutMin=$timeoutMin)")
     val trainer = out.eval {
-      val inner = new StochasticArrayTrainable(data, model, sampleSize)
+      val inner = new StochasticArrayTrainable(data, model, sampleSize, 20)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(timeoutMin, TimeUnit.MINUTES)
