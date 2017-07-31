@@ -186,7 +186,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
     declareTestHandler()
     out.out("<hr/>")
     if(findFile(modelName).isEmpty || System.getProperties.containsKey("rebuild")) step_Generate()
-    step_LBFGS((20 * scaleFactor).toInt, 60, 50)
+    step_LBFGS((50 * scaleFactor).toInt, 60, 100)
     step_LBFGS((50 * scaleFactor).toInt, 3*60, 50)
     step_LBFGS((100 * scaleFactor).toInt, 3*60, 50)
     out.out("<hr/>")
