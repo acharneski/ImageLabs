@@ -56,7 +56,11 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 object ClassifierModeler extends Report {
-  val numberOfCategories = 4
+  val modelName = System.getProperty("modelName","image_classifier_9")
+  val tileSize = 64
+  val scaleFactor: Double = (64 * 64.0) / (tileSize * tileSize)
+  val categoryWhitelist = Set[String]("greyhound", "soccer-ball", "telephone-box", "windmill")
+  val numberOfCategories = categoryWhitelist.size
 
   def main(args: Array[String]): Unit = {
 
@@ -177,10 +181,6 @@ case class TestClassifier(
 
 class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 
-  val modelName = System.getProperty("modelName","image_classifier_8")
-  val tileSize = 64
-  val scaleFactor: Double = (64 * 64.0) / (tileSize * tileSize)
-
   def run(awaitExit:Boolean=true): Unit = {
     defineHeader()
     declareTestHandler()
@@ -220,6 +220,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
     }, (model: NNLayer) ⇒ {
       out.h1("Model Initialization")
       val trainer = out.eval {
+        assert(null != data)
         var inner: Trainable = new StochasticArrayTrainable(data, model, (20 * scaleFactor).toInt, 20)
         val trainer = new IterativeTrainer(inner)
         trainer.setMonitor(monitor)
@@ -271,8 +272,6 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
     }
     trainer.run()
   }, modelName)
-
-  lazy val forwardNetwork = loadModel("downsample_1")
 
   def step_LBFGS(sampleSize: Int, timeoutMin: Int, iterationSize: Int): Unit = phase(modelName, (model: NNLayer) ⇒ {
     monitor.clear()
@@ -353,7 +352,10 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
       ndArray
     }
 
-    val images: Seq[(Tensor, String)] = Random.shuffle(Random.shuffle(new File(source).listFiles().toStream).take(numberOfCategories).flatMap((categoryDirectory: File) ⇒ {
+    val images: Seq[(Tensor, String)] = Random.shuffle(Random.shuffle(new File(source).listFiles().toStream)
+      .filter(dir=>categoryWhitelist.find(str=>dir.getName.contains(str)).isDefined)
+      .take(numberOfCategories)
+      .flatMap((categoryDirectory: File) ⇒ {
       val categoryName = categoryDirectory.getName.split('.').last
       Random.shuffle(categoryDirectory.listFiles().toStream).take(imagesPerCategory)
         .filterNot(_==null).map(ImageIO.read).filterNot(_==null)
