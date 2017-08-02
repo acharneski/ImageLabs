@@ -31,14 +31,14 @@ import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.simiacryptus.mindseye.layers.NNLayer
 import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, SoftmaxActivationLayer}
+import com.simiacryptus.mindseye.layers.cudnn.f32._
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
+import com.simiacryptus.mindseye.layers.media.MaxImageBandLayer
 import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
 import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer}
 import com.simiacryptus.mindseye.layers.util.ConstNNLayer
 import com.simiacryptus.mindseye.network.PipelineNetwork
 import com.simiacryptus.mindseye.network.graph.DAGNode
-import com.simiacryptus.mindseye.layers.cudnn.f32._
-import com.simiacryptus.mindseye.layers.media.MaxImageBandLayer
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
@@ -55,7 +55,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
-object ClassifierModeler extends Report {
+object IncrementalClassifierModeler extends Report {
   val modelName = System.getProperty("modelName","image_classifier_13")
   val tileSize = 64
   val scaleFactor: Double = (64 * 64.0) / (tileSize * tileSize)
@@ -65,129 +65,24 @@ object ClassifierModeler extends Report {
   def main(args: Array[String]): Unit = {
 
     report((server, out) ⇒ args match {
-      case Array(source) ⇒ new ClassifierModeler(source, server, out).run()
-      case _ ⇒ new ClassifierModeler("D:\\testImages\\256_ObjectCategories", server, out).run()
+      case Array(source) ⇒ new IncrementalClassifierModeler(source, server, out).run()
+      case _ ⇒ new IncrementalClassifierModeler("D:\\testImages\\256_ObjectCategories", server, out).run()
     })
 
   }
 
 }
-import ClassifierModeler._
+import interactive.classify.IncrementalClassifierModeler._
 
-object TestClassifier {
 
-  val validSizes: Stream[Int] = Stream.from(1).map(i⇒List[Int⇒Int](
-    _+2, _*2, _+3, _*2, _+4, _*2, _+4
-  ).foldLeft(i)((x,fn)⇒fn(x)))
-
-}
-case class TestClassifier(
-                           conv1 : Double = -3.1962815165239653,
-                           conv2 : Double = 0.5,
-                           conv3 : Double = -2.5,
-                           conv4 : Double = -7.5,
-                           auxLearn1: Double = -1,
-                           auxLearn2: Double = -1,
-                           auxLearn3: Double = -1,
-                           reduction1: Double = -1,
-                           reduction2: Double = -1
-                                   ) {
-
-  def getNetwork(monitor: TrainingMonitor,
-                 monitoringRoot : MonitoredObject,
-                 fitness : Boolean = false) : NNLayer = {
-    var network: PipelineNetwork = new PipelineNetwork(2)
-    val zeroSeed : IntToDoubleFunction = Java8Util.cvt(_ ⇒ 0.0)
-    val normalizedPoints = new ArrayBuffer[DAGNode]()
-    val subPrediction = new mutable.HashMap[DAGNode,(Integer,Double,String)]()
-    def rand = Util.R.get.nextDouble() * 2 - 1
-    def buildLayer(from: Int,
-                   to: Int,
-                   layerNumber: String,
-                   weights: Double,
-                   layerRadius: Int = 5,
-                   simpleBorder: Boolean = false,
-                   activationLayer: NNLayer = new ActivationLayer(ActivationLayer.Mode.RELU),
-                   auxWeight : Double = Double.NaN): DAGNode = {
-      def weightSeed : DoubleSupplier = Java8Util.cvt(() ⇒ rand * weights)
-      network.add(new ImgBandBiasLayer(from).setWeights(zeroSeed).setName("bias_" + layerNumber).addTo(monitoringRoot))
-      if (null != activationLayer) {
-        network.add(activationLayer.setName("activation_" + layerNumber).freeze.addTo(monitoringRoot))
-      }
-      val node = network.add(new ConvolutionLayer(layerRadius, layerRadius, from * to, simpleBorder)
-        .setWeights(weightSeed).setName("conv_" + layerNumber).addTo(monitoringRoot)
-      )
-      //network.add(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
-      normalizedPoints += node
-      if(!auxWeight.isNaN) subPrediction(node) = (to, auxWeight, layerNumber)
-      node
-    }
-
-    buildLayer(3, 8, "0", layerRadius = 5, weights = Math.pow(10, this.conv1), activationLayer = null, auxWeight = auxLearn1)
-    network.add(new PoolingLayer().setName("avg_0").addTo(monitoringRoot))
-    normalizedPoints += network.add(new ConvolutionLayer(1, 1, 8 * 4, false).setWeights(()=>Math.pow(10, this.reduction1)*rand).setName("reduce_1").addTo(monitoringRoot));
-    buildLayer(4, 30, "1", layerRadius = 5, weights = Math.pow(10, this.conv2), auxWeight = auxLearn2)
-    network.add(new PoolingLayer().setName("avg_1").addTo(monitoringRoot))
-    normalizedPoints += network.add(new ConvolutionLayer(1, 1, 30 * 6, false).setWeights(()=>Math.pow(10, this.reduction2)*rand).setName("reduce_2").addTo(monitoringRoot));
-    buildLayer(6, 24, "2", layerRadius = 4, weights = Math.pow(10, this.conv3), auxWeight = auxLearn3)
-    network.add(new PoolingLayer().setName("avg_3").addTo(monitoringRoot))
-    buildLayer(24, numberOfCategories, "3", layerRadius = 1, weights = Math.pow(10, this.conv4))
-    network.add(new MaxImageBandLayer().setName("avgFinal").addTo(monitoringRoot))
-    val prediction = network.add(new SoftmaxActivationLayer)
-
-    def auxEntropyLayer(source: DAGNode, bands: Int, weight: Double, layerNumber: String) = {
-      val convolution = network.add(new ConvolutionLayer(1, 1, bands * numberOfCategories, false).setWeights(() ⇒ Random.nextDouble() * weight).setName("learningStrut_" + layerNumber), source)
-      normalizedPoints += convolution
-      network.add(new EntropyLossLayer(), network.add(new SoftmaxActivationLayer, network.add(new MaxImageBandLayer(), convolution)), network.getInput(1))
-    }
-
-    val learningStruts = subPrediction.map(e ⇒ auxEntropyLayer(e._1, e._2._1, e._2._2, e._2._3))
-    network.add(new SumInputsLayer(),
-      (List(network.add(new EntropyLossLayer(), prediction, network.getInput(1))) ++
-      learningStruts):_*
-    )
-
-    if(fitness) {
-      def auxRmsLayer(layer:DAGNode, target:Double) = network.add(new AbsActivationLayer(),
-        network.add(new SumInputsLayer(),
-          network.add(new AvgReducerLayer(), network.add(new StdDevMetaLayer(), layer)),
-          network.add(new ConstNNLayer(new Tensor(1).set(0,-target)))
-        )
-      )
-      val prediction = network.getHead
-      network.add(new ProductInputsLayer(),
-        prediction,
-        network.add(new SumInputsLayer(),
-          (List(network.add(new ConstNNLayer(new Tensor(1).set(0,0.1)))) ++ normalizedPoints.map(auxRmsLayer(_,1))):_*
-        )
-      )
-    }
-
-    network
-  }
-
-  def fitness(monitor: TrainingMonitor, monitoringRoot : MonitoredObject, data: Array[Array[Tensor]], n: Int = 3) : Double = {
-    val values = (1 to n).map(i ⇒ {
-      val network = getNetwork(monitor, monitoringRoot, fitness = true)
-      val measure = new ArrayTrainable(data, network).measure()
-      measure.value
-    }).toList
-    val avg = values.sum / n
-    monitor.log(s"Numeric Opt: $this => $avg ($values)")
-    avg
-  }
-
-}
-
-class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
+class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 
   def run(awaitExit:Boolean=true): Unit = {
     defineHeader()
     declareTestHandler()
     out.out("<hr/>")
     if(findFile(modelName).isEmpty || System.getProperties.containsKey("rebuild")) step_Generate()
-    step_LBFGS((250 * scaleFactor).toInt, 3*60, 200)
-    step_LBFGS((250 * scaleFactor).toInt, 3*60, 200)
+    step_LBFGS((250 * scaleFactor).toInt, 6*60, 200)
     out.out("<hr/>")
     if(awaitExit) waitForExit()
   }
@@ -292,7 +187,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
     }
     trainer.run()
   }, modelName)
-
+  
   def declareTestHandler() = {
     out.p("<a href='testCat.html'>Test Categorization</a><br/>")
     server.addSyncHandler("testCat.html", "text/html", cvt(o ⇒ {
