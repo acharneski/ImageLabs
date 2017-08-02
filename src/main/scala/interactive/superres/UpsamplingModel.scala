@@ -52,7 +52,7 @@ import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
 import scala.collection.JavaConverters._
 import scala.util.Random
 import NNLayerUtil._
-import com.simiacryptus.mindseye.layers.opencl.ConvolutionLayer
+import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 
 case class DeepNetworkUpsample(
                                      weight1 : Double,
@@ -310,7 +310,7 @@ class UpsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebook
             TableOutput.create(Random.shuffle(data).take(100).map(testObj ⇒ Map[String, AnyRef](
               "Source Truth" → out.image(testObj(1).toRgbImage(), ""),
               "Corrupted" → out.image(testObj(0).toRgbImage(), ""),
-              "Reconstruction" → out.image(getModelCheckpoint.eval(testObj(0)).data.get(0).toRgbImage(), "")
+              "Reconstruction" → out.image(getModelCheckpoint.eval(new NNLayer.NNExecutionContext() {}, testObj(0)).data.get(0).toRgbImage(), "")
             ).asJava): _*)
           }
         } catch {

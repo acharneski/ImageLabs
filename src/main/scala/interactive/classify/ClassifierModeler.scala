@@ -30,15 +30,15 @@ import javax.imageio.ImageIO
 import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.simiacryptus.mindseye.layers.NNLayer
-import com.simiacryptus.mindseye.layers.activation._
+import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.layers.media._
 import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
 import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer}
 import com.simiacryptus.mindseye.layers.util.ConstNNLayer
 import com.simiacryptus.mindseye.network.PipelineNetwork
 import com.simiacryptus.mindseye.network.graph.DAGNode
-import com.simiacryptus.mindseye.layers.cudnn._
+import com.simiacryptus.mindseye.layers.cudnn.f32._
+import com.simiacryptus.mindseye.layers.media.MaxImageBandLayer
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
@@ -56,7 +56,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 object ClassifierModeler extends Report {
-  val modelName = System.getProperty("modelName","image_classifier_9")
+  val modelName = System.getProperty("modelName","image_classifier_13")
   val tileSize = 64
   val scaleFactor: Double = (64 * 64.0) / (tileSize * tileSize)
   val categoryWhitelist = Set[String]("greyhound", "soccer-ball", "telephone-box", "windmill")
@@ -99,7 +99,7 @@ case class TestClassifier(
     var network: PipelineNetwork = new PipelineNetwork(2)
     val zeroSeed : IntToDoubleFunction = Java8Util.cvt(_ ⇒ 0.0)
     val normalizedPoints = new ArrayBuffer[DAGNode]()
-    val subPrediction = new mutable.HashMap[DAGNode,(Integer,Double)]()
+    val subPrediction = new mutable.HashMap[DAGNode,(Integer,Double,String)]()
     def rand = Util.R.get.nextDouble() * 2 - 1
     def buildLayer(from: Int,
                    to: Int,
@@ -107,41 +107,41 @@ case class TestClassifier(
                    weights: Double,
                    layerRadius: Int = 5,
                    simpleBorder: Boolean = false,
-                   activationLayer: NNLayer = new DirectActivationLayer(DirectActivationLayer.Mode.RELU),
-                    auxWeight : Double = Double.NaN): DAGNode = {
+                   activationLayer: NNLayer = new ActivationLayer(ActivationLayer.Mode.RELU),
+                   auxWeight : Double = Double.NaN): DAGNode = {
       def weightSeed : DoubleSupplier = Java8Util.cvt(() ⇒ rand * weights)
-      network.add(new DirectImgBiasLayer(from).setWeights(zeroSeed).setName("bias_" + layerNumber).addTo(monitoringRoot))
+      network.add(new ImgBandBiasLayer(from).setWeights(zeroSeed).setName("bias_" + layerNumber).addTo(monitoringRoot))
       if (null != activationLayer) {
         network.add(activationLayer.setName("activation_" + layerNumber).freeze.addTo(monitoringRoot))
       }
-      val node = network.add(new DirectConvolutionLayer(layerRadius, layerRadius, from * to, simpleBorder)
+      val node = network.add(new ConvolutionLayer(layerRadius, layerRadius, from * to, simpleBorder)
         .setWeights(weightSeed).setName("conv_" + layerNumber).addTo(monitoringRoot)
       )
       //network.add(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
       normalizedPoints += node
-      if(!auxWeight.isNaN) subPrediction(node) = (to, auxWeight)
+      if(!auxWeight.isNaN) subPrediction(node) = (to, auxWeight, layerNumber)
       node
     }
 
     buildLayer(3, 8, "0", layerRadius = 5, weights = Math.pow(10, this.conv1), activationLayer = null, auxWeight = auxLearn1)
-    network.add(new DirectPoolingLayer().setName("avg0").addTo(monitoringRoot))
-    normalizedPoints += network.add(new DirectConvolutionLayer(1, 1, 8 * 4, false).setWeights(()=>Math.pow(10, this.reduction1)*rand).setName("reduce1").addTo(monitoringRoot));
+    network.add(new PoolingLayer().setName("avg_0").addTo(monitoringRoot))
+    normalizedPoints += network.add(new ConvolutionLayer(1, 1, 8 * 4, false).setWeights(()=>Math.pow(10, this.reduction1)*rand).setName("reduce_1").addTo(monitoringRoot));
     buildLayer(4, 30, "1", layerRadius = 5, weights = Math.pow(10, this.conv2), auxWeight = auxLearn2)
-    network.add(new DirectPoolingLayer().setName("avg1").addTo(monitoringRoot))
-    normalizedPoints += network.add(new DirectConvolutionLayer(1, 1, 30 * 6, false).setWeights(()=>Math.pow(10, this.reduction2)*rand).setName("reduce2").addTo(monitoringRoot));
+    network.add(new PoolingLayer().setName("avg_1").addTo(monitoringRoot))
+    normalizedPoints += network.add(new ConvolutionLayer(1, 1, 30 * 6, false).setWeights(()=>Math.pow(10, this.reduction2)*rand).setName("reduce_2").addTo(monitoringRoot));
     buildLayer(6, 24, "2", layerRadius = 4, weights = Math.pow(10, this.conv3), auxWeight = auxLearn3)
-    network.add(new DirectPoolingLayer().setName("avg3").addTo(monitoringRoot))
+    network.add(new PoolingLayer().setName("avg_3").addTo(monitoringRoot))
     buildLayer(24, numberOfCategories, "3", layerRadius = 1, weights = Math.pow(10, this.conv4))
     network.add(new MaxImageBandLayer().setName("avgFinal").addTo(monitoringRoot))
     val prediction = network.add(new SoftmaxActivationLayer)
 
-    def auxEntropyLayer(source: DAGNode, bands: Int, weight: Double) = {
-      val convolution = network.add(new DirectConvolutionLayer(1, 1, bands * numberOfCategories, false).setWeights(() ⇒ Random.nextDouble() * weight), source)
+    def auxEntropyLayer(source: DAGNode, bands: Int, weight: Double, layerNumber: String) = {
+      val convolution = network.add(new ConvolutionLayer(1, 1, bands * numberOfCategories, false).setWeights(() ⇒ Random.nextDouble() * weight).setName("learningStrut_" + layerNumber), source)
       normalizedPoints += convolution
       network.add(new EntropyLossLayer(), network.add(new SoftmaxActivationLayer, network.add(new MaxImageBandLayer(), convolution)), network.getInput(1))
     }
 
-    val learningStruts = subPrediction.map(e ⇒ auxEntropyLayer(e._1, e._2._1, e._2._2))
+    val learningStruts = subPrediction.map(e ⇒ auxEntropyLayer(e._1, e._2._1, e._2._2, e._2._3))
     network.add(new SumInputsLayer(),
       (List(network.add(new EntropyLossLayer(), prediction, network.getInput(1))) ++
       learningStruts):_*
@@ -186,9 +186,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
     declareTestHandler()
     out.out("<hr/>")
     if(findFile(modelName).isEmpty || System.getProperties.containsKey("rebuild")) step_Generate()
-    step_LBFGS((25 * scaleFactor).toInt, 3*60, 150)
-    step_LBFGS((50 * scaleFactor).toInt, 3*60, 100)
-    step_LBFGS((100 * scaleFactor).toInt, 3*60, 50)
+    step_LBFGS((250 * scaleFactor).toInt, 6*60, 200)
     out.out("<hr/>")
     if(awaitExit) waitForExit()
   }
@@ -211,12 +209,12 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
 
   def step_Generate() = {
     phase({
-      lazy val optTraining: Array[Array[Tensor]] = Random.shuffle(data.toStream).take((2 * scaleFactor).ceil.toInt).toArray
-//      SimplexOptimizer[TestClassifier](
-//        TestClassifier(),
-//        x ⇒ x.fitness(monitor, monitoringRoot, optTraining, n=3), relativeTolerance=0.01
-//      ).getNetwork(monitor, monitoringRoot)
-      TestClassifier().getNetwork(monitor, monitoringRoot)
+      lazy val optTraining: Array[Array[Tensor]] = Random.shuffle(data.toStream).take((5 * scaleFactor).ceil.toInt).toArray
+      SimplexOptimizer[TestClassifier](
+        TestClassifier(),
+        x ⇒ x.fitness(monitor, monitoringRoot, optTraining, n=3), relativeTolerance=0.01
+      ).getNetwork(monitor, monitoringRoot)
+//      TestClassifier().getNetwork(monitor, monitoringRoot)
     }, (model: NNLayer) ⇒ {
       out.h1("Model Initialization")
       val trainer = out.eval {
@@ -309,7 +307,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
         TableOutput.create(Random.shuffle(data.toList).take(100).map(testObj ⇒ Map[String, AnyRef](
           "Image" → out.image(testObj(0).toRgbImage(), ""),
           "Categorization" → categories.toList.sortBy(_._2).map(_._1)
-            .zip(model.eval(testObj(0)).data.get(0).getData.map(_ * 100.0))
+            .zip(model.eval(new NNLayer.NNExecutionContext() {}, testObj(0)).data.get(0).getData.map(_ * 100.0))
         ).asJava): _*)
       }
     } catch {
