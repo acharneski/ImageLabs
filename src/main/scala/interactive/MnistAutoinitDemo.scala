@@ -156,10 +156,10 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
 //    val dotNormalizer = model.add(new LinearActivationLayer().setScale(1.0).freeze())
 
     model.add(new SumReducerLayer(), model.add(new SumInputsLayer(),
-      varOffset,
-      logVariance
-      //  model.add(new HyperbolicActivationLayer(), means)
-      ))
+          varOffset,
+          logVariance
+          //  model.add(new HyperbolicActivationLayer(), means)
+          ))
 
     model
   }

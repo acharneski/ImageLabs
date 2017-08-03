@@ -263,10 +263,7 @@ class DownsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
     }))
     val lossNetwork = new PipelineNetwork(2)
     val maskNode = lossNetwork.add(new ConstNNLayer(mask).freeze())
-    lossNetwork.add(new MeanSqLossLayer(),
-      lossNetwork.add(new ProductInputsLayer(), lossNetwork.getInput(0), maskNode),
-      lossNetwork.add(new ProductInputsLayer(), lossNetwork.getInput(1), maskNode)
-    )
+    lossNetwork.add(new MeanSqLossLayer(), lossNetwork.add(new ProductInputsLayer(), lossNetwork.getInput(0), maskNode), lossNetwork.add(new ProductInputsLayer(), lossNetwork.getInput(1), maskNode))
     lossNetwork
   }
 

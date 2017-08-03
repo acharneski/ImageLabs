@@ -98,21 +98,16 @@ case class DeepNetworkUpsample(
 
     if(fitness) {
       val output = network.getHead
-      def normalizeStdDev(layer:DAGNode, target:Double) = network.add(new AbsActivationLayer(),
-        network.add(new SumInputsLayer(),
-          network.add(new AvgReducerLayer(), network.add(new StdDevMetaLayer(), layer)),
-          network.add(new ConstNNLayer(new Tensor(1).set(0,-target)))
-        )
-      )
-      network.add(new ProductInputsLayer(),
-        network.add(new MeanSqLossLayer(), output, network.getInput(1)),
-        network.add(new SumInputsLayer(),
-          network.add(new ConstNNLayer(new Tensor(1).set(0,1))),
-          normalizeStdDev(l1,16),
-          normalizeStdDev(l2,16),
-          normalizeStdDev(l3,16)
-        )
-      )
+      def normalizeStdDev(layer:DAGNode, target:Double) = network.add(new AbsActivationLayer(), network.add(new SumInputsLayer(),
+                network.add(new AvgReducerLayer(), network.add(new StdDevMetaLayer(), layer)),
+                network.add(new ConstNNLayer(new Tensor(1).set(0,-target)))
+              ))
+      network.add(new ProductInputsLayer(), network.add(new MeanSqLossLayer(), output, network.getInput(1)), network.add(new SumInputsLayer(),
+                network.add(new ConstNNLayer(new Tensor(1).set(0,1))),
+                normalizeStdDev(l1,16),
+                normalizeStdDev(l2,16),
+                normalizeStdDev(l3,16)
+              ))
     }
 
     network
@@ -294,10 +289,7 @@ class UpsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebook
     }))
     val lossNetwork = new PipelineNetwork(2)
     val maskNode = lossNetwork.add(new ConstNNLayer(mask).freeze())
-    lossNetwork.add(new MeanSqLossLayer(),
-      lossNetwork.add(new ProductInputsLayer(), lossNetwork.getInput(0), maskNode),
-      lossNetwork.add(new ProductInputsLayer(), lossNetwork.getInput(1), maskNode)
-    )
+    lossNetwork.add(new MeanSqLossLayer(), lossNetwork.add(new ProductInputsLayer(), lossNetwork.getInput(0), maskNode), lossNetwork.add(new ProductInputsLayer(), lossNetwork.getInput(1), maskNode))
     lossNetwork
   }
 

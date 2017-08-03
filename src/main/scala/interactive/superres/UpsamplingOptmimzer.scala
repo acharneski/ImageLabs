@@ -112,16 +112,11 @@ object UpsamplingOptimizer extends Report {
     val targetNode = network.constValue(targetTensor)
     targetNode.getLayer.asInstanceOf[ConstNNLayer].setFrozen(false)
 
-    val wrongness = network.add(new MeanSqLossLayer(),
-      network.add(forwardModel.freeze(), targetNode),
-      network.constValue(originalTensor))
+    val wrongness = network.add(new MeanSqLossLayer(), network.add(forwardModel.freeze(), targetNode), network.constValue(originalTensor))
 
-    val fakeness = network.add(new EntropyLossLayer(),
-      network.add(discriminatorModel.freeze(), targetNode),
-      network.constValue(new Tensor(3).set(0, 1)))
+    val fakeness = network.add(new EntropyLossLayer(), network.add(discriminatorModel.freeze(), targetNode), network.constValue(new Tensor(3).set(0, 1)))
 
-    network.add(new ProductInputsLayer(), fakeness,
-      network.add(new SumInputsLayer(), wrongness, network.constValue(new Tensor(1).set(0, 1))))
+    network.add(new ProductInputsLayer(), fakeness, network.add(new SumInputsLayer(), wrongness, network.constValue(new Tensor(1).set(0, 1))))
     assert(!targetNode.getLayer.asInstanceOf[ConstNNLayer].isFrozen)
 
     val executorFunction = new ArrayTrainable(Array(Array()), network)

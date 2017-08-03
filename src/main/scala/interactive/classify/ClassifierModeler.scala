@@ -142,25 +142,18 @@ case class TestClassifier(
     }
 
     val learningStruts = subPrediction.map(e ⇒ auxEntropyLayer(e._1, e._2._1, e._2._2, e._2._3))
-    network.add(new SumInputsLayer(),
-      (List(network.add(new EntropyLossLayer(), prediction, network.getInput(1))) ++
-      learningStruts):_*
-    )
+    network.add(new SumInputsLayer(), (List(network.add(new EntropyLossLayer(), prediction, network.getInput(1))) ++
+          learningStruts):_*)
 
     if(fitness) {
-      def auxRmsLayer(layer:DAGNode, target:Double) = network.add(new AbsActivationLayer(),
-        network.add(new SumInputsLayer(),
-          network.add(new AvgReducerLayer(), network.add(new StdDevMetaLayer(), layer)),
-          network.add(new ConstNNLayer(new Tensor(1).set(0,-target)))
-        )
-      )
+      def auxRmsLayer(layer:DAGNode, target:Double) = network.add(new AbsActivationLayer(), network.add(new SumInputsLayer(),
+                network.add(new AvgReducerLayer(), network.add(new StdDevMetaLayer(), layer)),
+                network.add(new ConstNNLayer(new Tensor(1).set(0,-target)))
+              ))
       val prediction = network.getHead
-      network.add(new ProductInputsLayer(),
-        prediction,
-        network.add(new SumInputsLayer(),
-          (List(network.add(new ConstNNLayer(new Tensor(1).set(0,0.1)))) ++ normalizedPoints.map(auxRmsLayer(_,1))):_*
-        )
-      )
+      network.add(new ProductInputsLayer(), prediction, network.add(new SumInputsLayer(),
+                (List(network.add(new ConstNNLayer(new Tensor(1).set(0,0.1)))) ++ normalizedPoints.map(auxRmsLayer(_,1))):_*
+              ))
     }
 
     network
@@ -186,8 +179,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
     declareTestHandler()
     out.out("<hr/>")
     if(findFile(modelName).isEmpty || System.getProperties.containsKey("rebuild")) step_Generate()
-    step_LBFGS((250 * scaleFactor).toInt, 3*60, 200)
-    step_LBFGS((250 * scaleFactor).toInt, 3*60, 200)
+    while(true) step_LBFGS((250 * scaleFactor).toInt, 60, 200)
     out.out("<hr/>")
     if(awaitExit) waitForExit()
   }

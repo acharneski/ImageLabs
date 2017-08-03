@@ -116,22 +116,17 @@ case class DeepNetworkDescriminator(
 
     if(fitness) {
       val output = network.getHead
-      def normalizeStdDev(layer:DAGNode, target:Double) = network.add(new AbsActivationLayer(),
-        network.add(new SumInputsLayer(),
-          network.add(new AvgReducerLayer(), network.add(new StdDevMetaLayer(), layer)),
-          network.add(new ConstNNLayer(new Tensor(1).set(0,-target)))
-        )
-      )
-      network.add(new ProductInputsLayer(),
-        network.add(new EntropyLossLayer(), output, network.getInput(1)),
-        network.add(new SumInputsLayer(),
-          network.add(new ConstNNLayer(new Tensor(1).set(0,0.1))),
-          normalizeStdDev(l1,1),
-          normalizeStdDev(l2,1),
-          normalizeStdDev(l3,1),
-          normalizeStdDev(l4,1)
-        )
-      )
+      def normalizeStdDev(layer:DAGNode, target:Double) = network.add(new AbsActivationLayer(), network.add(new SumInputsLayer(),
+                network.add(new AvgReducerLayer(), network.add(new StdDevMetaLayer(), layer)),
+                network.add(new ConstNNLayer(new Tensor(1).set(0,-target)))
+              ))
+      network.add(new ProductInputsLayer(), network.add(new EntropyLossLayer(), output, network.getInput(1)), network.add(new SumInputsLayer(),
+                network.add(new ConstNNLayer(new Tensor(1).set(0,0.1))),
+                normalizeStdDev(l1,1),
+                normalizeStdDev(l2,1),
+                normalizeStdDev(l3,1),
+                normalizeStdDev(l4,1)
+              ))
     }
 
     network
