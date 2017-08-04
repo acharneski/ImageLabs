@@ -22,17 +22,15 @@ package interactive.classify
 import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
 import java.io._
-import java.util
 import java.util.concurrent.TimeUnit
 import java.util.stream.Collectors
 import javax.imageio.ImageIO
 
 import _root_.util.Java8Util.cvt
 import _root_.util._
-import com.esotericsoftware.kryo.Kryo
 import com.simiacryptus.mindseye.layers.NNLayer.NNExecutionContext
 import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, LinearActivationLayer, NthPowerActivationLayer, SoftmaxActivationLayer}
-import com.simiacryptus.mindseye.layers.cudnn.f64._
+import com.simiacryptus.mindseye.layers.cudnn.f32._
 import com.simiacryptus.mindseye.layers.loss.{EntropyLossLayer, MeanSqLossLayer}
 import com.simiacryptus.mindseye.layers.media.{ImgCropLayer, ImgReshapeLayer, MaxImageBandLayer}
 import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
@@ -82,12 +80,24 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
     out.out("<hr/>")
     if(findFile(modelName).isEmpty || System.getProperties.containsKey("rebuild")) {
       step_Generate()
-      for(size <- List(10, 12, 8)) {
-        step_AddLayer(size, trainingMin = 30)
-        step_GAN()
-      }
+
+      step_AddLayer(10, trainingMin = 45, radius = 5)
+      step_Train(trainingMin = 45)
+      step_GAN()
+
+      step_AddLayer(10, trainingMin = 45)
+      step_Train(trainingMin = 45)
+      step_GAN()
+
+      step_AddLayer(10, trainingMin = 45, radius = 5)
+      step_Train(trainingMin = 45)
+      step_GAN()
+
+      step_AddLayer(8, trainingMin = 45, radius = 7)
+      step_Train(trainingMin = 45)
+      step_GAN()
+
     }
-    for(i <- 1 to 3) step_Train(trainingMin = 30)
     out.out("<hr/>")
     if(awaitExit) waitForExit()
   }
@@ -115,31 +125,36 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
   }: Unit, modelName)
 
 
-  def step_AddLayer(featureBands: Int = 10, radius: Int = 3, trainingMin: Int = 15) = phase(modelName, (model: NNLayer) ⇒ {
+  def step_AddLayer(featureBands: Int = 10, radius: Int = 3, trainingMin: Int = 15, sampleSize: Int = 100) = phase(modelName, (model: NNLayer) ⇒ {
     val stdDevTarget: Int = 1
     val rmsSmoothing: Int = 1
     val stdDevSmoothing: Double = 0.2
     val weight = -6
-    val fuzz = 0.01
+    val factory: (Int) => NNLayer = (inputBands: Int)=>{
+      new PipelineNetwork(
+        new ConvolutionLayer(radius, radius, inputBands, featureBands, false).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, weight)),
+        new PoolingLayer()
+      )
+    }
 
     val sourceNetwork = model.asInstanceOf[PipelineNetwork]
     val priorFeaturesNode = Option(sourceNetwork.getByLabel("features")).getOrElse(sourceNetwork.getHead)
-    val rawTrainingData: Array[Array[Tensor]] = Random.shuffle(data.toList).take(500).toArray
+    val rawTrainingData: Array[Array[Tensor]] = Random.shuffle(data.toList).take(5000).toArray
     val justInputs: Array[Array[Tensor]] = rawTrainingData.map(_.take(1))
     val featureTrainingData = priorFeaturesNode.get(new NNLayer.NNExecutionContext(){}, sourceNetwork.buildExeCtx(
       NNResult.batchResultArray(justInputs):_*)).data
       .stream().collect(Collectors.toList()).asScala.toArray
     val trainingArray = (0 until featureTrainingData.length).map(i=>Array(featureTrainingData(i), rawTrainingData(i)(1))).toArray
-    val inputBands: Int = featureTrainingData.head.getDimensions()(2)
-    val width: Int = featureTrainingData.head.getDimensions()(0)
+    val inputFeatureDimensions = featureTrainingData.head.getDimensions()
+    val inputBands: Int = inputFeatureDimensions(2)
+    val width: Int = inputFeatureDimensions(0)
     val crop = width - Math.floor((1 + width - radius)/2.0).toInt*2
-    val convolutionLayer = new ConvolutionLayer(radius, radius, inputBands, featureBands, false).setWeights(()=>(Random.nextDouble()-0.5)*Math.pow(10,weight))
+    val additionalLayer: NNLayer = factory(inputBands)
     val categorizationLayer = new ConvolutionLayer(1, 1, featureBands, numberOfCategories, false).setWeights(()=>(Random.nextDouble()-0.5)*Math.pow(10,weight))
     val reconstructionLayer = new ConvolutionLayer(1, 1, featureBands, 4 * inputBands, false).setWeights(()=>(Random.nextDouble()-0.5)*Math.pow(10,weight))
-
     val trainingNetwork = new PipelineNetwork(2)
-    val features = trainingNetwork.add("features",new PoolingLayer(),
-      trainingNetwork.add(convolutionLayer))
+    val features = trainingNetwork.add("features", additionalLayer, trainingNetwork.getHead())
+    //val outputFeatureDimensions = trainingNetwork.eval(new NNExecutionContext() {},featureTrainingData.head).data.get(0).getDimensions
     val fitness = trainingNetwork.add(new ProductInputsLayer(),
       // Features should be relevant - predict the class given a final linear/softmax transform
       trainingNetwork.add(new EntropyLossLayer(),
@@ -173,7 +188,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
     out.h1("Training New Layer")
     val trainer1 = out.eval {
       assert(null != data)
-      var inner: Trainable = new StochasticArrayTrainable(trainingArray, trainingNetwork, (100 * scaleFactor).toInt, 20)
+      var inner: Trainable = new StochasticArrayTrainable(trainingArray, trainingNetwork, (sampleSize * scaleFactor).toInt, 20)
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
@@ -192,44 +207,27 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
       sourceNetwork.add(
         new MaxImageBandLayer(),
         sourceNetwork.add(categorizationLayer,
-          sourceNetwork.add("features", new PoolingLayer(),
-            sourceNetwork.add(convolutionLayer, priorFeaturesNode))))
+          sourceNetwork.add("features", additionalLayer, priorFeaturesNode)))
     )
 
+  }: Unit, modelName)
+
+
+  def step_Train(trainingMin: Int = 15, sampleSize: Int = 250, iterationsPerSample: Int = 50) = phase(modelName, (model: NNLayer) ⇒ {
     out.h1("Integration Training")
     val trainer2 = out.eval {
       assert(null != data)
       var inner: Trainable = new StochasticArrayTrainable(data,
-        new SimpleLossNetwork(sourceNetwork, new EntropyLossLayer()), (100 * scaleFactor).toInt, 20)
+        new SimpleLossNetwork(model, new EntropyLossLayer()), (sampleSize * scaleFactor).toInt, 20)
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
-      trainer.setIterationsPerSample(50)
+      trainer.setIterationsPerSample(iterationsPerSample)
       trainer.setOrientation(new LBFGS)
       trainer.setLineSearchFactory(Java8Util.cvt((s:String)⇒(s match {
         case s if s.contains("LBFGS") ⇒ new StaticLearningRate().setRate(1.0)
         case _ ⇒ new ArmijoWolfeSearch().setAlpha(1e-5)
       })))
-      trainer.setTerminateThreshold(0.0)
-      trainer
-    }
-    trainer2.run()
-
-  }: Unit, modelName)
-
-  def step_Train(trainingMin: Int = 15) = phase(modelName, (model: NNLayer) ⇒ {
-    val sourceNetwork = model.asInstanceOf[PipelineNetwork]
-    out.h1("Supplemental Training")
-    val trainer2 = out.eval {
-      assert(null != data)
-      var inner: Trainable = new StochasticArrayTrainable(data,
-        new SimpleLossNetwork(sourceNetwork, new EntropyLossLayer()), (20 * scaleFactor).toInt, 20)
-      val trainer = new IterativeTrainer(inner)
-      trainer.setMonitor(monitor)
-      trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
-      trainer.setIterationsPerSample(10)
-      trainer.setOrientation(new LBFGS)
-      trainer.setLineSearchFactory(Java8Util.cvt((s) ⇒ new ArmijoWolfeSearch))
       trainer.setTerminateThreshold(0.0)
       trainer
     }
@@ -341,8 +339,8 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
 
   def toOutNDArray(out: Int, max: Int): Tensor = {
     val ndArray = new Tensor(max)
-    for (i <- 0 until max) ndArray.set(out, fuzz)
-    ndArray.set(out, 1-(fuzz*max))
+    for (i <- 0 until max) ndArray.set(i, fuzz)
+    ndArray.set(out, 1-(fuzz*(max-1)))
     ndArray
   }
 
