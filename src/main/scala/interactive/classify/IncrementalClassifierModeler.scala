@@ -81,23 +81,25 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
     if(findFile(modelName).isEmpty || System.getProperties.containsKey("rebuild")) {
       step_Generate()
 
-      step_AddLayer(10, trainingMin = 45, radius = 5)
+      step_AddLayer(trainingMin = 45, inputBands = 10, featureBands = 10, radius = 5)
       step_Train(trainingMin = 45)
       step_GAN()
 
-      step_AddLayer(10, trainingMin = 45)
+      step_AddLayer(trainingMin = 45, inputBands = 10, featureBands = 10)
       step_Train(trainingMin = 45)
       step_GAN()
 
-      step_AddLayer(10, trainingMin = 45, radius = 5)
+      step_AddLayer(trainingMin = 45, inputBands = 10, featureBands = 10, radius = 5)
       step_Train(trainingMin = 45)
       step_GAN()
 
-      step_AddLayer(8, trainingMin = 45, radius = 7)
+      step_AddLayer(trainingMin = 45, inputBands = 8, featureBands = 10, radius = 7)
       step_Train(trainingMin = 45)
       step_GAN()
 
     }
+    step_Train(trainingMin = 45)
+    step_GAN()
     out.out("<hr/>")
     if(awaitExit) waitForExit()
   }
@@ -125,36 +127,38 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
   }: Unit, modelName)
 
 
-  def step_AddLayer(featureBands: Int = 10, radius: Int = 3, trainingMin: Int = 15, sampleSize: Int = 100) = phase(modelName, (model: NNLayer) ⇒ {
-    val stdDevTarget: Int = 1
-    val rmsSmoothing: Int = 1
-    val stdDevSmoothing: Double = 0.2
-    val weight = -6
-    val factory: (Int) => NNLayer = (inputBands: Int)=>{
+  def step_AddLayer(trainingMin: Int = 15, sampleSize: Int = 100, inputBands: Int, featureBands: Int, radius: Int = 3): Any = phase(modelName, (model: NNLayer) ⇒ {
+    addLayer(trainingMin, sampleSize, model){
       new PipelineNetwork(
-        new ConvolutionLayer(radius, radius, inputBands, featureBands, false).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, weight)),
+        new ConvolutionLayer(radius, radius, inputBands, featureBands, false).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, -6)),
         new PoolingLayer()
       )
     }
+  }: Unit, modelName)
 
+
+  private def addLayer(trainingMin: Int, sampleSize: Int, model: NNLayer)(additionalLayer: NNLayer) = {
+    val weight = -6
+    val stdDevTarget: Int = 1
+    val rmsSmoothing: Int = 1
+    val stdDevSmoothing: Double = 0.2
     val sourceNetwork = model.asInstanceOf[PipelineNetwork]
     val priorFeaturesNode = Option(sourceNetwork.getByLabel("features")).getOrElse(sourceNetwork.getHead)
     val rawTrainingData: Array[Array[Tensor]] = Random.shuffle(data.toList).take(5000).toArray
     val justInputs: Array[Array[Tensor]] = rawTrainingData.map(_.take(1))
-    val featureTrainingData = priorFeaturesNode.get(new NNLayer.NNExecutionContext(){}, sourceNetwork.buildExeCtx(
-      NNResult.batchResultArray(justInputs):_*)).data
+    val featureTrainingData = priorFeaturesNode.get(new NNExecutionContext() {}, sourceNetwork.buildExeCtx(
+      NNResult.batchResultArray(justInputs): _*)).data
       .stream().collect(Collectors.toList()).asScala.toArray
-    val trainingArray = (0 until featureTrainingData.length).map(i=>Array(featureTrainingData(i), rawTrainingData(i)(1))).toArray
+    val trainingArray = (0 until featureTrainingData.length).map(i => Array(featureTrainingData(i), rawTrainingData(i)(1))).toArray
     val inputFeatureDimensions = featureTrainingData.head.getDimensions()
+    val outputFeatureDimensions = additionalLayer.eval(new NNExecutionContext() {}, featureTrainingData.head).data.get(0).getDimensions
     val inputBands: Int = inputFeatureDimensions(2)
-    val width: Int = inputFeatureDimensions(0)
-    val crop = width - Math.floor((1 + width - radius)/2.0).toInt*2
-    val additionalLayer: NNLayer = factory(inputBands)
-    val categorizationLayer = new ConvolutionLayer(1, 1, featureBands, numberOfCategories, false).setWeights(()=>(Random.nextDouble()-0.5)*Math.pow(10,weight))
-    val reconstructionLayer = new ConvolutionLayer(1, 1, featureBands, 4 * inputBands, false).setWeights(()=>(Random.nextDouble()-0.5)*Math.pow(10,weight))
+    val featureBands: Int = outputFeatureDimensions(2)
+    val reconstructionCrop = inputFeatureDimensions(0) - outputFeatureDimensions(0)*2
+    val categorizationLayer = new ConvolutionLayer(1, 1, featureBands, numberOfCategories, false).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, weight))
+    val reconstructionLayer = new ConvolutionLayer(1, 1, featureBands, 4 * inputBands, false).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, weight))
     val trainingNetwork = new PipelineNetwork(2)
-    val features = trainingNetwork.add("features", additionalLayer, trainingNetwork.getHead())
-    //val outputFeatureDimensions = trainingNetwork.eval(new NNExecutionContext() {},featureTrainingData.head).data.get(0).getDimensions
+    val features = trainingNetwork.add("features", additionalLayer, trainingNetwork.getInput(0))
     val fitness = trainingNetwork.add(new ProductInputsLayer(),
       // Features should be relevant - predict the class given a final linear/softmax transform
       trainingNetwork.add(new EntropyLossLayer(),
@@ -165,12 +169,12 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
         trainingNetwork.getInput(1)
       ),
       // Features should be able to reconstruct input - Preserve information
-      trainingNetwork.add(new LinearActivationLayer().setScale(1.0/255).setBias(rmsSmoothing).freeze(),
+      trainingNetwork.add(new LinearActivationLayer().setScale(1.0 / 255).setBias(rmsSmoothing).freeze(),
         trainingNetwork.add(new NthPowerActivationLayer().setPower(0.5).freeze(),
           trainingNetwork.add(new MeanSqLossLayer(),
             trainingNetwork.add(new ImgReshapeLayer(2, 2, true),
               trainingNetwork.add(reconstructionLayer, features)),
-            trainingNetwork.add(new ImgCropLayer(crop,crop), trainingNetwork.getInput(0))
+            trainingNetwork.add(new ImgCropLayer(reconstructionCrop, reconstructionCrop), trainingNetwork.getInput(0))
           )
         )
       ),
@@ -194,7 +198,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
       trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
       trainer.setIterationsPerSample(50)
       trainer.setOrientation(new LBFGS)
-      trainer.setLineSearchFactory(Java8Util.cvt((s:String)⇒(s match {
+      trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ (s match {
         case s if s.contains("LBFGS") ⇒ new StaticLearningRate().setRate(1.0)
         case _ ⇒ new QuadraticSearch
       })))
@@ -209,9 +213,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
         sourceNetwork.add(categorizationLayer,
           sourceNetwork.add("features", additionalLayer, priorFeaturesNode)))
     )
-
-  }: Unit, modelName)
-
+  }
 
   def step_Train(trainingMin: Int = 15, sampleSize: Int = 250, iterationsPerSample: Int = 50) = phase(modelName, (model: NNLayer) ⇒ {
     out.h1("Integration Training")
