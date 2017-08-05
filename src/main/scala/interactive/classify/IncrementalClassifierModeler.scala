@@ -44,7 +44,7 @@ import com.simiacryptus.mindseye.opt.orient._
 import com.simiacryptus.mindseye.opt.trainable._
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
-import com.simiacryptus.util.ml.Tensor
+import com.simiacryptus.util.ml.{Tensor, WeakCachedSupplier}
 import com.simiacryptus.util.text.TableOutput
 
 import scala.collection.JavaConverters._
@@ -78,27 +78,27 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
     defineHeader()
     declareTestHandler()
     out.out("<hr/>")
+    val min = 45
     if(findFile(modelName).isEmpty || System.getProperties.containsKey("rebuild")) {
       step_Generate()
 
-      step_AddLayer(trainingMin = 45, inputBands = 10, featureBands = 10, radius = 5)
-      step_Train(trainingMin = 45)
+      step_AddLayer(trainingMin = min, inputBands = 3, featureBands = 10, radius = 5)
+      step_Train(trainingMin = min)
       step_GAN()
 
-      step_AddLayer(trainingMin = 45, inputBands = 10, featureBands = 10)
-      step_Train(trainingMin = 45)
+      step_AddLayer(trainingMin = min, inputBands = 10, featureBands = 10)
+      step_Train(trainingMin = min)
       step_GAN()
 
-      step_AddLayer(trainingMin = 45, inputBands = 10, featureBands = 10, radius = 5)
-      step_Train(trainingMin = 45)
+      step_AddLayer(trainingMin = min, inputBands = 10, featureBands = 10, radius = 5)
+      step_Train(trainingMin = min)
       step_GAN()
 
-      step_AddLayer(trainingMin = 45, inputBands = 8, featureBands = 10, radius = 7)
-      step_Train(trainingMin = 45)
+      step_AddLayer(trainingMin = min, inputBands = 8, featureBands = 10, radius = 7)
+      step_Train(trainingMin = min)
       step_GAN()
-
     }
-    step_Train(trainingMin = 45)
+    step_Train(trainingMin = min)
     step_GAN()
     out.out("<hr/>")
     if(awaitExit) waitForExit()
@@ -144,7 +144,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
     val stdDevSmoothing: Double = 0.2
     val sourceNetwork = model.asInstanceOf[PipelineNetwork]
     val priorFeaturesNode = Option(sourceNetwork.getByLabel("features")).getOrElse(sourceNetwork.getHead)
-    val rawTrainingData: Array[Array[Tensor]] = Random.shuffle(data.toList).take(5000).toArray
+    val rawTrainingData: Array[Array[Tensor]] = Random.shuffle(data.toList).take(5000).map(_.get()).toArray
     val justInputs: Array[Array[Tensor]] = rawTrainingData.map(_.take(1))
     val featureTrainingData = priorFeaturesNode.get(new NNExecutionContext() {}, sourceNetwork.buildExeCtx(
       NNResult.batchResultArray(justInputs): _*)).data
@@ -219,7 +219,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
     out.h1("Integration Training")
     val trainer2 = out.eval {
       assert(null != data)
-      var inner: Trainable = new StochasticArrayTrainable(data,
+      var inner: Trainable = new StochasticArrayTrainable(data.asJava,
         new SimpleLossNetwork(model, new EntropyLossLayer()), (sampleSize * scaleFactor).toInt, 20)
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
@@ -242,10 +242,10 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
     out.h1("GAN Images Generation")
     val sourceClass = new Tensor(Array[Double](1, 0, 0, 0))
     val targetClass = new Tensor(Array[Double](0, 0, 1, 0))
-    val adversarialData = data.filter(x=>x(1).get(sourceClassId) > 0.9).map(x=>Array(x(0), targetClass))
+    val adversarialData = data.map(_.get()).filter(x=>x(1).get(sourceClassId) > 0.9).map(x=>Array(x(0), targetClass)).toArray
     val adversarialOutput = new ArrayBuffer[Array[Tensor]]()
     val rows = adversarialData.take(imageCount).grouped(1).map(adversarialData => {
-      val biasLayer = new BiasLayer(data.head.head.getDimensions(): _*)
+      val biasLayer = new BiasLayer(data.head.get().head.getDimensions(): _*)
       val trainingNetwork = new PipelineNetwork()
       trainingNetwork.add(biasLayer)
       trainingNetwork.add(KryoUtil.kryo().copy(model).freeze())
@@ -308,7 +308,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
   def testCategorization(out: HtmlNotebookOutput with ScalaNotebookOutput, model : NNLayer) = {
     try {
       out.eval {
-        TableOutput.create(Random.shuffle(data.toList).take(100).map(testObj ⇒ Map[String, AnyRef](
+        TableOutput.create(Random.shuffle(data.toList).take(100).map(_.get()).map(testObj ⇒ Map[String, AnyRef](
           "Image" → out.image(testObj(0).toRgbImage(), ""),
           "Categorization" → categories.toList.sortBy(_._2).map(_._1)
             .zip(model.eval(new NNLayer.NNExecutionContext() {}, testObj(0)).data.get(0).getData.map(_ * 100.0))
@@ -320,15 +320,15 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
   }
 
   lazy val categories: Map[String, Int] = categoryList.zipWithIndex.toMap
-  lazy val (categoryList: List[String], data: Array[Array[Tensor]]) = {
+  lazy val (categoryList, data: List[WeakCachedSupplier[Array[Tensor]]]) = {
     monitor.log("Valid Processing Sizes: " + TestClassifier.validSizes.take(100).toList)
     out.p("Preparing training dataset")
     out.p("Loading data from " + source)
-    val (categoryList: Seq[String], data: Array[Array[Tensor]]) = load()
+    val (categoryList: Seq[String], data) = load()
     val categories: Map[String, Int] = categoryList.zipWithIndex.toMap
     out.p("<ol>" + categories.toList.sortBy(_._2).map(x ⇒ "<li>" + x + "</li>").mkString("\n") + "</ol>")
     out.eval {
-      TableOutput.create(data.take(100).map((e: Array[Tensor]) ⇒ {
+      TableOutput.create(data.take(100).map(_.get()).map(e ⇒ {
         Map[String, AnyRef](
           "Image" → out.image(e(0).toRgbImage(), e(1).toString),
           "Classification" → e(1)
@@ -349,43 +349,39 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
   def load(maxDim: Int = 256,
            numberOfCategories: Int = numberOfCategories,
            imagesPerCategory: Int = 100
-          ): (Seq[String], Array[Array[Tensor]]) = {
-
-
-    val images: Seq[(Tensor, String)] = Random.shuffle(Random.shuffle(new File(source).listFiles().toStream)
-      .filter(dir=>categoryWhitelist.find(str=>dir.getName.contains(str)).isDefined)
+          ) = {
+    val categoryDirs = Random.shuffle(new File(source).listFiles().toStream)
+      .filter(dir => categoryWhitelist.find(str => dir.getName.contains(str)).isDefined)
       .take(numberOfCategories)
+    val categoryList = categoryDirs.map((categoryDirectory: File) ⇒ {
+      categoryDirectory.getName.split('.').last
+    })
+    val categoryMap: Map[String, Int] = categoryList.zipWithIndex.toMap
+    (categoryList, Random.shuffle(categoryDirs
       .flatMap((categoryDirectory: File) ⇒ {
-      val categoryName = categoryDirectory.getName.split('.').last
-      Random.shuffle(categoryDirectory.listFiles().toStream).take(imagesPerCategory)
-        .filterNot(_==null).map(ImageIO.read).filterNot(_==null)
-        .map(original ⇒ {
-
-        //def fit(x:Int) = TestClassifier.validSizes.takeWhile(_<x).last
-        def fit(x: Int) = x
-
-        val fromWidth = original.getWidth()
-        val fromHeight = original.getHeight()
-        val scale = maxDim.toDouble / Math.min(fromWidth, fromHeight)
-        val toWidth = fit((fromWidth * scale).toInt)
-        val toHeight = fit((fromHeight * scale).toInt)
-        val resized = new BufferedImage(maxDim, maxDim, BufferedImage.TYPE_INT_ARGB)
-        val graphics = resized.getGraphics.asInstanceOf[Graphics2D]
-        graphics.asInstanceOf[Graphics2D].setRenderingHints(new RenderingHints(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC))
-        if (toWidth < toHeight) {
-          graphics.drawImage(original, 0, (toWidth - toHeight) / 2, toWidth, toHeight, null)
-        } else {
-          graphics.drawImage(original, (toHeight - toWidth) / 2, 0, toWidth, toHeight, null)
-        }
-        Tensor.fromRGB(resized) → categoryName
-      })
-    }).toList)
-    val categoryList = images.map(_._2).distinct.sorted
-    val categories: Map[String, Int] = categoryList.zipWithIndex.toMap
-    val data: Array[Array[Tensor]] = images.map(e ⇒ {
-      Array(e._1, toOutNDArray(categories(e._2), categories.size))
-    }).toArray
-    (categoryList, data)
+        val categoryName = categoryDirectory.getName.split('.').last
+        Random.shuffle(categoryDirectory.listFiles().toStream).take(imagesPerCategory)
+          .filterNot(_ == null).filterNot(_ == null)
+          .map(file ⇒ {
+            new WeakCachedSupplier[Array[Tensor]](Java8Util.cvt(()=>{
+              val original = ImageIO.read(file)
+              val fromWidth = original.getWidth()
+              val fromHeight = original.getHeight()
+              val scale = maxDim.toDouble / Math.min(fromWidth, fromHeight)
+              val toWidth = ((fromWidth * scale).toInt)
+              val toHeight = ((fromHeight * scale).toInt)
+              val resized = new BufferedImage(maxDim, maxDim, BufferedImage.TYPE_INT_ARGB)
+              val graphics = resized.getGraphics.asInstanceOf[Graphics2D]
+              graphics.asInstanceOf[Graphics2D].setRenderingHints(new RenderingHints(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC))
+              if (toWidth < toHeight) {
+                graphics.drawImage(original, 0, (toWidth - toHeight) / 2, toWidth, toHeight, null)
+              } else {
+                graphics.drawImage(original, (toHeight - toWidth) / 2, 0, toWidth, toHeight, null)
+              }
+              Array(Tensor.fromRGB(resized), toOutNDArray(categoryMap(categoryName), categoryMap.size))
+            }))
+          })
+      }).toList))
   }
 }
 
