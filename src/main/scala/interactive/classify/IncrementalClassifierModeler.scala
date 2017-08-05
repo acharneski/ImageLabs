@@ -30,9 +30,10 @@ import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.simiacryptus.mindseye.layers.NNLayer.NNExecutionContext
 import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, LinearActivationLayer, NthPowerActivationLayer, SoftmaxActivationLayer}
+import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
 import com.simiacryptus.mindseye.layers.cudnn.f32._
 import com.simiacryptus.mindseye.layers.loss.{EntropyLossLayer, MeanSqLossLayer}
-import com.simiacryptus.mindseye.layers.media.{ImgCropLayer, ImgReshapeLayer, MaxImageBandLayer}
+import com.simiacryptus.mindseye.layers.media.{AvgImageBandLayer, ImgCropLayer, ImgReshapeLayer, MaxImageBandLayer}
 import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
 import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer}
 import com.simiacryptus.mindseye.layers.synapse.BiasLayer
@@ -48,16 +49,17 @@ import com.simiacryptus.util.ml.{Tensor, WeakCachedSupplier}
 import com.simiacryptus.util.text.TableOutput
 
 import scala.collection.JavaConverters._
+import scala.collection.immutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 object IncrementalClassifierModeler extends Report {
   val modelName = System.getProperty("modelName","incremental_classifier_3")
-  val tileSize = 64
-  val scaleFactor: Double = (64 * 64.0) / (tileSize * tileSize)
-  val categoryWhitelist = Set[String]("greyhound", "soccer-ball", "telephone-box", "windmill")
-  val numberOfCategories = categoryWhitelist.size
+  val tileSize = 256
+  val categoryWhitelist = Set[String]()//"greyhound", "soccer-ball", "telephone-box", "windmill")
+  val numberOfCategories = 10
   val fuzz = 1e-2
+  val imagesPerCategory = 1000
 
   def main(args: Array[String]): Unit = {
 
@@ -85,19 +87,20 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
       step_AddLayer(trainingMin = min, inputBands = 3, featureBands = 10, radius = 5)
       step_Train(trainingMin = min)
       step_GAN()
-
-      step_AddLayer(trainingMin = min, inputBands = 10, featureBands = 10)
-      step_Train(trainingMin = min)
-      step_GAN()
-
-      step_AddLayer(trainingMin = min, inputBands = 10, featureBands = 10, radius = 5)
-      step_Train(trainingMin = min)
-      step_GAN()
-
-      step_AddLayer(trainingMin = min, inputBands = 8, featureBands = 10, radius = 7)
-      step_Train(trainingMin = min)
-      step_GAN()
     }
+
+    step_AddLayer(trainingMin = min, inputBands = 10, featureBands = 10, mode = PoolingMode.Avg)
+    step_Train(trainingMin = min)
+    step_GAN()
+
+    step_AddLayer(trainingMin = min, inputBands = 10, featureBands = 10, radius = 5)
+    step_Train(trainingMin = min)
+    step_GAN()
+
+    step_AddLayer(trainingMin = min, inputBands = 8, featureBands = 10, radius = 7, mode = PoolingMode.Avg)
+    step_Train(trainingMin = min)
+    step_GAN()
+
     step_Train(trainingMin = min)
     step_GAN()
     out.out("<hr/>")
@@ -127,11 +130,11 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
   }: Unit, modelName)
 
 
-  def step_AddLayer(trainingMin: Int = 15, sampleSize: Int = 100, inputBands: Int, featureBands: Int, radius: Int = 3): Any = phase(modelName, (model: NNLayer) ⇒ {
+  def step_AddLayer(trainingMin: Int = 15, sampleSize: Int = 100, inputBands: Int, featureBands: Int, radius: Int = 3, mode: PoolingMode = PoolingMode.Max): Any = phase(modelName, (model: NNLayer) ⇒ {
     addLayer(trainingMin, sampleSize, model){
       new PipelineNetwork(
         new ConvolutionLayer(radius, radius, inputBands, featureBands, false).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, -6)),
-        new PoolingLayer()
+        new PoolingLayer().setMode(mode)
       )
     }
   }: Unit, modelName)
@@ -144,7 +147,8 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
     val stdDevSmoothing: Double = 0.2
     val sourceNetwork = model.asInstanceOf[PipelineNetwork]
     val priorFeaturesNode = Option(sourceNetwork.getByLabel("features")).getOrElse(sourceNetwork.getHead)
-    val rawTrainingData: Array[Array[Tensor]] = Random.shuffle(data.toList).take(5000).map(_.get()).toArray
+    assert(null != data)
+    val rawTrainingData: Array[Array[Tensor]] = takeData().map(_.get()).toArray
     val justInputs: Array[Array[Tensor]] = rawTrainingData.map(_.take(1))
     val featureTrainingData = priorFeaturesNode.get(new NNExecutionContext() {}, sourceNetwork.buildExeCtx(
       NNResult.batchResultArray(justInputs): _*)).data
@@ -191,8 +195,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
 
     out.h1("Training New Layer")
     val trainer1 = out.eval {
-      assert(null != data)
-      var inner: Trainable = new StochasticArrayTrainable(trainingArray, trainingNetwork, (sampleSize * scaleFactor).toInt, 20)
+      var inner: Trainable = new StochasticArrayTrainable(trainingArray, trainingNetwork, sampleSize, 20)
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
@@ -209,7 +212,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
 
     sourceNetwork.add(new SoftmaxActivationLayer(),
       sourceNetwork.add(
-        new MaxImageBandLayer(),
+        new AvgImageBandLayer(),
         sourceNetwork.add(categorizationLayer,
           sourceNetwork.add("features", additionalLayer, priorFeaturesNode)))
     )
@@ -219,8 +222,8 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
     out.h1("Integration Training")
     val trainer2 = out.eval {
       assert(null != data)
-      var inner: Trainable = new StochasticArrayTrainable(data.asJava,
-        new SimpleLossNetwork(model, new EntropyLossLayer()), (sampleSize * scaleFactor).toInt, 20)
+      var inner: Trainable = new StochasticArrayTrainable(data.values.flatten.toList.asJava,
+        new SimpleLossNetwork(model, new EntropyLossLayer()), sampleSize, 20)
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
@@ -240,19 +243,20 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
     val sourceClassId = 0
     val imageCount = 10
     out.h1("GAN Images Generation")
-    val sourceClass = new Tensor(Array[Double](1, 0, 0, 0))
-    val targetClass = new Tensor(Array[Double](0, 0, 1, 0))
-    val adversarialData = data.map(_.get()).filter(x=>x(1).get(sourceClassId) > 0.9).map(x=>Array(x(0), targetClass)).toArray
+
+    val sourceClass = toOutNDArray(0, numberOfCategories)
+    val targetClass = toOutNDArray(1, numberOfCategories)
+    val adversarialData = data.values.flatten.toList.map(_.get()).filter(x=>x(1).get(sourceClassId) > 0.9).map(x=>Array(x(0), targetClass)).toArray
     val adversarialOutput = new ArrayBuffer[Array[Tensor]]()
-    val rows = adversarialData.take(imageCount).grouped(1).map(adversarialData => {
-      val biasLayer = new BiasLayer(data.head.get().head.getDimensions(): _*)
+    val rows = adversarialData.take(imageCount).map(adversarialData => {
+      val biasLayer = new BiasLayer(data.values.flatten.head.get().head.getDimensions(): _*)
       val trainingNetwork = new PipelineNetwork()
       trainingNetwork.add(biasLayer)
       trainingNetwork.add(KryoUtil.kryo().copy(model).freeze())
 
       val trainer1 = out.eval {
         assert(null != data)
-        var inner: Trainable = new ArrayTrainable(adversarialData,
+        var inner: Trainable = new ArrayTrainable(Array(adversarialData),
           new SimpleLossNetwork(trainingNetwork, new EntropyLossLayer()))
         val trainer = new IterativeTrainer(inner)
         trainer.setMonitor(monitor)
@@ -267,31 +271,31 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
 
       val evalNetwork = new PipelineNetwork()
       evalNetwork.add(biasLayer)
-      val adversarialImage = evalNetwork.eval(new NNExecutionContext {}, adversarialData.head.head).data.get(0)
+      val adversarialImage = evalNetwork.eval(new NNExecutionContext {}, adversarialData.head).data.get(0)
       adversarialOutput += Array(adversarialImage, sourceClass)
       Map[String, AnyRef](
-        "Original Image" → out.image(adversarialData.head.head.toRgbImage, ""),
+        "Original Image" → out.image(adversarialData.head.toRgbImage, ""),
         "Adversarial" → out.image(adversarialImage.toRgbImage, "")
       ).asJava
     }).toArray
     out.eval {
       TableOutput.create(rows: _*)
     }
-    out.h1("GAN Images Training")
-    val trainer2 = out.eval {
-      assert(null != data)
-      var inner: Trainable = new ArrayTrainable(adversarialOutput.toArray,
-        new SimpleLossNetwork(model, new EntropyLossLayer()))
-      val trainer = new IterativeTrainer(inner)
-      trainer.setMonitor(monitor)
-      trainer.setTimeout(10, TimeUnit.MINUTES)
-      trainer.setIterationsPerSample(1000)
-      trainer.setOrientation(new LBFGS)
-      trainer.setLineSearchFactory(Java8Util.cvt((s) ⇒ new ArmijoWolfeSearch))
-      trainer.setTerminateThreshold(0.0)
-      trainer
-    }
-    trainer2.run()
+//    out.h1("GAN Images Training")
+//    val trainer2 = out.eval {
+//      assert(null != data)
+//      var inner: Trainable = new ArrayTrainable(adversarialOutput.toArray,
+//        new SimpleLossNetwork(model, new EntropyLossLayer()))
+//      val trainer = new IterativeTrainer(inner)
+//      trainer.setMonitor(monitor)
+//      trainer.setTimeout(10, TimeUnit.MINUTES)
+//      trainer.setIterationsPerSample(1000)
+//      trainer.setOrientation(new LBFGS)
+//      trainer.setLineSearchFactory(Java8Util.cvt((s) ⇒ new ArmijoWolfeSearch))
+//      trainer.setTerminateThreshold(0.0)
+//      trainer
+//    }
+//    trainer2.run()
 
   }: Unit, modelName)
 
@@ -308,7 +312,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
   def testCategorization(out: HtmlNotebookOutput with ScalaNotebookOutput, model : NNLayer) = {
     try {
       out.eval {
-        TableOutput.create(Random.shuffle(data.toList).take(100).map(_.get()).map(testObj ⇒ Map[String, AnyRef](
+        TableOutput.create(Random.shuffle(data.values.flatten.toList).take(100).map(_.get()).map(testObj ⇒ Map[String, AnyRef](
           "Image" → out.image(testObj(0).toRgbImage(), ""),
           "Categorization" → categories.toList.sortBy(_._2).map(_._1)
             .zip(model.eval(new NNLayer.NNExecutionContext() {}, testObj(0)).data.get(0).getData.map(_ * 100.0))
@@ -319,8 +323,12 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
     }
   }
 
+  def takeData(numCategories : Int = 2, numImages : Int = 5000) = {
+    Random.shuffle(Random.shuffle(data.toList).take(numCategories).map(_._2).flatten.toList).take(numImages)
+  }
+
   lazy val categories: Map[String, Int] = categoryList.zipWithIndex.toMap
-  lazy val (categoryList, data: List[WeakCachedSupplier[Array[Tensor]]]) = {
+  lazy val (categoryList: immutable.Seq[String], data: Map[String, Stream[WeakCachedSupplier[Array[Tensor]]]]) = {
     monitor.log("Valid Processing Sizes: " + TestClassifier.validSizes.take(100).toList)
     out.p("Preparing training dataset")
     out.p("Loading data from " + source)
@@ -328,7 +336,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
     val categories: Map[String, Int] = categoryList.zipWithIndex.toMap
     out.p("<ol>" + categories.toList.sortBy(_._2).map(x ⇒ "<li>" + x + "</li>").mkString("\n") + "</ol>")
     out.eval {
-      TableOutput.create(data.take(100).map(_.get()).map(e ⇒ {
+      TableOutput.create(data.values.flatten.toList.take(100).map(_.get()).map(e ⇒ {
         Map[String, AnyRef](
           "Image" → out.image(e(0).toRgbImage(), e(1).toString),
           "Classification" → e(1)
@@ -346,21 +354,21 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
     ndArray
   }
 
-  def load(maxDim: Int = 256,
+  def load(maxDim: Int = tileSize,
            numberOfCategories: Int = numberOfCategories,
-           imagesPerCategory: Int = 100
-          ) = {
+           imagesPerCategory: Int = imagesPerCategory
+          ): (Stream[String], Map[String,Stream[WeakCachedSupplier[Array[Tensor]]]]) = {
     val categoryDirs = Random.shuffle(new File(source).listFiles().toStream)
-      .filter(dir => categoryWhitelist.find(str => dir.getName.contains(str)).isDefined)
+      .filter(dir => categoryWhitelist.isEmpty||categoryWhitelist.find(str => dir.getName.contains(str)).isDefined)
       .take(numberOfCategories)
     val categoryList = categoryDirs.map((categoryDirectory: File) ⇒ {
       categoryDirectory.getName.split('.').last
     })
     val categoryMap: Map[String, Int] = categoryList.zipWithIndex.toMap
     (categoryList, Random.shuffle(categoryDirs
-      .flatMap((categoryDirectory: File) ⇒ {
+      .map((categoryDirectory: File) ⇒ {
         val categoryName = categoryDirectory.getName.split('.').last
-        Random.shuffle(categoryDirectory.listFiles().toStream).take(imagesPerCategory)
+        categoryName -> Random.shuffle(categoryDirectory.listFiles().toStream).take(imagesPerCategory)
           .filterNot(_ == null).filterNot(_ == null)
           .map(file ⇒ {
             new WeakCachedSupplier[Array[Tensor]](Java8Util.cvt(()=>{
@@ -381,7 +389,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
               Array(Tensor.fromRGB(resized), toOutNDArray(categoryMap(categoryName), categoryMap.size))
             }))
           })
-      }).toList))
+      })).toMap)
   }
 }
 

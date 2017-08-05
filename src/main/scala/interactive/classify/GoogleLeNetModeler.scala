@@ -23,37 +23,34 @@ import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
 import java.io._
 import java.util.concurrent.TimeUnit
-import java.util.function.{DoubleSupplier, IntToDoubleFunction}
-import java.util.stream.Collectors
 import javax.imageio.ImageIO
 
 import _root_.util.Java8Util.cvt
 import _root_.util._
+import com.simiacryptus.mindseye.layers.NNLayer
 import com.simiacryptus.mindseye.layers.NNLayer.NNExecutionContext
 import com.simiacryptus.mindseye.layers.activation._
 import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
 import com.simiacryptus.mindseye.layers.cudnn.f32._
-import com.simiacryptus.mindseye.layers.loss.{EntropyLossLayer, MeanSqLossLayer}
-import com.simiacryptus.mindseye.layers.media.{ImgCropLayer, ImgReshapeLayer, MaxImageBandLayer}
+import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
 import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ImgConcatLayer, ProductInputsLayer, SumInputsLayer}
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.{AssertDimensionsLayer, ConstNNLayer}
-import com.simiacryptus.mindseye.layers.{NNLayer, NNResult}
 import com.simiacryptus.mindseye.network.graph.DAGNode
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
 import com.simiacryptus.mindseye.opt.trainable._
-import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
 import com.simiacryptus.util.ml.{Tensor, WeakCachedSupplier}
 import com.simiacryptus.util.text.TableOutput
+import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD}
+import interactive.classify.IncrementalClassifierModeler.numberOfCategories
 import interactive.superres.SimplexOptimizer
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
@@ -422,26 +419,13 @@ case class GoogLeNet(
       ))
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
     network
   }
 
   def fitness(monitor: TrainingMonitor, monitoringRoot : MonitoredObject, data: Array[Array[Tensor]], n: Int = 3) : Double = {
     val values = (1 to n).map(i ⇒ {
       val network = getNetwork(monitor, monitoringRoot, fitness = true)
-      val measure = new ArrayTrainable(data, network).measure()
+      val measure = new ArrayTrainable(data, network, 1).measure()
       measure.value
     }).toList
     val avg = values.sum / n
@@ -496,7 +480,7 @@ class GoogleLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
 
   def step_Generate() = phase({
     //new GoogLeNet().getNetwork(monitor, monitoringRoot, false)
-    lazy val optTraining: Array[Array[Tensor]] = Random.shuffle(data.toStream).take(5).map(_.get()).toArray
+    lazy val optTraining: Array[Array[Tensor]] = Random.shuffle(data.values.flatten).take(5).map(_.get()).toArray
     require(0 < optTraining.length)
     SimplexOptimizer[GoogLeNet](
       GoogLeNet(),
@@ -511,7 +495,7 @@ class GoogleLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     out.h1("Integration Training")
     val trainer2 = out.eval {
       assert(null != data)
-      var inner: Trainable = new StochasticArrayTrainable(data.asJava,
+      var inner: Trainable = new StochasticArrayTrainable(takeData(2,imagesPerCategory).asJava,
         new SimpleLossNetwork(model, new EntropyLossLayer()), sampleSize, 20)
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
@@ -532,12 +516,12 @@ class GoogleLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     val sourceClassId = 0
     val imageCount = 10
     out.h1("GAN Images Generation")
-    val sourceClass = new Tensor(Array[Double](1, 0, 0, 0))
-    val targetClass = new Tensor(Array[Double](0, 0, 1, 0))
-    val adversarialData = data.map(_.get()).filter(x=>x(1).get(sourceClassId) > 0.9).map(x=>Array(x(0), targetClass))
+    val sourceClass = toOutNDArray(0, numberOfCategories)
+    val targetClass = toOutNDArray(1, numberOfCategories)
+    val adversarialData = data.values.flatten.map(_.get()).filter(x=>x(1).get(sourceClassId) > 0.9).map(x=>Array(x(0), targetClass))
     val adversarialOutput = new ArrayBuffer[Array[Tensor]]()
     val rows = adversarialData.take(imageCount).grouped(1).map(adversarialData => {
-      val biasLayer = new BiasLayer(data.head.get().head.getDimensions(): _*)
+      val biasLayer = new BiasLayer(data.values.flatten.head.get().head.getDimensions(): _*)
       val trainingNetwork = new PipelineNetwork()
       trainingNetwork.add(biasLayer)
       trainingNetwork.add(KryoUtil.kryo().copy(model).freeze())
@@ -600,7 +584,7 @@ class GoogleLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
   def testCategorization(out: HtmlNotebookOutput with ScalaNotebookOutput, model : NNLayer) = {
     try {
       out.eval {
-        TableOutput.create(Random.shuffle(data.toList).take(100).map(_.get()).map(testObj ⇒ Map[String, AnyRef](
+        TableOutput.create(takeData(5,10).map(_.get()).map(testObj ⇒ Map[String, AnyRef](
           "Image" → out.image(testObj(0).toRgbImage(), ""),
           "Categorization" → categories.toList.sortBy(_._2).map(_._1)
             .zip(model.eval(new NNLayer.NNExecutionContext() {}, testObj(0)).data.get(0).getData.map(_ * 100.0))
@@ -612,13 +596,13 @@ class GoogleLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
   }
 
   lazy val categories: Map[String, Int] = categoryList.zipWithIndex.toMap
-  lazy val (categoryList, data: List[WeakCachedSupplier[Array[Tensor]]]) = {
+  lazy val (categoryList, data: Map[String, Stream[WeakCachedSupplier[Array[Tensor]]]]) = {
     out.p("Loading data from " + source)
     val (categoryList, data) = load()
     val categories: Map[String, Int] = categoryList.zipWithIndex.toMap
     out.p("<ol>" + categories.toList.sortBy(_._2).map(x ⇒ "<li>" + x + "</li>").mkString("\n") + "</ol>")
     out.eval {
-      TableOutput.create(data.take(100).map(_.get()).map(e ⇒ {
+      TableOutput.create(Random.shuffle(data.values.flatten.toList).take(100).map(_.get()).map(e ⇒ {
         Map[String, AnyRef](
           "Image" → out.image(e(0).toRgbImage(), e(1).toString),
           "Classification" → e(1)
@@ -638,6 +622,10 @@ class GoogleLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
 
 
 
+  def takeData(numCategories : Int = 2, numImages : Int = 5000) = {
+    Random.shuffle(Random.shuffle(data.toList).take(numCategories).map(_._2).flatten.toList).take(numImages)
+  }
+
   def load(maxDim: Int = tileSize,
            imagesPerCategory: Int = imagesPerCategory
           ) = {
@@ -649,9 +637,9 @@ class GoogleLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     })
     val categoryMap: Map[String, Int] = categoryList.zipWithIndex.toMap
     (categoryList, Random.shuffle(categoryDirs
-      .flatMap((categoryDirectory: File) ⇒ {
+      .map((categoryDirectory: File) ⇒ {
         val categoryName = categoryDirectory.getName.split('.').last
-        Random.shuffle(categoryDirectory.listFiles().toStream).take(imagesPerCategory)
+        categoryName -> Random.shuffle(categoryDirectory.listFiles().toStream).take(imagesPerCategory)
           .filterNot(_ == null).filterNot(_ == null)
           .map(file ⇒ {
             new WeakCachedSupplier[Array[Tensor]](Java8Util.cvt(()=>{
@@ -672,7 +660,7 @@ class GoogleLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
               Array(Tensor.fromRGB(resized), toOutNDArray(categoryMap(categoryName), categoryMap.size))
             }))
           })
-      }).toList))
+      })).toMap)
   }
 }
 
