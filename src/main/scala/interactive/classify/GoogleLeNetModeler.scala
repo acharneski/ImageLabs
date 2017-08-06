@@ -510,9 +510,11 @@ class GoogleLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
 
   def step_Train(trainingMin: Int = 15, numberOfCategories: Int = 2, sampleSize: Int = 250, iterationsPerSample: Int = 10) = phase(modelName, (model: NNLayer) ⇒ {
     out.h1("Integration Training")
+    val selectedCategories: Map[String, Stream[WeakCachedSupplier[Array[Tensor]]]] = selectCategories(numberOfCategories)
     val trainer2 = out.eval {
       assert(null != data)
-      var inner: Trainable = new StochasticArrayTrainable(takeData(numberOfCategories,sampleSize).asJava, model, sampleSize)
+      val trainingData = takeData(sampleSize, selectedCategories)
+      var inner: Trainable = new StochasticArrayTrainable(trainingData.asJava, model, sampleSize)
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
@@ -534,6 +536,9 @@ class GoogleLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
       trainer
     }
     trainer2.run()
+    (for(i <- 1 to 3) yield Random.shuffle(selectedCategories.keys).take(2).toList).distinct.foreach {
+      case Seq(from : String,to : String) => gan(out,model)(imageCount = 5, sourceCategory = from, targetCategory = to)
+    }
   }: Unit, modelName)
 
 
@@ -649,12 +654,18 @@ class GoogleLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     ndArray
   }
 
-
-
   def takeData(numCategories : Int = 2, numImages : Int = 5000): List[WeakCachedSupplier[Array[Tensor]]] = {
-    val selectedCategories = Random.shuffle(data.toList).take(numCategories).toMap
+    val selectedCategories: Map[String, Stream[WeakCachedSupplier[Array[Tensor]]]] = selectCategories(numCategories)
+    takeData(numImages, selectedCategories)
+  }
+
+  def takeData(numImages: Int, selectedCategories: Map[String, Stream[WeakCachedSupplier[Array[Tensor]]]]) = {
     monitor.log(s"Selecting $numImages images from categories ${selectedCategories.keySet}")
     Random.shuffle(selectedCategories.values.flatten.toList).take(numImages)
+  }
+
+  def selectCategories(numCategories: Int) = {
+    Random.shuffle(data.toList).take(numCategories).toMap
   }
 
   def load(maxDim: Int = tileSize,
