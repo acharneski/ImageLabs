@@ -23,11 +23,12 @@ import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
 import java.io._
 import java.util.concurrent.TimeUnit
+import java.util.function
 import javax.imageio.ImageIO
 
 import _root_.util.Java8Util.cvt
 import _root_.util._
-import com.simiacryptus.mindseye.layers.NNLayer
+import com.simiacryptus.mindseye.layers.{NNLayer, NNResult}
 import com.simiacryptus.mindseye.layers.NNLayer.NNExecutionContext
 import com.simiacryptus.mindseye.layers.activation._
 import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
@@ -37,7 +38,7 @@ import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
 import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ImgConcatLayer, ProductInputsLayer, SumInputsLayer}
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.{AssertDimensionsLayer, ConstNNLayer}
-import com.simiacryptus.mindseye.network.graph.DAGNode
+import com.simiacryptus.mindseye.network.graph.{DAGNetwork, DAGNode}
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
@@ -75,25 +76,25 @@ object GoogleLeNetModeler extends Report {
 import interactive.classify.GoogleLeNetModeler._
 
 case class GoogLeNet(
-                           layer1 : Double = -2,
-                           layer2 : Double = -2,
-                           layer3 : Double = -2,
-                           layer4 : Double = -2,
-                           layer5 : Double = -2,
-                           layer6 : Double = -2,
-                           layer7 : Double = -2,
-                           layer8 : Double = -2,
-                           layer9 : Double = -2,
-                           layer10 : Double = -2,
-                           layer11 : Double = -2,
-                           layer12 : Double = -2,
-                           layer13 : Double = -2,
-                           conv1a : Double = -2,
-                           conv3a : Double = -2,
-                           conv3b : Double = -2,
-                           conv5a : Double = -2,
-                           conv5b : Double = -2,
-                           conv1b : Double = -2,
+                           layer1 : Double = -2.17,
+                           layer2 : Double = -1.8,
+                           layer3 : Double = -2.76,
+                           layer4 : Double = 0,
+                           layer5 : Double = -0.125,
+                           layer6 : Double = -0.398,
+                           layer7 : Double = -0.426,
+                           layer8 : Double = -0.426,
+                           layer9 : Double = -0.426,
+                           layer10 : Double = -0.439,
+                           layer11 : Double = -0.64,
+                           layer12 : Double = -0.64,
+                           layer13 : Double = -4.7,
+                           conv1a : Double = -2.28,
+                           conv3a : Double = -2.28,
+                           conv3b : Double = -2.94,
+                           conv5a : Double = -2.28,
+                           conv5b : Double = -2.60,
+                           conv1b : Double = -2.28,
                            trainingShunt : Double = -2
                          ) {
 
@@ -103,7 +104,7 @@ case class GoogLeNet(
     val network = new PipelineNetwork(2)
     network.add(new AssertDimensionsLayer(224,224,3))
     network.addAll(
-      new ConvolutionLayer(7, 7, 3, 64, true).setWeightsLog(layer1).setStrideXY(2, 2).setName("conv_1"),
+      new ConvolutionLayer(7, 7, 3, 64).setWeightsLog(layer1).setStrideXY(2, 2).setName("conv_1"),
       new ImgBandBiasLayer(64).setName("bias_1"),
       new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_1"))
     network.add(new PoolingLayer().setWindowXY(3, 3).setStrideXY(2, 2).setPaddingXY(1, 1).setName("pool_1"))
@@ -112,7 +113,7 @@ case class GoogLeNet(
       new ImgBandBiasLayer(64).setName("bias_2"),
       new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_2"))
     network.addAll(
-      new ConvolutionLayer(3, 3, 64, 192, true).setWeightsLog(layer3).setName("conv_3"),
+      new ConvolutionLayer(3, 3, 64, 192).setWeightsLog(layer3).setName("conv_3"),
       new ImgBandBiasLayer(192).setName("bias_3"),
       new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_3"))
     network.add(new PoolingLayer().setWindowXY(3, 3).setStrideXY(2, 2).setPaddingXY(1, 1).setName("pooling_3"))
@@ -345,8 +346,8 @@ case class GoogLeNet(
 
 
     val entropy = network.add(new SumInputsLayer(),
-      network.add(new EntropyLossLayer(), network.getInput(1), finalClassification),
-      network.add(new EntropyLossLayer(), network.getInput(1), network.add(
+      network.add(new EntropyLossLayer(), finalClassification, network.getInput(1)),
+      network.add(new EntropyLossLayer(), network.add(
         new SoftmaxActivationLayer(),
         network.add(
           new DenseSynapseLayer(Array(1024),Array(numberOfCategories)).setWeightsLog(trainingShunt),
@@ -370,8 +371,8 @@ case class GoogLeNet(
             )
           )
         )
-      )),
-      network.add(new EntropyLossLayer(), network.getInput(1), network.add(
+      ), network.getInput(1)),
+      network.add(new EntropyLossLayer(), network.add(
         new SoftmaxActivationLayer(),
         network.add(
           new DenseSynapseLayer(Array(1024),Array(numberOfCategories)).setWeightsLog(trainingShunt),
@@ -395,7 +396,7 @@ case class GoogLeNet(
             )
           )
         )
-      ))
+      ), network.getInput(1))
     )
 
     if(fitness) {
@@ -425,8 +426,10 @@ case class GoogLeNet(
   def fitness(monitor: TrainingMonitor, monitoringRoot : MonitoredObject, data: Array[Array[Tensor]], n: Int = 3) : Double = {
     val values = (1 to n).map(i ⇒ {
       val network = getNetwork(monitor, monitoringRoot, fitness = true)
-      val measure = new ArrayTrainable(data, network, 1).measure()
-      measure.value
+      require(!data.isEmpty)
+      val fn = Java8Util.cvt((x: Tensor) => x.getData()(0))
+      network.eval(new NNLayer.NNExecutionContext() {}, NNResult.batchResultArray(data): _*)
+        .data.stream().mapToDouble(fn).sum / data.length
     }).toList
     val avg = values.sum / n
     monitor.log(s"Numeric Opt: $this => $avg ($values)")
@@ -442,21 +445,22 @@ class GoogleLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     defineHeader()
     declareTestHandler()
     out.out("<hr/>")
+    val timeBlockMinutes = 15
     if(findFile(modelName).isEmpty || System.getProperties.containsKey("rebuild")) {
       step_Generate()
-      step_Train(trainingMin = 45)
+      step_Train(trainingMin = timeBlockMinutes)
       step_GAN()
 
-      step_Train(trainingMin = 45)
+      step_Train(trainingMin = timeBlockMinutes)
       step_GAN()
 
-      step_Train(trainingMin = 45)
+      step_Train(trainingMin = timeBlockMinutes)
       step_GAN()
 
-      step_Train(trainingMin = 45)
+      step_Train(trainingMin = timeBlockMinutes)
       step_GAN()
     }
-    step_Train(trainingMin = 45)
+    step_Train(trainingMin = timeBlockMinutes)
     step_GAN()
     out.out("<hr/>")
     if(awaitExit) waitForExit()
@@ -480,12 +484,13 @@ class GoogleLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
 
   def step_Generate() = phase({
     //new GoogLeNet().getNetwork(monitor, monitoringRoot, false)
-    lazy val optTraining: Array[Array[Tensor]] = Random.shuffle(data.values.flatten).take(5).map(_.get()).toArray
-    require(0 < optTraining.length)
-    SimplexOptimizer[GoogLeNet](
-      GoogLeNet(),
-      x ⇒ x.fitness(monitor, monitoringRoot, optTraining, n=3), relativeTolerance=0.01
-    ).getNetwork(monitor, monitoringRoot)
+//    lazy val optTraining: Array[Array[Tensor]] = Random.shuffle(data.values.flatten).take(5).map(_.get()).toArray
+//    require(0 < optTraining.length)
+//    SimplexOptimizer[GoogLeNet](
+//      GoogLeNet(), // GoogLeNet(),
+//      x ⇒ x.fitness(monitor, monitoringRoot, optTraining, n=3), relativeTolerance=0.01
+//    ).getNetwork(monitor, monitoringRoot)
+    GoogLeNet(-1.17,-0.8,-1.7599999999999998,1.0,0.875,0.60303759765625,0.5750375976562501,0.5750375976562501,0.5750375976562501,0.5620375976562499,0.3610414123535156,0.3610414123535156,-3.6989585876464846,-1.2789585876464842,-1.3111851501464842,-1.8149351501464843,-1.3424351501464842,-1.6625,-1.0299999999999998,-2.0).getNetwork(monitor, monitoringRoot)
   }, (model: NNLayer) ⇒ {
     // Do Nothing
   }: Unit, modelName)
@@ -496,7 +501,7 @@ class GoogleLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     val trainer2 = out.eval {
       assert(null != data)
       var inner: Trainable = new StochasticArrayTrainable(takeData(2,imagesPerCategory).asJava,
-        new SimpleLossNetwork(model, new EntropyLossLayer()), sampleSize, 20)
+        model, sampleSize, 20)
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
@@ -524,7 +529,9 @@ class GoogleLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
       val biasLayer = new BiasLayer(data.values.flatten.head.get().head.getDimensions(): _*)
       val trainingNetwork = new PipelineNetwork()
       trainingNetwork.add(biasLayer)
-      trainingNetwork.add(KryoUtil.kryo().copy(model).freeze())
+      val pipelineNetwork = KryoUtil.kryo().copy(model).freeze().asInstanceOf[PipelineNetwork]
+      pipelineNetwork.setHead(pipelineNetwork.getByLabel("classify")).removeLastInput()
+      trainingNetwork.add(pipelineNetwork)
 
       val trainer1 = out.eval {
         assert(null != data)
@@ -553,21 +560,21 @@ class GoogleLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     out.eval {
       TableOutput.create(rows: _*)
     }
-    out.h1("GAN Images Training")
-    val trainer2 = out.eval {
-      assert(null != data)
-      var inner: Trainable = new ArrayTrainable(adversarialOutput.toArray,
-        new SimpleLossNetwork(model, new EntropyLossLayer()))
-      val trainer = new IterativeTrainer(inner)
-      trainer.setMonitor(monitor)
-      trainer.setTimeout(10, TimeUnit.MINUTES)
-      trainer.setIterationsPerSample(1000)
-      trainer.setOrientation(new LBFGS)
-      trainer.setLineSearchFactory(Java8Util.cvt((s) ⇒ new ArmijoWolfeSearch))
-      trainer.setTerminateThreshold(0.0)
-      trainer
-    }
-    trainer2.run()
+//    out.h1("GAN Images Training")
+//    val trainer2 = out.eval {
+//      assert(null != data)
+//      var inner: Trainable = new ArrayTrainable(adversarialOutput.toArray,
+//        new SimpleLossNetwork(model, new EntropyLossLayer()))
+//      val trainer = new IterativeTrainer(inner)
+//      trainer.setMonitor(monitor)
+//      trainer.setTimeout(10, TimeUnit.MINUTES)
+//      trainer.setIterationsPerSample(1000)
+//      trainer.setOrientation(new LBFGS)
+//      trainer.setLineSearchFactory(Java8Util.cvt((s) ⇒ new ArmijoWolfeSearch))
+//      trainer.setTerminateThreshold(0.0)
+//      trainer
+//    }
+//    trainer2.run()
 
   }: Unit, modelName)
 
