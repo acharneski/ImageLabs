@@ -46,7 +46,7 @@ import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
 import com.simiacryptus.mindseye.opt.trainable._
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
-import com.simiacryptus.util.ml.{SoftCachedSupplier, Tensor, WeakCachedSupplier}
+import com.simiacryptus.util.ml.{CachedSupplier, SoftCachedSupplier, Tensor, WeakCachedSupplier}
 import com.simiacryptus.util.text.TableOutput
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD}
 
@@ -517,7 +517,7 @@ class GoogleLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
       out.h1("Integration Training")
       val trainer2 = out.eval {
         assert(null != data)
-        val trainingData = takeData(sampleSize, selectedCategories)
+        val trainingData = takeData(sampleSize, selectedCategories).map(x=>new CachedSupplier[Array[Tensor]](Java8Util.cvt(()=>x.get())))
         var inner: Trainable = new StochasticArrayTrainable(trainingData.asJava, model, sampleSize)
         val trainer = new IterativeTrainer(inner)
         trainer.setMonitor(monitor)
