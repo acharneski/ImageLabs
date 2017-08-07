@@ -367,7 +367,7 @@ class DiscriminatorModel(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
       (obj:Seq[Tensor]) ⇒ {
         import scala.collection.JavaConverters._
         obj.grouped(1000).toStream.flatMap(obj ⇒ {
-          filterNetwork.eval(new NNLayer.NNExecutionContext() {}, NNResult.batchResultArray(obj.map(y ⇒ Array(y)).toArray): _*).data.stream().collect(Collectors.toList()).asScala
+          filterNetwork.eval(new NNLayer.NNExecutionContext() {}, NNResult.batchResultArray(obj.map(y ⇒ Array(y)).toArray)).data.stream().collect(Collectors.toList()).asScala
         })
           .zip(obj).sortBy(-_._1.get(categories("noise"))).take(1000).map(_._2)
       }

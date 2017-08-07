@@ -343,7 +343,7 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with ReportNotebook 
       ConvertBufferedImage.convertTo(maskedBackground, null, false)
     })
 
-    log.p("Use threshold mask to generate a mask the foreground image (contrasted with the background)")
+    log.p("Use threshold mask to generate a mask the foreground image (contrasted map the background)")
     val maskedForground: Planar[GrayF32] = log.code(() ⇒ {
       val maskedForground: Planar[GrayF32] = rgb.clone()
       (0 until maskedForground.getWidth).foreach(x ⇒
