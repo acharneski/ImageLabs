@@ -35,7 +35,7 @@ import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
 import com.simiacryptus.mindseye.layers.cudnn.f32._
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
-import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ImgConcatLayer, ProductInputsLayer, SumInputsLayer}
+import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer}
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.{AssertDimensionsLayer, ConstNNLayer}
 import com.simiacryptus.mindseye.layers.{NNLayer, NNResult}
@@ -55,7 +55,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
 import scala.util.Random
 
-object GoogleLeNetModeler extends Report {
+object GoogLeNetModeler extends Report {
   val modelName = System.getProperty("modelName", "googlenet_1")
   val tileSize = 224
   val categoryWhitelist = Set[String]()
@@ -67,15 +67,15 @@ object GoogleLeNetModeler extends Report {
   def main(args: Array[String]): Unit = {
 
     report((server, out) ⇒ args match {
-      case Array(source) ⇒ new GoogleLeNetModeler(source, server, out).run()
-      case _ ⇒ new GoogleLeNetModeler("D:\\testImages\\256_ObjectCategories", server, out).run()
+      case Array(source) ⇒ new GoogLeNetModeler(source, server, out).run()
+      case _ ⇒ new GoogLeNetModeler("D:\\testImages\\256_ObjectCategories", server, out).run()
     })
 
   }
 
 }
 
-import interactive.classify.GoogleLeNetModeler._
+import interactive.classify.GoogLeNetModeler._
 
 case class GoogLeNet(
                       layer1: Double = -2.17,
@@ -455,7 +455,7 @@ case class GoogLeNet(
 }
 
 
-class GoogleLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
+class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 
   def run(awaitExit: Boolean = true): Unit = {
     defineHeader()
