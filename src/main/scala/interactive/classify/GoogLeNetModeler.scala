@@ -20,7 +20,7 @@
 package interactive.classify
 
 import java.awt.geom.AffineTransform
-import java.awt.image.{BufferedImage, ImageObserver}
+import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
 import java.io._
 import java.util.concurrent.TimeUnit
@@ -50,6 +50,7 @@ import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
 import com.simiacryptus.util.ml.{SoftCachedSupplier, Tensor, WeakCachedSupplier}
 import com.simiacryptus.util.text.TableOutput
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD}
+import interactive.classify.GoogLeNetModeler.tileSize
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
@@ -323,7 +324,7 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
     val categoryArray = selectedCategories.keys.toArray
     val categoryIndices = categoryArray.zipWithIndex.toMap
     selectedCategories = selectedCategories.map(e=>{
-      e._1 -> e._2.map(f=>new SoftCachedSupplier[Array[Tensor]](()=>{
+      e._1 -> e._2.map(f=>new WeakCachedSupplier[Array[Tensor]](()=>{
         f.get().take(1) ++ Array(toOutNDArray(categoryIndices.size, categoryIndices(e._1)))
       }))
     })
@@ -461,94 +462,104 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
         categoryDirectory.getName.split('.').last
       }).sorted.toArray
       val categoryMap: Map[String, Int] = categoryList.zipWithIndex.toMap
-      (categoryList, Random.shuffle(categoryDirs
+      (categoryList, categoryDirs
         .map((categoryDirectory: File) ⇒ {
           val categoryName = categoryDirectory.getName.split('.').last
-          categoryName -> Random.shuffle(categoryDirectory.listFiles().toStream
-            .filterNot(_ == null).filterNot(_ == null)
+          categoryName -> categoryDirectory.listFiles()
+            .filterNot(_ == null)
             .filter(_.exists())
             .filter(_.length() > 0)
-            .par.map(file ⇒ {
-              new WeakCachedSupplier[BufferedImage](Java8Util.cvt(() => {
-                try {
-                  val image = ImageIO.read(file)
-                  if(null == image) {
-                    System.err.println(s"Error reading ${file.getAbsolutePath}: No image found")
-                  }
-                  image
-                } catch {
-                  case e: Throwable =>
-                    System.err.println(s"Error reading ${file.getAbsolutePath}: $e")
-                    file.delete()
-                    null
-                }
-              }))
-            }).map(originalRef ⇒ {
-              new SoftCachedSupplier[BufferedImage](Java8Util.cvt(() => {
-                try {
-                  val original = originalRef.get()
-                  if(null == original) null
-                  else {
-                    val fromWidth = original.getWidth()
-                    val fromHeight = original.getHeight()
-                    val scale = tileSize.toDouble / Math.min(fromWidth, fromHeight)
-                    val toWidth = ((fromWidth * scale).toInt)
-                    val toHeight = ((fromHeight * scale).toInt)
-                    val resized = new BufferedImage(tileSize, tileSize, BufferedImage.TYPE_INT_ARGB)
-                    val graphics = resized.getGraphics.asInstanceOf[Graphics2D]
-                    graphics.asInstanceOf[Graphics2D].setRenderingHints(new RenderingHints(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC))
-                    if (toWidth < toHeight) {
-                      graphics.drawImage(original, 0, (toWidth - toHeight) / 2, toWidth, toHeight, null)
-                    } else {
-                      graphics.drawImage(original, (toHeight - toWidth) / 2, 0, toWidth, toHeight, null)
-                    }
-                    resized
-                  }
-                } catch {
-                  case e: Throwable =>
-                    e.printStackTrace(System.err)
-                    null
-                }
-              }
-            ))
-          }).flatMap(variants(_, artificialVariants)).toList).map(originalRef ⇒ {
-            new SoftCachedSupplier[Array[Tensor]](Java8Util.cvt(() => {
-              try {
-                val resized = originalRef.get()
-                if(null == resized) null
-                else {
-                  Array(Tensor.fromRGB(resized), toOutNDArray(categoryMap.size, categoryMap(categoryName)))
-                }
-              } catch {
-                case e: Throwable =>
-                  e.printStackTrace(System.err)
-                  null
-              }
-            }
-            ))
-          }).toArray.toList
-        })).toMap)
+            .par.map(readImage(_))
+            .flatMap(variants(_, artificialVariants))
+            .map(resize(_, tileSize))
+            .map(toTenors(_, toOutNDArray(categoryMap.size, categoryMap(categoryName))))
+            .toList
+        }).toMap)
     }
     val categories: Map[String, Int] = categoryList.zipWithIndex.toMap
     out.p("<ol>" + categories.toList.sortBy(_._2).map(x ⇒ "<li>" + x + "</li>").mkString("\n") + "</ol>")
     out.eval {
-      TableOutput.create(Random.shuffle(data.values.flatten).par.filter(_.get() != null).take(100).map(x ⇒ {
+      TableOutput.create(Random.shuffle(data.toList).take(10).flatMap(x => Random.shuffle(x._2).take(10)).par.filter(_.get() != null).map(x ⇒ {
         val e = x.get()
         Map[String, AnyRef](
           "Image" → out.image(e(0).toRgbImage(), e(1).toString),
           "Classification" → e(1)
         ).asJava
-      }).toList: _*)
+      }).toArray: _*)
     }
     out.p("Loading data complete")
     (categoryList, data)
   }
 
+  private def readImage(file: File): Supplier[BufferedImage] = {
+    new WeakCachedSupplier[BufferedImage](Java8Util.cvt(() => {
+      try {
+        val image = ImageIO.read(file)
+        if (null == image) {
+          System.err.println(s"Error reading ${file.getAbsolutePath}: No image found")
+        }
+        image
+      } catch {
+        case e: Throwable =>
+          System.err.println(s"Error reading ${file.getAbsolutePath}: $e")
+          file.delete()
+          null
+      }
+    }))
+  }
+
+  private def toTenors(originalRef:Supplier[BufferedImage], expectedOutput: Tensor): Supplier[Array[Tensor]] = {
+    new SoftCachedSupplier[Array[Tensor]](Java8Util.cvt(() => {
+      try {
+        val resized = originalRef.get()
+        if (null == resized) null
+        else {
+          Array(Tensor.fromRGB(resized), expectedOutput)
+        }
+      } catch {
+        case e: Throwable =>
+          e.printStackTrace(System.err)
+          null
+      }
+    }
+    ))
+  }
+
+  private def resize(originalRef:Supplier[BufferedImage], tileSize:Int): Supplier[BufferedImage] = {
+    new SoftCachedSupplier[BufferedImage](Java8Util.cvt(() => {
+      try {
+        val original = originalRef.get()
+        if (null == original) null
+        else {
+          val fromWidth = original.getWidth()
+          val fromHeight = original.getHeight()
+          val scale = tileSize.toDouble / Math.min(fromWidth, fromHeight)
+          val toWidth = ((fromWidth * scale).toInt)
+          val toHeight = ((fromHeight * scale).toInt)
+          val resized = new BufferedImage(tileSize, tileSize, BufferedImage.TYPE_INT_ARGB)
+          val graphics = resized.getGraphics.asInstanceOf[Graphics2D]
+          graphics.asInstanceOf[Graphics2D].setRenderingHints(new RenderingHints(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC))
+          if (toWidth < toHeight) {
+            graphics.drawImage(original, 0, (toWidth - toHeight) / 2, toWidth, toHeight, null)
+          } else {
+            graphics.drawImage(original, (toHeight - toWidth) / 2, 0, toWidth, toHeight, null)
+          }
+          resized
+        }
+      } catch {
+        case e: Throwable =>
+          e.printStackTrace(System.err)
+          null
+      }
+    }
+    ))
+  }
+
   def variants(imageFn: Supplier[BufferedImage], items: Int): Stream[Supplier[BufferedImage]] = {
     Stream.continually({
-      val sy = 1 + Random.nextDouble() * 0.01
-      val sx = 1 + Random.nextDouble() * 0.01
-      val theta = (Random.nextDouble() - 0.5) * 0.1
+      val sy = 1.05 + Random.nextDouble() * 0.05
+      val sx = 1.05 + Random.nextDouble() * 0.05
+      val theta = (Random.nextDouble() - 0.5) * 0.2
       new SoftCachedSupplier[BufferedImage](()=>{
         val image = imageFn.get()
         if(null == image) return null
@@ -577,7 +588,7 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
 
   def takeNonNull[X <: Supplier[Array[Tensor]]](numImages: Int, selectedCategories: Map[String, List[X]])(implicit classTag: ClassTag[X]): List[X] = {
     monitor.log(s"Selecting $numImages images from categories ${selectedCategories.keySet}")
-    Random.shuffle(selectedCategories.values.flatten.toList).par.filter(_.get() != null).take(numImages).toArray.toList
+    Random.shuffle(selectedCategories.values.flatten.toList).par.take(2*numImages).filter(_.get() != null).take(numImages).toArray.toList
   }
 
   def selectCategories(numCategories: Int) = {
