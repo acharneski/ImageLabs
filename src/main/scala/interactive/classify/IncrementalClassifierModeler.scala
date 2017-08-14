@@ -151,11 +151,11 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
     val rawTrainingData: Array[Array[Tensor]] = takeData().map(_.get()).toArray
     val justInputs: Array[Array[Tensor]] = rawTrainingData.map(_.take(1))
     val featureTrainingData = priorFeaturesNode.get(new NNExecutionContext() {}, sourceNetwork.buildExeCtx(
-      NNResult.batchResultArray(justInputs): _*)).data
+      NNResult.batchResultArray(justInputs): _*)).getData
       .stream().collect(Collectors.toList()).asScala.toArray
     val trainingArray = (0 until featureTrainingData.length).map(i => Array(featureTrainingData(i), rawTrainingData(i)(1))).toArray
     val inputFeatureDimensions = featureTrainingData.head.getDimensions()
-    val outputFeatureDimensions = additionalLayer.eval(new NNExecutionContext() {}, featureTrainingData.head).data.get(0).getDimensions
+    val outputFeatureDimensions = additionalLayer.eval(new NNExecutionContext() {}, featureTrainingData.head).getData.get(0).getDimensions
     val inputBands: Int = inputFeatureDimensions(2)
     val featureBands: Int = outputFeatureDimensions(2)
     val reconstructionCrop = inputFeatureDimensions(0) - outputFeatureDimensions(0)*2
@@ -271,7 +271,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
 
       val evalNetwork = new PipelineNetwork()
       evalNetwork.add(biasLayer)
-      val adversarialImage = evalNetwork.eval(new NNExecutionContext {}, adversarialData.head).data.get(0)
+      val adversarialImage = evalNetwork.eval(new NNExecutionContext {}, adversarialData.head).getData.get(0)
       adversarialOutput += Array(adversarialImage, sourceClass)
       Map[String, AnyRef](
         "Original Image" → out.image(adversarialData.head.toRgbImage, ""),
@@ -315,7 +315,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
         TableOutput.create(Random.shuffle(data.values.flatten.toList).take(100).map(_.get()).map(testObj ⇒ Map[String, AnyRef](
           "Image" → out.image(testObj(0).toRgbImage(), ""),
           "Categorization" → categories.toList.sortBy(_._2).map(_._1)
-            .zip(model.eval(new NNLayer.NNExecutionContext() {}, testObj(0)).data.get(0).getData.map(_ * 100.0))
+            .zip(model.eval(new NNLayer.NNExecutionContext() {}, testObj(0)).getData.get(0).getData.map(_ * 100.0))
         ).asJava): _*)
       }
     } catch {

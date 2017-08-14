@@ -332,7 +332,7 @@ class DiscriminatorModel(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
         TableOutput.create(Random.shuffle(data.flatten.toList).take(100).map(testObj ⇒ Map[String, AnyRef](
           "Image" → out.image(testObj(0).toRgbImage(), ""),
           "Categorization" → categories.toList.sortBy(_._2).map(_._1)
-            .zip(model.eval(new NNLayer.NNExecutionContext() {}, testObj(0)).data.get(0).getData.map(_ * 100.0))
+            .zip(model.eval(new NNLayer.NNExecutionContext() {}, testObj(0)).getData.get(0).getData.map(_ * 100.0))
         ).asJava): _*)
       }
     } catch {
@@ -367,7 +367,7 @@ class DiscriminatorModel(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
       (obj:Seq[Tensor]) ⇒ {
         import scala.collection.JavaConverters._
         obj.grouped(1000).toStream.flatMap(obj ⇒ {
-          filterNetwork.eval(new NNLayer.NNExecutionContext() {}, NNResult.batchResultArray(obj.map(y ⇒ Array(y)).toArray)).data.stream().collect(Collectors.toList()).asScala
+          filterNetwork.eval(new NNLayer.NNExecutionContext() {}, NNResult.batchResultArray(obj.map(y ⇒ Array(y)).toArray)).getData.stream().collect(Collectors.toList()).asScala
         })
           .zip(obj).sortBy(-_._1.get(categories("noise"))).take(1000).map(_._2)
       }
@@ -398,7 +398,7 @@ class DiscriminatorModel(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
             "Image" → out.image(testObj.data.toRgbImage(), testObj.data.toString),
             "Label" → testObj.label,
             "Categorization" → categories.toList.sortBy(_._2).map(_._1)
-              .zip(checkpoint.eval(new NNLayer.NNExecutionContext() {}, testObj.data).data.get(0).getData.map(_ * 100.0)).mkString(", ")
+              .zip(checkpoint.eval(new NNLayer.NNExecutionContext() {}, testObj.data).getData.get(0).getData.map(_ * 100.0)).mkString(", ")
           ).asJava
         } else {
           Map[String, AnyRef](

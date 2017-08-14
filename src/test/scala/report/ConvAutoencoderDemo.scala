@@ -229,7 +229,7 @@ class ConvAutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook
       log.p("The (mis)categorization matrix displays a count matrix for every actual/predicted category: ")
       val categorizationMatrix: Map[Int, Map[Int, Int]] = log.eval {
         MNIST.validationDataStream().iterator().asScala.toStream.map(testObj ⇒ {
-          val result = categorizationNetwork.eval(new NNLayer.NNExecutionContext() {}, testObj.data).data.get(0)
+          val result = categorizationNetwork.eval(new NNLayer.NNExecutionContext() {}, testObj.data).getData.get(0)
           val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
           val actual: Int = toOut(testObj.label)
           actual → prediction
@@ -261,7 +261,7 @@ class ConvAutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook
   private def reportMatrix(log: ScalaNotebookOutput, encoder: NNLayer, decoder: NNLayer, band: Int = 0) = {
     val inputPrototype = data.head
     val dims = inputPrototype.getDimensions()
-    val encoded = encoder.eval(new NNLayer.NNExecutionContext() {}, inputPrototype).data.get(0)
+    val encoded = encoder.eval(new NNLayer.NNExecutionContext() {}, inputPrototype).getData.get(0)
     val width = encoded.getDimensions()(0)
     val height = encoded.getDimensions()(1)
     log.draw(gfx ⇒ {
@@ -269,7 +269,7 @@ class ConvAutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook
         (0 until height).foreach(y ⇒ {
           encoded.fill(cvt((i: Int) ⇒ 0.0))
           encoded.set(Array(x, y, band), 1.0)
-          val tensor = decoder.eval(new NNLayer.NNExecutionContext() {}, encoded).data.get(0)
+          val tensor = decoder.eval(new NNLayer.NNExecutionContext() {}, encoded).getData.get(0)
           val sum = tensor.getData.sum
           val min = tensor.getData.min
           val max = tensor.getData.max
@@ -355,7 +355,7 @@ class ConvAutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook
         var evalModel: PipelineNetwork = new PipelineNetwork
         evalModel.add(encoder)
         evalModel.add(decoder)
-        val result = evalModel.eval(new NNLayer.NNExecutionContext() {}, testObj).data.get(0)
+        val result = evalModel.eval(new NNLayer.NNExecutionContext() {}, testObj).getData.get(0)
         Map[String, AnyRef](
           "Input" → log.image(testObj.toImage(), "Input"),
           "Output" → log.image(result.toImage(), "Autoencoder Output")

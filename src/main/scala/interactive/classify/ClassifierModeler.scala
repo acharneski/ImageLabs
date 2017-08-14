@@ -300,7 +300,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
         TableOutput.create(Random.shuffle(data.toList).take(100).map(testObj ⇒ Map[String, AnyRef](
           "Image" → out.image(testObj(0).toRgbImage(), ""),
           "Categorization" → categories.toList.sortBy(_._2).map(_._1)
-            .zip(model.eval(new NNLayer.NNExecutionContext() {}, testObj(0)).data.get(0).getData.map(_ * 100.0))
+            .zip(model.eval(new NNLayer.NNExecutionContext() {}, testObj(0)).getData.get(0).getData.map(_ * 100.0))
         ).asJava): _*)
       }
     } catch {
