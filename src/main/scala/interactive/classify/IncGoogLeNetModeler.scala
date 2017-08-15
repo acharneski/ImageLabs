@@ -25,39 +25,41 @@ import java.awt.{Graphics2D, RenderingHints}
 import java.io._
 import java.util.concurrent.TimeUnit
 import java.util.function.Supplier
+import java.util.stream.Collectors
 import javax.imageio.ImageIO
 
 import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.simiacryptus.mindseye.layers.NNLayer.NNExecutionContext
-import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, LinearActivationLayer, SoftmaxActivationLayer}
+import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, LinearActivationLayer, NthPowerActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.layers.cudnn.CuDNN
 import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
 import com.simiacryptus.mindseye.layers.cudnn.f32._
-import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
+import com.simiacryptus.mindseye.layers.loss.{EntropyLossLayer, MeanSqLossLayer}
+import com.simiacryptus.mindseye.layers.media.{AvgImageBandLayer, ImgCropLayer, ImgReshapeLayer}
 import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
-import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer}
+import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer}
 import com.simiacryptus.mindseye.layers.synapse.BiasLayer
-import com.simiacryptus.mindseye.layers.util.{AssertDimensionsLayer, ConstNNLayer}
 import com.simiacryptus.mindseye.layers.{NNLayer, NNResult, SchemaComponent}
-import com.simiacryptus.mindseye.network.graph.{DAGNetwork, DAGNode}
+import com.simiacryptus.mindseye.network.graph.{DAGNetwork, DAGNode, EvaluationContext}
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
 import com.simiacryptus.mindseye.opt.trainable._
+import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
 import com.simiacryptus.util.ml.{SoftCachedSupplier, Tensor, WeakCachedSupplier}
 import com.simiacryptus.util.text.TableOutput
-import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD}
 import interactive.classify.GoogLeNetModeler.tileSize
+import interactive.classify.IncrementalClassifierModeler.{modelName, numberOfCategories}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
 import scala.util.Random
 
-object GoogLeNetModeler extends Report {
+object IncGoogLeNetModeler extends Report {
   val modelName = System.getProperty("modelName", "googlenet_1")
   val tileSize = 224
   val categoryWhitelist = Set[String]()
@@ -70,8 +72,8 @@ object GoogLeNetModeler extends Report {
   def main(args: Array[String]): Unit = {
 
     report((server, out) ⇒ args match {
-      case Array(source) ⇒ new GoogLeNetModeler(source, server, out).run()
-      case _ ⇒ new GoogLeNetModeler("D:\\testImages\\256_ObjectCategories", server, out).run()
+      case Array(source) ⇒ new IncGoogLeNetModeler(source, server, out).run()
+      case _ ⇒ new IncGoogLeNetModeler("D:\\testImages\\256_ObjectCategories", server, out).run()
     })
 
   }
@@ -80,205 +82,19 @@ object GoogLeNetModeler extends Report {
 
 import interactive.classify.GoogLeNetModeler._
 
-case class GoogLeNet(
-                      layer1: Double = -2.17,
-                      layer2: Double = -1.8,
-                      layer3: Double = -2.76,
-                      layer4: Double = 0,
-                      layer5: Double = -0.125,
-                      layer6: Double = -0.398,
-                      layer7: Double = -0.426,
-                      layer8: Double = -0.426,
-                      layer9: Double = -0.426,
-                      layer10: Double = -0.439,
-                      layer11: Double = -0.64,
-                      layer12: Double = -0.64,
-                      layer13: Double = -4.7,
-                      conv1a: Double = -2.28,
-                      conv3a: Double = -2.28,
-                      conv3b: Double = -2.94,
-                      conv5a: Double = -2.28,
-                      conv5b: Double = -2.60,
-                      conv1b: Double = -2.28,
-                      trainingShunt: Double = -2
-                    ) {
-import NNLayerUtil._
-  def getNetwork(monitor: TrainingMonitor,
-                 monitoringRoot: MonitoredObject,
-                 fitness: Boolean = false): NNLayer = {
-    val network = new PipelineNetwork(2)
-
-    def newInceptionLayer(layerName : String, head: DAGNode = network.getHead, inputBands: Int, bands1x1: Int, bands3x1: Int, bands1x3: Int, bands5x1: Int, bands1x5: Int, bandsPooling: Int): DAGNode = {
-      network.add(new ImgConcatLayer(),
-        network.addAll(head,
-          new ConvolutionLayer(1, 1, inputBands, bands1x1).setWeightsLog(layer11 + conv1a).setName("conv_1x1_" + layerName).addTo(monitoringRoot),
-          new ImgBandBiasLayer(bands1x1).setName("bias_1x1_" + layerName).addTo(monitoringRoot),
-          new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_1x1_" + layerName).addTo(monitoringRoot)),
-        network.addAll(head,
-          new ConvolutionLayer(1, 1, inputBands, bands3x1).setWeightsLog(layer11 + conv3a).setName("conv_3x1_" + layerName).addTo(monitoringRoot),
-          new ImgBandBiasLayer(bands3x1).setName("bias_3x1_" + layerName).addTo(monitoringRoot),
-          new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_3x1_" + layerName).addTo(monitoringRoot),
-          new ConvolutionLayer(3, 3, bands3x1, bands1x3).setWeightsLog(layer11 + conv3b).setName("conv_1x3_" + layerName).addTo(monitoringRoot),
-          new ImgBandBiasLayer(bands1x3).setName("bias_1x3_" + layerName).addTo(monitoringRoot),
-          new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_1x3_" + layerName).addTo(monitoringRoot)),
-        network.addAll(head,
-          new ConvolutionLayer(1, 1, inputBands, bands5x1).setWeightsLog(layer11 + conv5a).setName("conv_5x1_" + layerName).addTo(monitoringRoot),
-          new ImgBandBiasLayer(bands5x1).setName("bias_5x1_" + layerName).addTo(monitoringRoot),
-          new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_5x1_" + layerName).addTo(monitoringRoot),
-          new ConvolutionLayer(5, 5, bands5x1, bands1x5).setWeightsLog(layer11 + conv5b).setName("conv_1x5_" + layerName).addTo(monitoringRoot),
-          new ImgBandBiasLayer(bands1x5).setName("bias_1x5_" + layerName).addTo(monitoringRoot),
-          new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_1x5_" + layerName).addTo(monitoringRoot)),
-        network.addAll(head,
-          new PoolingLayer().setWindowXY(3, 3).setStrideXY(1, 1).setPaddingXY(1, 1).setName("pool_" + layerName).addTo(monitoringRoot),
-          new ConvolutionLayer(1, 1, inputBands, bandsPooling).setWeightsLog(layer11 + conv1b).setName("conv_pool_" + layerName).addTo(monitoringRoot),
-          new ImgBandBiasLayer(bandsPooling).setName("bias_pool_" + layerName).addTo(monitoringRoot),
-          new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_pool_" + layerName).addTo(monitoringRoot)))
-    }
-
-    network.add(new AssertDimensionsLayer(224, 224, 3), network.getInput(0))
-    network.addAll(
-      new ConvolutionLayer(7, 7, 3, 64).setWeightsLog(layer1).setStrideXY(2, 2).setName("conv_1").addTo(monitoringRoot),
-      new ImgBandBiasLayer(64).setName("bias_1").addTo(monitoringRoot),
-      new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_1").addTo(monitoringRoot),
-      new PoolingLayer().setWindowXY(3, 3).setStrideXY(2, 2).setPaddingXY(1, 1).setName("pool_1").addTo(monitoringRoot),
-      new ConvolutionLayer(1, 1, 64, 64).setWeightsLog(layer2).setName("conv_2").addTo(monitoringRoot),
-      new ImgBandBiasLayer(64).setName("bias_2").addTo(monitoringRoot),
-      new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_2").addTo(monitoringRoot),
-      new ConvolutionLayer(3, 3, 64, 192).setWeightsLog(layer3).setName("conv_3").addTo(monitoringRoot),
-      new ImgBandBiasLayer(192).setName("bias_3").addTo(monitoringRoot),
-      new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_3").addTo(monitoringRoot),
-      new PoolingLayer().setWindowXY(3, 3).setStrideXY(2, 2).setPaddingXY(1, 1).setName("pool_3").addTo(monitoringRoot))
-    val inception_3a = newInceptionLayer(layerName = "3a", inputBands = 192, bands1x1 = 64, bands3x1 = 96, bands1x3 = 128, bands5x1 = 16, bands1x5 = 32, bandsPooling = 32)
-    val inception_3b = newInceptionLayer(layerName = "3b", inputBands = 256, bands1x1 = 128, bands3x1 = 128, bands1x3 = 192, bands5x1 = 32, bands1x5 = 96, bandsPooling = 64)
-    network.add(new PoolingLayer().setWindowXY(3, 3).setStrideXY(2, 2).setPaddingXY(1, 1).setName("pool_4").addTo(monitoringRoot))
-    val inception_4a = newInceptionLayer(layerName = "4a", inputBands = 480, bands1x1 = 192, bands3x1 = 96, bands1x3 = 208, bands5x1 = 16, bands1x5 = 48, bandsPooling = 64)
-    val inception_4b = newInceptionLayer(layerName = "4b", inputBands = 512, bands1x1 = 160, bands3x1 = 112, bands1x3 = 224, bands5x1 = 24, bands1x5 = 64, bandsPooling = 64)
-    val inception_4c = newInceptionLayer(layerName = "4c", inputBands = 512, bands1x1 = 128, bands3x1 = 128, bands1x3 = 256, bands5x1 = 24, bands1x5 = 64, bandsPooling = 64)
-    val inception_4d = newInceptionLayer(layerName = "4d", inputBands = 512, bands1x1 = 112, bands3x1 = 144, bands1x3 = 288, bands5x1 = 32, bands1x5 = 64, bandsPooling = 64)
-    val inception_4e = newInceptionLayer(layerName = "4e", inputBands = 528, bands1x1 = 256, bands3x1 = 160, bands1x3 = 320, bands5x1 = 32, bands1x5 = 128, bandsPooling = 128)
-    network.add(new PoolingLayer().setWindowXY(3, 3).setStrideXY(2, 2).setPaddingXY(1, 1).setName("pool_5").addTo(monitoringRoot))
-    val inception_5a = newInceptionLayer(layerName = "5a", inputBands = 832, bands1x1 = 256, bands3x1 = 160, bands1x3 = 320, bands5x1 = 32, bands1x5 = 128, bandsPooling = 128)
-    val inception_5b = newInceptionLayer(layerName = "5b", inputBands = 832, bands1x1 = 384, bands3x1 = 192, bands1x3 = 384, bands5x1 = 48, bands1x5 = 128, bandsPooling = 128)
-    val rawCategorization = network.addAll(
-      new PoolingLayer().setWindowXY(7, 7).setStrideXY(1, 1).setPaddingXY(0, 0).setMode(PoolingMode.Avg).setName("pool_6").addTo(monitoringRoot),
-      new DropoutNoiseLayer().setValue(0.4).setName("dropout_6").addTo(monitoringRoot),
-      new SchemaOutputLayer(1024, layer13).setName("syn_6").addTo(monitoringRoot),
-      new SchemaBiasLayer().setName("bias_6").addTo(monitoringRoot))
-
-    val entropy = network.add(new SumInputsLayer(),
-      network.add(new EntropyLossLayer(),
-        network.add("classify", new SoftmaxActivationLayer(), rawCategorization),
-        network.getInput(1)),
-      network.add(new EntropyLossLayer(),
-        network.add(new SoftmaxActivationLayer(),
-        network.add(new SchemaBiasLayer().setName("bias_out3_4a").addTo(monitoringRoot),
-          network.add(new SchemaOutputLayer(1024, trainingShunt).setName("syn_out3_4a").addTo(monitoringRoot),
-            network.add(new DropoutNoiseLayer().setValue(0.7).setName("dropout_4a").addTo(monitoringRoot),
-              network.add(new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_out3_4a").addTo(monitoringRoot),
-                network.add(new ImgBandBiasLayer(1024).setName("bias_out2_4a").addTo(monitoringRoot),
-                  network.add(new ConvolutionLayer(3, 3, 128, 1024, false).setWeightsLog(trainingShunt).setName("syn_out2_4a").addTo(monitoringRoot),
-                    network.add(new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_out1_4a").addTo(monitoringRoot),
-                      network.add(new ConvolutionLayer(1, 1, 512, 128).setWeightsLog(trainingShunt).setName("conv_out1_4a").addTo(monitoringRoot),
-                        network.add(new PoolingLayer().setWindowXY(7, 7).setStrideXY(3, 3).setMode(PoolingMode.Avg).setName("pool_out1_4a").addTo(monitoringRoot),
-                          inception_4a
-                        )
-                      )
-                    )
-                  )
-                )
-              )
-            )
-          )
-        )
-      ), network.getInput(1)),
-      network.add(new EntropyLossLayer(),
-        network.add(new SoftmaxActivationLayer(),
-        network.add(new SchemaBiasLayer().setName("bias_out3_4d").addTo(monitoringRoot),
-          network.add(new SchemaOutputLayer(1024, trainingShunt).setName("syn_out3_4d").addTo(monitoringRoot),
-            network.add(new DropoutNoiseLayer().setValue(0.7).setName("dropout_4d").addTo(monitoringRoot),
-              network.add(new ActivationLayer(ActivationLayer.Mode.RELU).freeze().setName("relu_out3_4d").addTo(monitoringRoot),
-                network.add(new ImgBandBiasLayer(1024).setName("bias_out2_4d").addTo(monitoringRoot),
-                  network.add(new ConvolutionLayer(3, 3, 128, 1024, false).setWeightsLog(trainingShunt).setName("syn_out2_4d").addTo(monitoringRoot),
-                    network.add(new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_out1_4d").addTo(monitoringRoot),
-                      network.add(new ConvolutionLayer(1, 1, 528, 128).setWeightsLog(trainingShunt).setName("conv_out1_4d").addTo(monitoringRoot),
-                        network.add(new PoolingLayer().setWindowXY(7, 7).setStrideXY(3, 3).setMode(PoolingMode.Avg).setName("pool_out1_4d").addTo(monitoringRoot),
-                          inception_4d
-                        )
-                      )
-                    )
-                  )
-                )
-              )
-            )
-          )
-        )
-      ), network.getInput(1))
-    )
-
-    if (fitness) {
-      def auxRmsLayer(layer: DAGNode, target: Double) = network.add(new AbsActivationLayer(),
-        network.add(new LinearActivationLayer().setBias(-target).freeze(),
-          network.add(new AvgReducerLayer(),
-            network.add(new StdDevMetaLayer(), layer))
-        ))
-
-      network.add(new ProductInputsLayer(),
-        entropy,
-        network.add(new SumInputsLayer(), (
-          List(network.add(new ConstNNLayer(new Tensor(1).set(0, 0.1)))) ++
-          List(
-            inception_3a,
-            inception_3b,
-            inception_4a,
-            inception_4b,
-            inception_4c,
-            inception_4d,
-            inception_4e,
-            inception_5a,
-            inception_5b
-        ).map(auxRmsLayer(_, 1))): _*
-      ))
-    }
-
-    network
-  }
-
-  def fitness(monitor: TrainingMonitor, monitoringRoot: MonitoredObject, data: Array[Array[Tensor]], n: Int = 3): Double = {
-    val values = (1 to n).map(i ⇒ {
-      val network = getNetwork(monitor, monitoringRoot, fitness = true)
-      require(!data.isEmpty)
-      val fn = Java8Util.cvt((x: Tensor) => x.getData()(0))
-      network.eval(new NNLayer.NNExecutionContext() {}, NNResult.batchResultArray(data))
-        .getData.stream().mapToDouble(fn).sum / data.length
-    }).toList
-    val avg = values.sum / n
-    monitor.log(s"Numeric Opt: $this => $avg ($values)")
-    avg
-  }
-
-}
-
-
-class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
+class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 
   def run(awaitExit: Boolean = true): Unit = {
     recordMetrics = false
     defineHeader()
     declareTestHandler()
     out.out("<hr/>")
-    val timeBlockMinutes = 60
-    if (findFile(modelName).isEmpty || System.getProperties.containsKey("rebuild")) {
-      step_Generate()
-    }
-    for (i <- 1 to 10) {
-      monitor.clear()
-      step_Train(trainingMin = timeBlockMinutes, numberOfCategories=5, sampleSize = 500, iterationsPerSample = 5)
-    }
-    step_GAN()
-    for (i <- 1 to 10) {
-      monitor.clear()
-      step_Train(trainingMin = timeBlockMinutes, sampleSize = 250)
-    }
+    val timeBlockMinutes = 15
+    step_Generate()
+    step_AddLayer1(trainingMin = timeBlockMinutes, sampleSize = 100)
+    step_Train(trainingMin = timeBlockMinutes, numberOfCategories=2, sampleSize = 200, iterationsPerSample = 5)
+    step_AddLayer2(trainingMin = timeBlockMinutes, sampleSize = 100)
+    step_Train(trainingMin = timeBlockMinutes, numberOfCategories=2, sampleSize = 200, iterationsPerSample = 5)
     step_GAN()
     out.out("<hr/>")
     if (awaitExit) waitForExit()
@@ -301,23 +117,200 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
   }
 
   def step_Generate() = phase({
-    //new GoogLeNet().getNetwork(monitor, monitoringRoot, false)
-    //    lazy val optTraining: Array[Array[Tensor]] = Random.shuffle(data.values.flatten).take(5).map(_.get()).toArray
-    //    require(0 < optTraining.length)
-    //    SimplexOptimizer[GoogLeNet](
-    //      GoogLeNet(), // GoogLeNet(),
-    //      x ⇒ x.fitness(monitor, monitoringRoot, optTraining, n=3), relativeTolerance=0.01
-    //    ).getNetwork(monitor, monitoringRoot)
-    GoogLeNet(
-      -1.17, -0.8, -1.7599999999999998, 1.0, 0.875, 0.60303759765625, 0.5750375976562501, 0.5750375976562501,
-      0.5750375976562501, 0.5620375976562499, 0.3610414123535156, 0.3610414123535156, -3.6989585876464846,
-      -1.2789585876464842, -1.3111851501464842, -1.8149351501464843, -1.3424351501464842, -1.6625, -1.0299999999999998, -2.0
-    ).getNetwork(monitor, monitoringRoot)
+    new PipelineNetwork(2)
   }, (model: NNLayer) ⇒ {
     // Do Nothing
   }: Unit, modelName)
 
 
+  def newInceptionLayer(layerName : String, inputBands: Int, bands1x1: Int, bands3x1: Int, bands1x3: Int, bands5x1: Int, bands1x5: Int, bandsPooling: Int): NNLayer = {
+    val network = new PipelineNetwork()
+    newInceptionLayer(network, inputBands = inputBands, layerName = layerName, head = network.getHead,
+      bands1x1 = bands1x1, bands1x3 = bands1x3, bands1x5 = bands1x5, bands3x1 = bands3x1,
+      bands5x1 = bands5x1, bandsPooling = bandsPooling)
+    network
+  }
+  def newInceptionLayer(network : PipelineNetwork, layerName : String, head: DAGNode, inputBands: Int, bands1x1: Int, bands3x1: Int, bands1x3: Int, bands5x1: Int, bands1x5: Int, bandsPooling: Int): DAGNode = {
+    var conv1a: Double = 0.01
+    var conv1b: Double = 0.01
+    var conv3a: Double = 0.01
+    var conv3b: Double = 0.01
+    var conv5a: Double = 0.01
+    var conv5b: Double = 0.01
+    network.add(new ImgConcatLayer(),
+      network.addAll(head,
+        new ConvolutionLayer(1, 1, inputBands, bands1x1).setWeightsLog(conv1a).setName("conv_1x1_" + layerName),
+        new ImgBandBiasLayer(bands1x1).setName("bias_1x1_" + layerName),
+        new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_1x1_" + layerName)),
+      network.addAll(head,
+        new ConvolutionLayer(1, 1, inputBands, bands3x1).setWeightsLog(conv3a).setName("conv_3x1_" + layerName),
+        new ImgBandBiasLayer(bands3x1).setName("bias_3x1_" + layerName),
+        new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_3x1_" + layerName),
+        new ConvolutionLayer(3, 3, bands3x1, bands1x3).setWeightsLog(conv3b).setName("conv_1x3_" + layerName),
+        new ImgBandBiasLayer(bands1x3).setName("bias_1x3_" + layerName),
+        new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_1x3_" + layerName)),
+      network.addAll(head,
+        new ConvolutionLayer(1, 1, inputBands, bands5x1).setWeightsLog(conv5a).setName("conv_5x1_" + layerName),
+        new ImgBandBiasLayer(bands5x1).setName("bias_5x1_" + layerName),
+        new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_5x1_" + layerName),
+        new ConvolutionLayer(5, 5, bands5x1, bands1x5).setWeightsLog(conv5b).setName("conv_1x5_" + layerName),
+        new ImgBandBiasLayer(bands1x5).setName("bias_1x5_" + layerName),
+        new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_1x5_" + layerName)),
+      network.addAll(head,
+        new PoolingLayer().setWindowXY(3, 3).setStrideXY(1, 1).setPaddingXY(1, 1).setName("pool_" + layerName),
+        new ConvolutionLayer(1, 1, inputBands, bandsPooling).setWeightsLog(conv1b).setName("conv_pool_" + layerName),
+        new ImgBandBiasLayer(bandsPooling).setName("bias_pool_" + layerName),
+        new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_pool_" + layerName)))
+  }
+
+  def step_AddLayer1(trainingMin: Int = 15, sampleSize: Int = 100): Any = phase(modelName, (model: NNLayer) ⇒
+    {
+      val sourceNetwork = model.asInstanceOf[PipelineNetwork]
+      val priorFeaturesNode = Option(sourceNetwork.getByLabel("features")).getOrElse(sourceNetwork.getHead)
+      addLayer(
+        trainingArray = preprocessFeatures(sourceNetwork, priorFeaturesNode),
+        sourceNetwork = sourceNetwork,
+        priorFeaturesNode = priorFeaturesNode,
+        additionalLayer = new PipelineNetwork(
+          new ConvolutionLayer(7, 7, 3, 64).setWeightsLog(-4).setStrideXY(2, 2).setName("conv_1"),
+          new ImgBandBiasLayer(64).setName("bias_1"),
+          new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_1"),
+          new PoolingLayer().setWindowXY(3, 3).setStrideXY(2, 2).setPaddingXY(1, 1).setName("pool_1")
+        ), reconstructionLayer = new PipelineNetwork(
+          new ConvolutionLayer(7, 7, 64, 48).setWeightsLog(-4),
+          new ImgReshapeLayer(4, 4, true)
+        ), trainingMin = trainingMin, sampleSize = sampleSize)
+    }: Unit, modelName)
+
+  def step_AddLayer2(trainingMin: Int = 15, sampleSize: Int = 100): Any = phase(modelName, (model: NNLayer) ⇒
+    {
+      val sourceNetwork = model.asInstanceOf[PipelineNetwork]
+      val priorFeaturesNode = Option(sourceNetwork.getByLabel("features")).getOrElse(sourceNetwork.getHead)
+      addLayer(
+        trainingArray = preprocessFeatures(sourceNetwork, priorFeaturesNode),
+        sourceNetwork = sourceNetwork,
+        priorFeaturesNode = priorFeaturesNode,
+        additionalLayer = new PipelineNetwork(
+          new ConvolutionLayer(1, 1, 64, 64).setWeightsLog(-4).setName("conv_2"),
+          new ImgBandBiasLayer(64).setName("bias_2"),
+          new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_2"),
+          new ConvolutionLayer(3, 3, 64, 192).setWeightsLog(-4).setName("conv_3"),
+          new ImgBandBiasLayer(192).setName("bias_3"),
+          new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_3"),
+          new PoolingLayer().setWindowXY(3, 3).setStrideXY(2, 2).setPaddingXY(1, 1).setName("pool_3")
+      ), reconstructionLayer = new PipelineNetwork(
+          new ConvolutionLayer(3, 3, 192, 12).setWeightsLog(-4),
+          new ImgReshapeLayer(2, 2, true)
+        ), trainingMin = trainingMin, sampleSize = sampleSize)
+    }: Unit, modelName)
+
+  def step_AddLayer(trainingMin: Int = 15, sampleSize: Int = 100, inputBands: Int, featureBands: Int, radius: Int = 3, mode: PoolingMode = PoolingMode.Max)
+                   (additionalLayer: NNLayer): Any = phase(modelName, (model: NNLayer) ⇒
+  {
+    val weight = -6
+    val sourceNetwork = model.asInstanceOf[PipelineNetwork]
+    val priorFeaturesNode = Option(sourceNetwork.getByLabel("features")).getOrElse(sourceNetwork.getHead)
+    val trainingArray: Array[Array[Tensor]] = preprocessFeatures(sourceNetwork, priorFeaturesNode)
+
+    val prevFeatureDimensions = trainingArray.head.head.getDimensions()
+    val newFeatureDimensions = additionalLayer.eval(new NNExecutionContext() {}, trainingArray.head.head).getData.get(0).getDimensions
+    val inputBands: Int = prevFeatureDimensions(2)
+    val featureBands: Int = newFeatureDimensions(2)
+    val reconstructionCrop = prevFeatureDimensions(0) - newFeatureDimensions(0)*2
+
+    val reconstructionLayer = new PipelineNetwork(
+      new ConvolutionLayer(1, 1, featureBands, 4 * inputBands, false).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, weight)),
+      new ImgReshapeLayer(2, 2, true)
+    )
+    val cropLayer = new ImgCropLayer(reconstructionCrop, reconstructionCrop)
+    addLayer(trainingArray, sourceNetwork, priorFeaturesNode, additionalLayer, reconstructionLayer, cropLayer, trainingMin, sampleSize)
+  }: Unit, modelName)
+
+  private def preprocessFeatures(sourceNetwork: PipelineNetwork, priorFeaturesNode: DAGNode): Array[Array[Tensor]] = {
+    assert(null != data)
+    val rawTrainingData: Array[Array[Tensor]] = takeData(5, 10).map(_.get()).toArray
+    val featureTrainingData: Array[Tensor] = priorFeaturesNode.get(new NNExecutionContext() {}, sourceNetwork.buildExeCtx(
+      NNResult.batchResultArray(rawTrainingData.map(_.take(2))): _*)).getData
+      .stream().collect(Collectors.toList()).asScala.toArray
+    (0 until featureTrainingData.length).map(i => Array(featureTrainingData(i), rawTrainingData(i)(1))).toArray
+  }
+
+
+  private def addLayer(trainingArray: Array[Array[Tensor]], sourceNetwork: PipelineNetwork, priorFeaturesNode: DAGNode, additionalLayer: NNLayer,
+                       reconstructionLayer: PipelineNetwork, cropLayer: ImgCropLayer = null,
+                       trainingMin: Int, sampleSize: Int,
+                       featuresLabel:String = "features") =
+  {
+
+    val numberOfCategories:Int = trainingArray.head(1).dim()
+    val prevFeatureDimensions = trainingArray.head.head.getDimensions()
+    val newFeatureDimensions = additionalLayer.eval(new NNExecutionContext() {}, trainingArray.head.head).getData.get(0).getDimensions
+
+
+    val stdDevTarget: Int = 1
+    val rmsSmoothing: Int = 1
+    val stdDevSmoothing: Double = 0.2
+    val weight: Double = 0.001
+
+    val trainingNetwork = new PipelineNetwork(2)
+    val features = trainingNetwork.add(featuresLabel, additionalLayer, trainingNetwork.getInput(0))
+    val fitness = trainingNetwork.add(new ProductInputsLayer(),
+      // Features should be relevant - predict the class given a final linear/softmax transform
+      trainingNetwork.add(new EntropyLossLayer(),
+        trainingNetwork.add(new SoftmaxActivationLayer(),
+          trainingNetwork.add(new AvgImageBandLayer(),
+            trainingNetwork.add(new ConvolutionLayer(1, 1, newFeatureDimensions(2), numberOfCategories, true).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, -4)),
+              features))
+        ),
+        trainingNetwork.getInput(1)
+      ),
+      // Features should be able to reconstruct input - Preserve information
+      trainingNetwork.add(new LinearActivationLayer().setScale(1.0 / 255).setBias(rmsSmoothing).freeze(),
+        trainingNetwork.add(new NthPowerActivationLayer().setPower(0.5).freeze(),
+          trainingNetwork.add(new MeanSqLossLayer(),
+            trainingNetwork.add(reconstructionLayer, features),
+            trainingNetwork.add(cropLayer, trainingNetwork.getInput(0))
+          )
+        )
+      ),
+      // Features signal should target a uniform magnitude to balance the network
+      trainingNetwork.add(new LinearActivationLayer().setBias(stdDevSmoothing).freeze(),
+        trainingNetwork.add(new AbsActivationLayer(),
+          trainingNetwork.add(new LinearActivationLayer().setBias(-stdDevTarget).freeze(),
+            trainingNetwork.add(new AvgReducerLayer(),
+              trainingNetwork.add(new StdDevMetaLayer(), features))
+          )
+        )
+      )
+    )
+
+    out.h1("Training New Layer")
+    val trainer1 = out.eval {
+      var inner: Trainable = new StochasticArrayTrainable(trainingArray, trainingNetwork, sampleSize, 20)
+      val trainer = new IterativeTrainer(inner)
+      trainer.setMonitor(monitor)
+      trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
+      trainer.setIterationsPerSample(50)
+      trainer.setOrientation(new LBFGS)
+      trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ (s match {
+        case s if s.contains("LBFGS") ⇒ new StaticLearningRate().setRate(1.0)
+        case _ ⇒ new QuadraticSearch
+      })))
+      trainer.setTerminateThreshold(0.0)
+      trainer
+    }
+    trainer1.run()
+
+
+    sourceNetwork.add(new EntropyLossLayer(),
+      sourceNetwork.add(new SoftmaxActivationLayer(),
+        sourceNetwork.add(new SchemaBiasLayer(),
+          sourceNetwork.add(new AvgImageBandLayer(),
+            sourceNetwork.add(new SchemaOutputLayer(newFeatureDimensions(2), -4).setSchema((1 to numberOfCategories).map(_.toString):_*), features)))
+      ),
+      sourceNetwork.getInput(1)
+    )
+  }
 
   def step_Train(trainingMin: Int = 15, numberOfCategories: Int = 2, sampleSize: Int = 250, iterationsPerSample: Int = 5) = {
     var selectedCategories = selectCategories(numberOfCategories)
