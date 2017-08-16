@@ -331,7 +331,6 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
     phase(modelName, (model: NNLayer) ⇒ {
       out.h1("Integration Training")
       model.asInstanceOf[DAGNetwork].visit((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
-        System.out.println(String.format("Setting schema to %s for layer %s", categoryArray.mkString(";"), layer))
         layer.asInstanceOf[SchemaComponent].setSchema(categoryArray:_*)
       } : Unit)
       val trainer2 = out.eval {
@@ -379,6 +378,9 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
     val sourceClass = toOutNDArray(categoryArray.length, sourceClassId)
     val targetClass = toOutNDArray(categoryArray.length, targetClassId)
     val adversarialOutput = new ArrayBuffer[Array[Tensor]]()
+    model.asInstanceOf[DAGNetwork].visit((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+      layer.asInstanceOf[SchemaComponent].setSchema(categoryArray:_*)
+    } : Unit)
     val rows = data(sourceCategory)
       .filter(_!=null)
       .take(imageCount)
