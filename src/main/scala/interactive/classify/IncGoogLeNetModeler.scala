@@ -32,20 +32,19 @@ import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.simiacryptus.mindseye.layers.NNLayer.NNExecutionContext
 import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, LinearActivationLayer, NthPowerActivationLayer, SoftmaxActivationLayer}
-import com.simiacryptus.mindseye.layers.cudnn.CuDNN
+import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
 import com.simiacryptus.mindseye.layers.cudnn.f32._
 import com.simiacryptus.mindseye.layers.loss.{EntropyLossLayer, MeanSqLossLayer}
-import com.simiacryptus.mindseye.layers.media.{AvgImageBandLayer, ImgCropLayer, ImgReshapeLayer}
+import com.simiacryptus.mindseye.layers.media.{ImgCropLayer, ImgReshapeLayer}
 import com.simiacryptus.mindseye.layers.meta.{StdDevMetaLayer, WeightExtractor}
 import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer, SumReducerLayer}
 import com.simiacryptus.mindseye.layers.synapse.BiasLayer
 import com.simiacryptus.mindseye.layers.{NNLayer, NNResult, SchemaComponent}
+import com.simiacryptus.mindseye.network.PipelineNetwork
 import com.simiacryptus.mindseye.network.graph.{DAGNetwork, DAGNode}
-import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
-import com.simiacryptus.mindseye.opt.region.{StaticConstraint, TrustRegion}
 import com.simiacryptus.mindseye.opt.trainable._
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
@@ -53,7 +52,6 @@ import com.simiacryptus.util.ml.{SoftCachedSupplier, Tensor, WeakCachedSupplier}
 import com.simiacryptus.util.text.TableOutput
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ArrayBuffer
 import scala.collection.parallel.immutable.ParSeq
 import scala.reflect.ClassTag
 import scala.util.Random
@@ -61,8 +59,6 @@ import scala.util.Random
 object IncGoogLeNetModeler extends Report {
   val modelName = System.getProperty("modelName", "googlenet_1")
   val tileSize = 224
-  val categoryWhitelist = Set[String]()
-  //("greyhound", "soccer-ball", "telephone-box", "windmill")
   val fuzz = 1e-4
   val artificialVariants = 10
 
@@ -89,45 +85,43 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     out.out("<hr/>")
     val initMinutes = 5
     val trainMinutes = 30
+    val set1 = Set("chimp", "owl", "chess-board")
+    val set2 = Set("owl", "teddy-bear", "zebra", "chess-board", "binoculars", "bonsai-101", "brain-101")
+    require(set1.forall(categories.contains))
+    require(set2.forall(categories.contains))
     out.h2("Layer Set 1")
     step_Generate()
     step_AddLayer1(trainingMin = initMinutes, sampleSize = 100)
-    step_Train(trainingMin = trainMinutes, sampleSize = 200, iterationsPerSample = 5, categories = Set("chimp", "chess-board"))
-    step_Train(trainingMin = trainMinutes, sampleSize = 200, iterationsPerSample = 5, categories = Set("owl", "teddy-bear", "zebra"))
+    step_Train(trainingMin = trainMinutes, sampleSize = 700, iterationsPerSample = 10, categories = set1)
+    step_Train(trainingMin = trainMinutes, sampleSize = 700, iterationsPerSample = 10, categories = set2)
     step_GAN(imageCount = 5,sourceCategory = "chimp",targetCategory = "owl")
     out.h2("Layer Set 2")
     step_AddLayer2(trainingMin = initMinutes, sampleSize = 100)
-    step_Train(trainingMin = trainMinutes, sampleSize = 200, iterationsPerSample = 5, categories = Set("chimp", "chess-board"))
-    step_Train(trainingMin = trainMinutes, sampleSize = 200, iterationsPerSample = 5, categories = Set("owl", "teddy-bear", "zebra"))
+    step_Train(trainingMin = trainMinutes, sampleSize = 700, iterationsPerSample = 10, categories = set1)
+    step_Train(trainingMin = trainMinutes, sampleSize = 700, iterationsPerSample = 10, categories = set2)
     step_GAN(imageCount = 5,sourceCategory = "chimp",targetCategory = "owl")
     out.h2("Layer Set 3")
     step_AddLayer3(trainingMin = initMinutes, sampleSize = 100)
-    step_Train(trainingMin = trainMinutes, sampleSize = 200, iterationsPerSample = 5, categories = Set("chimp", "chess-board"))
-    step_Train(trainingMin = trainMinutes, sampleSize = 200, iterationsPerSample = 5, categories = Set("owl", "teddy-bear", "zebra"))
+    step_Train(trainingMin = trainMinutes, sampleSize = 700, iterationsPerSample = 10, categories = set1)
+    step_Train(trainingMin = trainMinutes, sampleSize = 700, iterationsPerSample = 10, categories = set2)
+    step_GAN(imageCount = 5,sourceCategory = "chimp",targetCategory = "owl")
+    out.h2("Layer Set 4")
+    step_AddLayer4(trainingMin = initMinutes, sampleSize = 100)
+    step_Train(trainingMin = trainMinutes, sampleSize = 700, iterationsPerSample = 10, categories = set1)
+    step_Train(trainingMin = trainMinutes, sampleSize = 700, iterationsPerSample = 10, categories = set2)
+    step_GAN(imageCount = 5,sourceCategory = "chimp",targetCategory = "owl")
+    out.h2("Layer Set 5")
+    step_AddLayer5(trainingMin = initMinutes, sampleSize = 100)
+    step_Train(trainingMin = trainMinutes, sampleSize = 700, iterationsPerSample = 10, categories = set1)
+    step_Train(trainingMin = trainMinutes, sampleSize = 700, iterationsPerSample = 10, categories = set2)
     step_GAN(imageCount = 5,sourceCategory = "chimp",targetCategory = "owl")
     out.out("<hr/>")
     if (awaitExit) waitForExit()
   }
 
-  def resize(source: BufferedImage, size: Int) = {
-    val image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB)
-    val graphics = image.getGraphics.asInstanceOf[Graphics2D]
-    graphics.asInstanceOf[Graphics2D].setRenderingHints(new RenderingHints(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC))
-    graphics.drawImage(source, 0, 0, size, size, null)
-    image
-  }
-
-  def resize(source: BufferedImage, width: Int, height: Int) = {
-    val image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
-    val graphics = image.getGraphics.asInstanceOf[Graphics2D]
-    graphics.asInstanceOf[Graphics2D].setRenderingHints(new RenderingHints(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC))
-    graphics.drawImage(source, 0, 0, width, height, null)
-    image
-  }
-
   def step_Generate() = phase({
     new PipelineNetwork(2)
-  }, (model: NNLayer) ⇒ {
+  }, (_: NNLayer) ⇒ {
     // Do Nothing
   }: Unit, modelName)
 
@@ -174,7 +168,6 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
 
   def step_AddLayer1(trainingMin: Int, sampleSize: Int, categories: Set[String]): Any = phase(modelName, (model: NNLayer) ⇒
     {
-      val numberOfCategories = categories.size
       var selectedCategories = categories.map(s=>s->data(s)).toMap
       val sourceNetwork = model.asInstanceOf[PipelineNetwork]
       val priorFeaturesNode = Option(sourceNetwork.getByLabel("features")).getOrElse(sourceNetwork.getHead)
@@ -208,7 +201,6 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
 
   def step_AddLayer2(trainingMin: Int, sampleSize: Int, categories: Set[String]): Any = phase(modelName, (model: NNLayer) ⇒
     {
-      val numberOfCategories = categories.size
       var selectedCategories = categories.map(s=>s->data(s)).toMap
       val sourceNetwork = model.asInstanceOf[PipelineNetwork]
       val priorFeaturesNode = Option(sourceNetwork.getByLabel("features")).getOrElse(sourceNetwork.getHead)
@@ -241,7 +233,6 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
 
   def step_AddLayer3(trainingMin: Int, sampleSize: Int, categories: Set[String]): Any = phase(modelName, (model: NNLayer) ⇒
     {
-      val numberOfCategories = categories.size
       var selectedCategories = categories.map(s=>s->data(s)).toMap
       val sourceNetwork = model.asInstanceOf[PipelineNetwork]
       val priorFeaturesNode = Option(sourceNetwork.getByLabel("features")).getOrElse(sourceNetwork.getHead)
@@ -257,12 +248,69 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
           newInceptionLayer(layerName = "3b", inputBands = 256, bands1x1 = 128, bands3x1 = 128, bands1x3 = 192, bands5x1 = 32, bands1x5 = 96, bandsPooling = 64),
           new PoolingLayer().setWindowXY(3, 3).setStrideXY(2, 2).setPaddingXY(1, 1).setName("pool_4")
         ), reconstructionLayer = new PipelineNetwork(
-          new ConvolutionLayer(3, 3, 192, 480*4).setWeightsLog(-4),
+          new ConvolutionLayer(3, 3, 480, 192*4).setWeightsLog(-4),
           new ImgReshapeLayer(2, 2, true)
         ), trainingMin = trainingMin, sampleSize = sampleSize)
       sourceNetwork
     }: Unit, modelName)
 
+
+  def step_AddLayer4(trainingMin: Int = 15, sampleSize: Int = 100, numberOfCategories: Int = 5): Unit = {
+    step_AddLayer4(trainingMin = trainingMin, sampleSize = sampleSize, categories = selectCategories(numberOfCategories).keys.toSet)
+  }
+
+  def step_AddLayer4(trainingMin: Int, sampleSize: Int, categories: Set[String]): Any = phase(modelName, (model: NNLayer) ⇒
+    {
+      var selectedCategories = categories.map(s=>s->data(s)).toMap
+      val sourceNetwork = model.asInstanceOf[PipelineNetwork]
+      val priorFeaturesNode = Option(sourceNetwork.getByLabel("features")).getOrElse(sourceNetwork.getHead)
+      sourceNetwork.visit((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+        layer.asInstanceOf[SchemaComponent].setSchema(selectedCategories.keys.toArray:_*)
+      } : Unit)
+      addLayer(
+        trainingArray = preprocessFeatures(sourceNetwork, priorFeaturesNode, takeNonNull(sampleSize, selectedCategories)),
+        sourceNetwork = sourceNetwork,
+        priorFeaturesNode = priorFeaturesNode,
+        additionalLayer = new PipelineNetwork(
+          newInceptionLayer(layerName = "4a", inputBands = 480, bands1x1 = 192, bands3x1 = 96, bands1x3 = 208, bands5x1 = 16, bands1x5 = 48, bandsPooling = 64),
+          newInceptionLayer(layerName = "4b", inputBands = 512, bands1x1 = 160, bands3x1 = 112, bands1x3 = 224, bands5x1 = 24, bands1x5 = 64, bandsPooling = 64),
+          newInceptionLayer(layerName = "4c", inputBands = 512, bands1x1 = 128, bands3x1 = 128, bands1x3 = 256, bands5x1 = 24, bands1x5 = 64, bandsPooling = 64),
+          newInceptionLayer(layerName = "4d", inputBands = 512, bands1x1 = 112, bands3x1 = 144, bands1x3 = 288, bands5x1 = 32, bands1x5 = 64, bandsPooling = 64),
+          newInceptionLayer(layerName = "4e", inputBands = 528, bands1x1 = 256, bands3x1 = 160, bands1x3 = 320, bands5x1 = 32, bands1x5 = 128, bandsPooling = 128),
+          new PoolingLayer().setWindowXY(3, 3).setStrideXY(2, 2).setPaddingXY(1, 1).setName("pool_5")
+        ), reconstructionLayer = new PipelineNetwork(
+          new ConvolutionLayer(3, 3, 832, 480 * 4).setWeightsLog(-4),
+          new ImgReshapeLayer(2, 2, true)
+        ), trainingMin = trainingMin, sampleSize = sampleSize)
+      sourceNetwork
+    }: Unit, modelName)
+
+  def step_AddLayer5(trainingMin: Int = 15, sampleSize: Int = 100, numberOfCategories: Int = 5): Unit = {
+    step_AddLayer5(trainingMin = trainingMin, sampleSize = sampleSize, categories = selectCategories(numberOfCategories).keys.toSet)
+  }
+
+  def step_AddLayer5(trainingMin: Int, sampleSize: Int, categories: Set[String]): Any = phase(modelName, (model: NNLayer) ⇒
+    {
+      var selectedCategories = categories.map(s=>s->data(s)).toMap
+      val sourceNetwork = model.asInstanceOf[PipelineNetwork]
+      val priorFeaturesNode = Option(sourceNetwork.getByLabel("features")).getOrElse(sourceNetwork.getHead)
+      sourceNetwork.visit((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+        layer.asInstanceOf[SchemaComponent].setSchema(selectedCategories.keys.toArray:_*)
+      } : Unit)
+      addLayer(
+        trainingArray = preprocessFeatures(sourceNetwork, priorFeaturesNode, takeNonNull(sampleSize, selectedCategories)),
+        sourceNetwork = sourceNetwork,
+        priorFeaturesNode = priorFeaturesNode,
+        additionalLayer = new PipelineNetwork(
+          newInceptionLayer(layerName = "5a", inputBands = 832, bands1x1 = 256, bands3x1 = 160, bands1x3 = 320, bands5x1 = 32, bands1x5 = 128, bandsPooling = 128),
+          newInceptionLayer(layerName = "5b", inputBands = 832, bands1x1 = 384, bands3x1 = 192, bands1x3 = 384, bands5x1 = 48, bands1x5 = 128, bandsPooling = 128),
+          new PoolingLayer().setWindowXY(7, 7).setStrideXY(1, 1).setPaddingXY(0, 0).setMode(PoolingMode.Avg).setName("pool_6")
+        ), reconstructionLayer = new PipelineNetwork(
+          new ConvolutionLayer(3, 3, 1024, 832 * 7 * 7).setWeightsLog(-4),
+          new ImgReshapeLayer(7, 7, true)
+        ), trainingMin = trainingMin, sampleSize = sampleSize)
+      sourceNetwork
+    }: Unit, modelName)
 
   private def preprocessFeatures(sourceNetwork: PipelineNetwork, priorFeaturesNode: DAGNode, trainingData: List[_ <: Supplier[Array[Tensor]]]): Array[Array[Tensor]] = {
     assert(null != data)
@@ -279,17 +327,11 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
                        trainingMin: Int, sampleSize: Int,
                        featuresLabel:String = "features"): DAGNode =
   {
-
-    val numberOfCategories = trainingArray.head(1).dim()
-    val prevFeatureDimensions = trainingArray.head.head.getDimensions()
-    val newFeatureDimensions = additionalLayer.eval(new NNExecutionContext() {}, trainingArray.head.head).getData.get(0).getDimensions
-
-
     val stdDevTarget: Int = 1
     val rmsSmoothing: Int = 1
     val stdDevSmoothing: Double = 0.2
-    val weight: Double = 0.001
-
+    val numberOfCategories = trainingArray.head(1).dim()
+    val newFeatureDimensions = additionalLayer.eval(new NNExecutionContext() {}, trainingArray.head.head).getData.get(0).getDimensions
     val trainingNetwork = new PipelineNetwork(2)
     val trainingFeaturesNode = trainingNetwork.add(featuresLabel, additionalLayer, trainingNetwork.getInput(0))
     val fitness = trainingNetwork.add(new ProductInputsLayer(),
@@ -325,7 +367,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
 
     out.h1("Training New Layer")
     val trainer1 = out.eval {
-      var inner: Trainable = new StochasticArrayTrainable(trainingArray, trainingNetwork, sampleSize, 20)
+      var inner: Trainable = new StochasticArrayTrainable(trainingArray, trainingNetwork, sampleSize, 500)
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
@@ -361,7 +403,6 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
   }
 
   def step_Train(trainingMin: Int, categories: Set[String], sampleSize: Int, iterationsPerSample: Int): Unit = {
-    val numberOfCategories = categories.size
     var selectedCategories = categories.map(s=>s->data(s)).toMap
     monitor.clear()
     val categoryArray = selectedCategories.keys.toArray
@@ -401,82 +442,18 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
       }
       trainer2.run()
     }: Unit, modelName)
-    (for (i <- 1 to 5) yield Random.shuffle(selectedCategories.keys).take(2).toList).distinct.foreach {
+    val thisModel = model
+    (for (_ <- 1 to 5) yield Random.shuffle(selectedCategories.keys).take(2).toList).distinct.foreach {
       case Seq(from: String, to: String) =>
-        monitor.clear()
-        gan_1(out, model)(imageCount = 3, sourceCategory = from, targetCategory = to)
-        gan_2(out, model)(imageCount = 3, sourceCategory = from, targetCategory = to)
+        gan(out, thisModel)(imageCount = 3, sourceCategory = from, targetCategory = to)
     }
-    monitor.clear()
   }
 
   def step_GAN(imageCount: Int = 10, sourceCategory: String = "fire-hydrant", targetCategory: String = "bear") = phase(modelName, (model: NNLayer) ⇒ {
-    gan_2(out, model)(imageCount = imageCount, sourceCategory = sourceCategory, targetCategory = targetCategory)
+    gan(out, model)(imageCount = imageCount, sourceCategory = sourceCategory, targetCategory = targetCategory)
   }: Unit, null)
 
-  def gan_1(out: HtmlNotebookOutput with ScalaNotebookOutput, model: NNLayer)
-           (imageCount: Int = 1, sourceCategory: String = "fire-hydrant", targetCategory: String = "bear") = {
-    assert(null != model)
-    val categoryArray = Array(sourceCategory, targetCategory)
-    val categoryIndices = categoryArray.zipWithIndex.toMap
-    val sourceClassId = categoryIndices(sourceCategory)
-    val targetClassId = categoryIndices(targetCategory)
-    out.h1(s"GAN Images Generation: $sourceCategory to $targetCategory")
-    val sourceClass = toOutNDArray(categoryArray.length, sourceClassId)
-    val targetClass = toOutNDArray(categoryArray.length, targetClassId)
-    val adversarialOutput = new ArrayBuffer[Array[Tensor]]()
-    model.asInstanceOf[DAGNetwork].visit((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
-      layer.asInstanceOf[SchemaComponent].setSchema(categoryArray:_*)
-    } : Unit)
-    val rows = Random.shuffle(data(sourceCategory))
-      .take(imageCount)
-      .grouped(1).map(group => {
-      val adversarialData: Array[Array[Tensor]] = group.map(_.get().take(1) ++ Array(targetClass)).toArray
-      val biasLayer = new BiasLayer(data.values.flatten.head.get().head.getDimensions(): _*)
-      val trainingNetwork = new PipelineNetwork(2)
-      trainingNetwork.add(biasLayer)
-      val pipelineNetwork = KryoUtil.kryo().copy(model).freeze().asInstanceOf[PipelineNetwork]
-      pipelineNetwork.setHead(pipelineNetwork.getByLabel("classify")).removeLastInput()
-      trainingNetwork.add(pipelineNetwork)
-
-      trainingNetwork.add(new EntropyLossLayer(), trainingNetwork.getHead, trainingNetwork.getInput(1))
-      CuDNN.devicePool.`with`(Java8Util.cvt((device: CuDNN) => {
-        System.out.print(s"Starting to process ${adversarialData.length} images")
-        val trainer1 = out.eval {
-          var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
-          val trainer = new RoundRobinTrainer(inner)
-          trainer.setMonitor(monitor)
-          trainer.setTimeout(1, TimeUnit.MINUTES)
-          trainer.setOrientations(List(biasLayer).map(layer1 => new TrustRegionStrategy(new GradientDescent) {
-            override def getRegionPolicy(layer2: NNLayer): TrustRegion = layer2 match {
-              case l if l.id.equals(layer1.id) => null
-              case _ => new StaticConstraint
-            }
-          }):_*)
-          //trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ new ArmijoWolfeSearch().setMaxAlpha(1e8): LineSearchStrategy))
-          trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ new QuadraticSearch))
-          trainer.setTerminateThreshold(0.01)
-          trainer
-        }
-        trainer1.run()
-        System.out.print(s"Finished processing ${adversarialData.length} images")
-      }))
-      val evalNetwork = new PipelineNetwork()
-      evalNetwork.add(biasLayer)
-      val adversarialImage = evalNetwork.eval(new NNExecutionContext {}, adversarialData.head.head).getData.get(0)
-      adversarialOutput += Array(adversarialImage, sourceClass)
-      Map[String, AnyRef](
-        "Original Image" → out.image(adversarialData.head.head.toRgbImage, ""),
-        "Adversarial" → out.image(adversarialImage.toRgbImage, "")
-      ).asJava
-    }).toArray
-    out.eval {
-      TableOutput.create(rows: _*)
-    }
-
-  }
-
-  def gan_2(out: HtmlNotebookOutput with ScalaNotebookOutput, model: NNLayer)
+  def gan(out: HtmlNotebookOutput with ScalaNotebookOutput, model: NNLayer)
            (imageCount: Int = 1, sourceCategory: String = "fire-hydrant", targetCategory: String = "bear") = {
     assert(null != model)
     val categoryArray = Array(sourceCategory, targetCategory)
@@ -486,81 +463,144 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     out.h1(s"GAN Images Generation: $sourceCategory to $targetCategory (with 3x3 convolution)")
     val sourceClass = toOutNDArray(categoryArray.length, sourceClassId)
     val targetClass = toOutNDArray(categoryArray.length, targetClassId)
-    val adversarialOutput = new ArrayBuffer[Array[Tensor]]()
     model.asInstanceOf[DAGNetwork].visit((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
       layer.asInstanceOf[SchemaComponent].setSchema(categoryArray:_*)
     } : Unit)
-    val rows = Random.shuffle(data(sourceCategory))
+    val imagesInput = Random.shuffle(data(sourceCategory))
       .take(imageCount)
-      .grouped(1).map(group => {
-      val adversarialData: Array[Array[Tensor]] = group.map(_.get().take(1) ++ Array(targetClass)).toArray
-      val biasLayer = new BiasLayer(data.values.flatten.head.get().head.getDimensions(): _*)
-      val convLayer = new ConvolutionLayer(3,3,3,3)
-      for(i <- 0 until 3) convLayer.filter.set(Array(1,1,4*i),1.0)
-      val trainingNetwork = new PipelineNetwork(2)
-      trainingNetwork.add(biasLayer)
-      trainingNetwork.add(convLayer)
-      val pipelineNetwork = KryoUtil.kryo().copy(model).freeze().asInstanceOf[PipelineNetwork]
-      pipelineNetwork.setHead(pipelineNetwork.getByLabel("classify")).removeLastInput()
-      trainingNetwork.add(pipelineNetwork)
+    out.eval {
+      TableOutput.create(imagesInput.grouped(1).map(group => {
+        val adversarialData: Array[Array[Tensor]] = group.map(_.get().take(1) ++ Array(targetClass)).toArray
+        Map[String, AnyRef](
+          "Original Image" → out.image(adversarialData.head.head.toRgbImage, ""),
+          "Adversarial A" → out.image(ganA(model, adversarialData).toRgbImage, ""),
+          "Adversarial B" → out.image(ganB(model, adversarialData).toRgbImage, ""),
+          "Adversarial C" → out.image(ganC(model, adversarialData).toRgbImage, ""),
+          "Adversarial D" → out.image(ganD(model, adversarialData).toRgbImage, "")
+        ).asJava
+      }).toArray: _*)
+    }
+    summarizeHistory(out)
+    monitor.clear()
+    this.model = null
+  }
 
-      trainingNetwork.add(new SumInputsLayer(),
-        trainingNetwork.add(new EntropyLossLayer(), trainingNetwork.getHead, trainingNetwork.getInput(1)),
-        trainingNetwork.add(new SumReducerLayer(),
-          trainingNetwork.add(new LinearActivationLayer().setScale(1e-1).freeze(),
-            trainingNetwork.add(new NthPowerActivationLayer().setPower(2),
-              trainingNetwork.add(new LinearActivationLayer().setBias(-1).freeze(),
-                trainingNetwork.add(new SumReducerLayer(),
-                  trainingNetwork.add(new WeightExtractor(0,convLayer))
-                )
+  private def ganC(model: NNLayer, adversarialData: Array[Array[Tensor]]): Tensor = {
+    val adaptationLayer = new BiasLayer(adversarialData.head.head.getDimensions:_*)
+    val trainingNetwork = new PipelineNetwork(2)
+    trainingNetwork.add(adaptationLayer)
+    val pipelineNetwork = KryoUtil.kryo().copy(model).freeze().asInstanceOf[PipelineNetwork]
+    pipelineNetwork.setHead(pipelineNetwork.getByLabel("classify")).removeLastInput()
+    trainingNetwork.add(pipelineNetwork)
+    trainingNetwork.add(new EntropyLossLayer(), trainingNetwork.getHead, trainingNetwork.getInput(1))
+    this.model = trainingNetwork
+    var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
+    val trainer = new IterativeTrainer(inner)
+    trainer.setMonitor(monitor)
+    trainer.setTimeout(1, TimeUnit.MINUTES)
+    trainer.setOrientation(new GradientDescent)
+    trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ new ArmijoWolfeSearch().setMaxAlpha(1e8): LineSearchStrategy))
+    trainer.setTerminateThreshold(0.01)
+    trainer.run()
+    val evalNetwork = new PipelineNetwork()
+    evalNetwork.add(adaptationLayer)
+    val adversarialImage = evalNetwork.eval(new NNExecutionContext {}, adversarialData.head.head).getData.get(0)
+    adversarialImage
+  }
+
+  private def ganA(model: NNLayer, adversarialData: Array[Array[Tensor]]): Tensor = {
+    val adaptationLayer = new BiasLayer(adversarialData.head.head.getDimensions:_*)
+    val trainingNetwork = new PipelineNetwork(2)
+    trainingNetwork.add(adaptationLayer)
+    val pipelineNetwork = KryoUtil.kryo().copy(model).freeze().asInstanceOf[PipelineNetwork]
+    pipelineNetwork.setHead(pipelineNetwork.getByLabel("classify")).removeLastInput()
+    trainingNetwork.add(pipelineNetwork)
+    trainingNetwork.add(new EntropyLossLayer(), trainingNetwork.getHead, trainingNetwork.getInput(1))
+    this.model = trainingNetwork
+    var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
+    val trainer = new IterativeTrainer(inner)
+    trainer.setMonitor(monitor)
+    trainer.setTimeout(1, TimeUnit.MINUTES)
+    trainer.setOrientation(new GradientDescent)
+    trainer.setLineSearchFactory(Java8Util.cvt((_: String) ⇒ new QuadraticSearch))
+    trainer.setTerminateThreshold(0.01)
+    trainer.run()
+    val evalNetwork = new PipelineNetwork()
+    evalNetwork.add(adaptationLayer)
+    val adversarialImage = evalNetwork.eval(new NNExecutionContext {}, adversarialData.head.head).getData.get(0)
+    adversarialImage
+  }
+
+  private def ganB(model: NNLayer, adversarialData: Array[Array[Tensor]]): Tensor = {
+    val adaptationLayer = new ConvolutionLayer(3, 3, 3, 3)
+    for (i <- 0 until 3) adaptationLayer.filter.set(Array(1, 1, 4 * i), 1.0)
+    val trainingNetwork = new PipelineNetwork(2)
+    trainingNetwork.add(adaptationLayer)
+    val pipelineNetwork = KryoUtil.kryo().copy(model).freeze().asInstanceOf[PipelineNetwork]
+    pipelineNetwork.setHead(pipelineNetwork.getByLabel("classify")).removeLastInput()
+    trainingNetwork.add(pipelineNetwork)
+
+    trainingNetwork.add(new EntropyLossLayer(), trainingNetwork.getHead, trainingNetwork.getInput(1))
+    this.model = trainingNetwork
+    var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
+    val trainer = new IterativeTrainer(inner)
+    trainer.setMonitor(monitor)
+    trainer.setTimeout(1, TimeUnit.MINUTES)
+    trainer.setOrientation(new GradientDescent)
+    //trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ new ArmijoWolfeSearch().setMaxAlpha(1e8): LineSearchStrategy))
+    trainer.setLineSearchFactory(Java8Util.cvt((_: String) ⇒ new QuadraticSearch))
+    trainer.setTerminateThreshold(0.01)
+    trainer.run()
+    val evalNetwork = new PipelineNetwork()
+    evalNetwork.add(adaptationLayer)
+    val adversarialImage = evalNetwork.eval(new NNExecutionContext {}, adversarialData.head.head).getData.get(0)
+    adversarialImage
+  }
+
+  private def ganD(model: NNLayer, adversarialData: Array[Array[Tensor]]): Tensor = {
+    val adaptationLayer = new ConvolutionLayer(3, 3, 3, 3)
+    for (i <- 0 until 3) adaptationLayer.filter.set(Array(1, 1, 4 * i), 1.0)
+    val trainingNetwork = new PipelineNetwork(2)
+    trainingNetwork.add(adaptationLayer)
+    val pipelineNetwork = KryoUtil.kryo().copy(model).freeze().asInstanceOf[PipelineNetwork]
+    pipelineNetwork.setHead(pipelineNetwork.getByLabel("classify")).removeLastInput()
+    trainingNetwork.add(pipelineNetwork)
+    trainingNetwork.add(new SumInputsLayer(),
+      trainingNetwork.add(new EntropyLossLayer(), trainingNetwork.getHead, trainingNetwork.getInput(1)),
+      trainingNetwork.add(new SumReducerLayer(),
+        trainingNetwork.add(new LinearActivationLayer().setScale(1e-1).freeze(),
+          trainingNetwork.add(new NthPowerActivationLayer().setPower(2),
+            trainingNetwork.add(new LinearActivationLayer().setBias(-1).freeze(),
+              trainingNetwork.add(new SumReducerLayer(),
+                trainingNetwork.add(new WeightExtractor(0,adaptationLayer))
               )
             )
-          ),
-          trainingNetwork.add(new LinearActivationLayer().setScale(1e-3).freeze(),
-            trainingNetwork.add(new SumReducerLayer(),
-              trainingNetwork.add(new NthPowerActivationLayer().setPower(2),
-                trainingNetwork.add(new WeightExtractor(0,convLayer))
-              )
+          )
+        ),
+        trainingNetwork.add(new LinearActivationLayer().setScale(1e-3).freeze(),
+          trainingNetwork.add(new SumReducerLayer(),
+            trainingNetwork.add(new NthPowerActivationLayer().setPower(2),
+              trainingNetwork.add(new WeightExtractor(0,adaptationLayer))
             )
           )
         )
       )
-      CuDNN.devicePool.`with`(Java8Util.cvt((device: CuDNN) => {
-        System.out.print(s"Starting to process ${adversarialData.length} images")
-        val trainer1 = out.eval {
-          var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
-          val trainer = new RoundRobinTrainer(inner)
-          trainer.setMonitor(monitor)
-          trainer.setTimeout(1, TimeUnit.MINUTES)
-          trainer.setOrientations(List(biasLayer, convLayer).map(layer1 => new TrustRegionStrategy(new GradientDescent) {
-            override def getRegionPolicy(layer2: NNLayer): TrustRegion = layer2 match {
-              case l if l.id.equals(layer1.id) => null
-              case _ => new StaticConstraint
-            }
-          }):_*)
-          //trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ new ArmijoWolfeSearch().setMaxAlpha(1e8): LineSearchStrategy))
-          trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ new QuadraticSearch))
-          trainer.setTerminateThreshold(0.01)
-          trainer
-        }
-        trainer1.run()
-        System.out.print(s"Finished processing ${adversarialData.length} images")
-      }))
-      val evalNetwork = new PipelineNetwork()
-      evalNetwork.add(biasLayer)
-      evalNetwork.add(convLayer)
-      val adversarialImage = evalNetwork.eval(new NNExecutionContext {}, adversarialData.head.head).getData.get(0)
-      adversarialOutput += Array(adversarialImage, sourceClass)
-      Map[String, AnyRef](
-        "Original Image" → out.image(adversarialData.head.head.toRgbImage, ""),
-        "Adversarial" → out.image(adversarialImage.toRgbImage, "")
-      ).asJava
-    }).toArray
-    out.eval {
-      TableOutput.create(rows: _*)
-    }
-
+    )
+    this.model = trainingNetwork
+    var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
+    val trainer = new IterativeTrainer(inner)
+    trainer.setMonitor(monitor)
+    trainer.setTimeout(1, TimeUnit.MINUTES)
+    trainer.setOrientation(new GradientDescent)
+    trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ new ArmijoWolfeSearch().setMaxAlpha(1e8): LineSearchStrategy))
+    trainer.setTerminateThreshold(0.01)
+    trainer.run()
+    val evalNetwork = new PipelineNetwork()
+    evalNetwork.add(adaptationLayer)
+    val adversarialImage = evalNetwork.eval(new NNExecutionContext {}, adversarialData.head.head).getData.get(0)
+    adversarialImage
   }
+
 
   def declareTestHandler() = {
     out.p("<a href='testCat.html'>Test Categorization</a><br/>")
@@ -572,7 +612,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     out.p("<a href='gan.html'>Generate Adversarial Images</a><br/>")
     server.addSyncHandler("gan.html", "text/html", cvt(o ⇒ {
       Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(out ⇒ {
-        gan_2(out, getModelCheckpoint)()
+        gan(out, getModelCheckpoint)()
       })
     }), false)
   }
@@ -596,7 +636,6 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     out.p("Loading data from " + source)
     val (categoryList, data) = {
       val categoryDirs = Random.shuffle(new File(source).listFiles().toStream)
-        .filter(dir => categoryWhitelist.isEmpty || categoryWhitelist.find(str => dir.getName.contains(str)).isDefined)
       val categoryList = categoryDirs.map((categoryDirectory: File) ⇒ {
         categoryDirectory.getName.split('.').last
       }).sorted.toArray
@@ -737,6 +776,22 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
 
   def selectCategories(numCategories: Int) = {
     Random.shuffle(data.toList).take(numCategories).toMap
+  }
+
+  def resize(source: BufferedImage, size: Int) = {
+    val image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB)
+    val graphics = image.getGraphics.asInstanceOf[Graphics2D]
+    graphics.asInstanceOf[Graphics2D].setRenderingHints(new RenderingHints(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC))
+    graphics.drawImage(source, 0, 0, size, size, null)
+    image
+  }
+
+  def resize(source: BufferedImage, width: Int, height: Int) = {
+    val image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
+    val graphics = image.getGraphics.asInstanceOf[Graphics2D]
+    graphics.asInstanceOf[Graphics2D].setRenderingHints(new RenderingHints(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC))
+    graphics.drawImage(source, 0, 0, width, height, null)
+    image
   }
 
 }
