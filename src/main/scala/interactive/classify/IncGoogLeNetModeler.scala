@@ -32,6 +32,7 @@ import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.simiacryptus.mindseye.layers.NNLayer.NNExecutionContext
 import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, LinearActivationLayer, NthPowerActivationLayer, SoftmaxActivationLayer}
+import com.simiacryptus.mindseye.layers.cudnn.CudaExecutionContext
 import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
 import com.simiacryptus.mindseye.layers.cudnn.f32._
 import com.simiacryptus.mindseye.layers.loss.{EntropyLossLayer, MeanSqLossLayer}
@@ -83,8 +84,8 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     declareTestHandler()
     out.h1("Incremental GoogLeNet Builder with Adversarial Images")
     out.out("<hr/>")
-    val initMinutes = 5
-    val trainMinutes = 30
+    val initMinutes = 1
+    val trainMinutes = 1
     val set1 = Set("chimp", "owl", "chess-board")
     val set2 = Set("owl", "teddy-bear", "zebra", "chess-board", "binoculars", "bonsai-101", "brain-101")
     require(set1.forall(categories.contains))
@@ -315,9 +316,9 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
   private def preprocessFeatures(sourceNetwork: PipelineNetwork, priorFeaturesNode: DAGNode, trainingData: List[_ <: Supplier[Array[Tensor]]]): Array[Array[Tensor]] = {
     assert(null != data)
     val rawTrainingData: Array[Array[Tensor]] = trainingData.map(_.get()).toArray
-    val featureTrainingData: Array[Tensor] = priorFeaturesNode.get(new NNExecutionContext() {}, sourceNetwork.buildExeCtx(
+    val featureTrainingData: Array[Tensor] = CudaExecutionContext.gpuContexts.map((cuda:CudaExecutionContext)=>priorFeaturesNode.get(cuda, sourceNetwork.buildExeCtx(
       NNResult.batchResultArray(rawTrainingData.map(_.take(2))): _*)).getData
-      .stream().collect(Collectors.toList()).asScala.toArray
+      .stream().collect(Collectors.toList()).asScala.toArray)
     (0 until featureTrainingData.length).map(i => Array(featureTrainingData(i), rawTrainingData(i)(1))).toArray
   }
 
@@ -331,7 +332,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     val rmsSmoothing: Int = 1
     val stdDevSmoothing: Double = 0.2
     val numberOfCategories = trainingArray.head(1).dim()
-    val newFeatureDimensions = additionalLayer.eval(new NNExecutionContext() {}, trainingArray.head.head).getData.get(0).getDimensions
+    val newFeatureDimensions = CudaExecutionContext.gpuContexts.map((cuda:CudaExecutionContext)=>additionalLayer.eval(cuda, trainingArray.head.head).getData.get(0).getDimensions)
     val trainingNetwork = new PipelineNetwork(2)
     val trainingFeaturesNode = trainingNetwork.add(featuresLabel, additionalLayer, trainingNetwork.getInput(0))
     val fitness = trainingNetwork.add(new ProductInputsLayer(),
@@ -367,7 +368,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
 
     out.h1("Training New Layer")
     val trainer1 = out.eval {
-      var inner: Trainable = new StochasticArrayTrainable(trainingArray, trainingNetwork, sampleSize, 500)
+      var inner: Trainable = new StochasticArrayTrainable(trainingArray, trainingNetwork, sampleSize)
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
@@ -553,7 +554,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     trainer.run()
     val evalNetwork = new PipelineNetwork()
     evalNetwork.add(adaptationLayer)
-    val adversarialImage = evalNetwork.eval(new NNExecutionContext {}, adversarialData.head.head).getData.get(0)
+    val adversarialImage = CudaExecutionContext.gpuContexts.map((cuda:CudaExecutionContext)=>evalNetwork.eval(cuda, adversarialData.head.head).getData.get(0))
     adversarialImage
   }
 
@@ -597,7 +598,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     trainer.run()
     val evalNetwork = new PipelineNetwork()
     evalNetwork.add(adaptationLayer)
-    val adversarialImage = evalNetwork.eval(new NNExecutionContext {}, adversarialData.head.head).getData.get(0)
+    val adversarialImage = CudaExecutionContext.gpuContexts.map((cuda:CudaExecutionContext)=>evalNetwork.eval(cuda, adversarialData.head.head).getData.get(0))
     adversarialImage
   }
 

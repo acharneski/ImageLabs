@@ -392,23 +392,21 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
       val pipelineNetwork = KryoUtil.kryo().copy(model).freeze().asInstanceOf[PipelineNetwork]
       pipelineNetwork.setHead(pipelineNetwork.getByLabel("classify")).removeLastInput()
       trainingNetwork.add(pipelineNetwork)
-      CuDNN.devicePool.`with`(Java8Util.cvt((device: CuDNN) => {
-        System.out.print(s"Starting to process ${adversarialData.length} images")
-        val trainer1 = out.eval {
-          var inner: Trainable = new ArrayTrainable(adversarialData,
-            new SimpleLossNetwork(trainingNetwork, new EntropyLossLayer()))
-          val trainer = new IterativeTrainer(inner)
-          trainer.setMonitor(monitor)
-          trainer.setTimeout(1, TimeUnit.MINUTES)
-          trainer.setOrientation(new GradientDescent)
-          trainer.setLineSearchFactory(Java8Util.cvt((s) ⇒ new ArmijoWolfeSearch().setMaxAlpha(1e8)))
-          //trainer.setLineSearchFactory(Java8Util.cvt((s) ⇒ new QuadraticSearch))
-          trainer.setTerminateThreshold(0.01)
-          trainer
-        }
-        trainer1.run()
-        System.out.print(s"Finished processing ${adversarialData.length} images")
-      }))
+      System.out.print(s"Starting to process ${adversarialData.length} images")
+      val trainer1 = out.eval {
+        var inner: Trainable = new ArrayTrainable(adversarialData,
+          new SimpleLossNetwork(trainingNetwork, new EntropyLossLayer()))
+        val trainer = new IterativeTrainer(inner)
+        trainer.setMonitor(monitor)
+        trainer.setTimeout(1, TimeUnit.MINUTES)
+        trainer.setOrientation(new GradientDescent)
+        trainer.setLineSearchFactory(Java8Util.cvt((s) ⇒ new ArmijoWolfeSearch().setMaxAlpha(1e8)))
+        //trainer.setLineSearchFactory(Java8Util.cvt((s) ⇒ new QuadraticSearch))
+        trainer.setTerminateThreshold(0.01)
+        trainer
+      }
+      trainer1.run()
+      System.out.print(s"Finished processing ${adversarialData.length} images")
       val evalNetwork = new PipelineNetwork()
       evalNetwork.add(biasLayer)
       val adversarialImage = evalNetwork.eval(new NNExecutionContext {}, adversarialData.head.head).getData.get(0)
