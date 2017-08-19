@@ -84,8 +84,8 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     declareTestHandler()
     out.h1("Incremental GoogLeNet Builder with Adversarial Images")
     out.out("<hr/>")
-    val initMinutes = 1
-    val trainMinutes = 1
+    val initMinutes = 60
+    val trainMinutes = 60
     val set1 = Set("chimp", "owl", "chess-board")
     val set2 = Set("owl", "teddy-bear", "zebra", "chess-board", "binoculars", "bonsai-101", "brain-101")
     require(set1.forall(categories.contains))
@@ -93,28 +93,28 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     out.h2("Layer Set 1")
     step_Generate()
     step_AddLayer1(trainingMin = initMinutes, sampleSize = 100)
-    step_Train(trainingMin = trainMinutes, sampleSize = 700, iterationsPerSample = 10, categories = set1)
-    step_Train(trainingMin = trainMinutes, sampleSize = 700, iterationsPerSample = 10, categories = set2)
+    step_Train(trainingMin = trainMinutes, sampleSize = 500, iterationsPerSample = 10, categories = set1)
+    step_Train(trainingMin = trainMinutes, sampleSize = 500, iterationsPerSample = 10, categories = set2)
     step_GAN(imageCount = 5,sourceCategory = "chimp",targetCategory = "owl")
     out.h2("Layer Set 2")
     step_AddLayer2(trainingMin = initMinutes, sampleSize = 100)
-    step_Train(trainingMin = trainMinutes, sampleSize = 700, iterationsPerSample = 10, categories = set1)
-    step_Train(trainingMin = trainMinutes, sampleSize = 700, iterationsPerSample = 10, categories = set2)
+    step_Train(trainingMin = trainMinutes, sampleSize = 500, iterationsPerSample = 10, categories = set1)
+    step_Train(trainingMin = trainMinutes, sampleSize = 500, iterationsPerSample = 10, categories = set2)
     step_GAN(imageCount = 5,sourceCategory = "chimp",targetCategory = "owl")
     out.h2("Layer Set 3")
     step_AddLayer3(trainingMin = initMinutes, sampleSize = 100)
-    step_Train(trainingMin = trainMinutes, sampleSize = 700, iterationsPerSample = 10, categories = set1)
-    step_Train(trainingMin = trainMinutes, sampleSize = 700, iterationsPerSample = 10, categories = set2)
+    step_Train(trainingMin = trainMinutes, sampleSize = 500, iterationsPerSample = 10, categories = set1)
+    step_Train(trainingMin = trainMinutes, sampleSize = 500, iterationsPerSample = 10, categories = set2)
     step_GAN(imageCount = 5,sourceCategory = "chimp",targetCategory = "owl")
     out.h2("Layer Set 4")
     step_AddLayer4(trainingMin = initMinutes, sampleSize = 100)
-    step_Train(trainingMin = trainMinutes, sampleSize = 700, iterationsPerSample = 10, categories = set1)
-    step_Train(trainingMin = trainMinutes, sampleSize = 700, iterationsPerSample = 10, categories = set2)
+    step_Train(trainingMin = trainMinutes, sampleSize = 500, iterationsPerSample = 10, categories = set1)
+    step_Train(trainingMin = trainMinutes, sampleSize = 500, iterationsPerSample = 10, categories = set2)
     step_GAN(imageCount = 5,sourceCategory = "chimp",targetCategory = "owl")
     out.h2("Layer Set 5")
     step_AddLayer5(trainingMin = initMinutes, sampleSize = 100)
-    step_Train(trainingMin = trainMinutes, sampleSize = 700, iterationsPerSample = 10, categories = set1)
-    step_Train(trainingMin = trainMinutes, sampleSize = 700, iterationsPerSample = 10, categories = set2)
+    step_Train(trainingMin = trainMinutes, sampleSize = 500, iterationsPerSample = 10, categories = set1)
+    step_Train(trainingMin = trainMinutes, sampleSize = 500, iterationsPerSample = 10, categories = set2)
     step_GAN(imageCount = 5,sourceCategory = "chimp",targetCategory = "owl")
     out.out("<hr/>")
     if (awaitExit) waitForExit()
@@ -328,62 +328,73 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
                        trainingMin: Int, sampleSize: Int,
                        featuresLabel:String = "features"): DAGNode =
   {
-    val stdDevTarget: Int = 1
-    val rmsSmoothing: Int = 1
-    val stdDevSmoothing: Double = 0.2
     val numberOfCategories = trainingArray.head(1).dim()
     val newFeatureDimensions = CudaExecutionContext.gpuContexts.map((cuda:CudaExecutionContext)=>additionalLayer.eval(cuda, trainingArray.head.head).getData.get(0).getDimensions)
     val trainingNetwork = new PipelineNetwork(2)
-    val trainingFeaturesNode = trainingNetwork.add(featuresLabel, additionalLayer, trainingNetwork.getInput(0))
-    val fitness = trainingNetwork.add(new ProductInputsLayer(),
+    val featuresNode = trainingNetwork.add(featuresLabel, additionalLayer, trainingNetwork.getInput(0))
+    val dropoutNode = trainingNetwork.add(new DropoutNoiseLayer(), featuresNode)
+    val fitness = trainingNetwork.add(
+      new SumInputsLayer(),
       // Features should be relevant - predict the class given a final linear/softmax transform
-      trainingNetwork.add(new EntropyLossLayer(),
-        trainingNetwork.add(new SoftmaxActivationLayer(),
-          trainingNetwork.add(new BandPoolingLayer().setMode(BandPoolingLayer.PoolingMode.Avg),
-            trainingNetwork.add(new ConvolutionLayer(1, 1, newFeatureDimensions(2), numberOfCategories, true).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, -4)),
-              trainingFeaturesNode))
+      Array(
+        trainingNetwork.add(new LinearActivationLayer().setScale(0.1).setBias(0.1).freeze(),
+          trainingNetwork.add(new EntropyLossLayer(),
+            trainingNetwork.add(new SoftmaxActivationLayer(),
+              trainingNetwork.add(new BandPoolingLayer().setMode(BandPoolingLayer.PoolingMode.Avg),
+                trainingNetwork.add(new ConvolutionLayer(1, 1, newFeatureDimensions(2), numberOfCategories, true).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, -4)),
+                  dropoutNode))
+            ),
+            trainingNetwork.getInput(1)
+          )
         ),
-        trainingNetwork.getInput(1)
-      ),
-      // Features should be able to reconstruct input - Preserve information
-      trainingNetwork.add(new LinearActivationLayer().setScale(1.0 / 255).setBias(rmsSmoothing).freeze(),
-        trainingNetwork.add(new NthPowerActivationLayer().setPower(0.5).freeze(),
-          trainingNetwork.add(new MeanSqLossLayer(),
-            trainingNetwork.add(reconstructionLayer, trainingFeaturesNode),
-            trainingNetwork.add(cropLayer, trainingNetwork.getInput(0))
+        // Features should be able to reconstruct input - Preserve information
+        trainingNetwork.add(new LinearActivationLayer().setScale(0.1).setBias(1).freeze(),
+          trainingNetwork.add(new NthPowerActivationLayer().setPower(0.5).freeze(),
+            trainingNetwork.add(new MeanSqLossLayer(),
+              trainingNetwork.add(reconstructionLayer, dropoutNode),
+              trainingNetwork.add(cropLayer, trainingNetwork.getInput(0))
+            )
+          )
+        ),
+        // Features signal should target a uniform magnitude to balance the network
+        trainingNetwork.add(new LinearActivationLayer().setScale(1.0).setBias(0.01).freeze(),
+          trainingNetwork.add(new AbsActivationLayer(),
+            trainingNetwork.add(new LinearActivationLayer().setBias(-1).freeze(),
+              trainingNetwork.add(new AvgReducerLayer(),
+                trainingNetwork.add(new StdDevMetaLayer(), featuresNode))
+            )
           )
         )
-      ),
-      // Features signal should target a uniform magnitude to balance the network
-      trainingNetwork.add(new LinearActivationLayer().setBias(stdDevSmoothing).freeze(),
-        trainingNetwork.add(new AbsActivationLayer(),
-          trainingNetwork.add(new LinearActivationLayer().setBias(-stdDevTarget).freeze(),
-            trainingNetwork.add(new AvgReducerLayer(),
-              trainingNetwork.add(new StdDevMetaLayer(), trainingFeaturesNode))
-          )
-        )
-      )
+      ).map(node=>trainingNetwork.add(new NthPowerActivationLayer().setPower(2).freeze(),node)):_*
     )
     require(null != PipelineNetwork.fromJson(trainingNetwork.getJson))
 
     out.h1("Training New Layer")
-    val trainer1 = out.eval {
+    monitor.clear()
+    model = trainingNetwork
+    out.eval {
       var inner: Trainable = new StochasticArrayTrainable(trainingArray, trainingNetwork, sampleSize)
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
-      trainer.setIterationsPerSample(50)
-      trainer.setOrientation(new LBFGS)
+      trainer.setIterationsPerSample(20)
+      trainer.setOrientation(new CLBFGS() {
+        override def reset(): Unit = {
+          model.asInstanceOf[DAGNetwork].visit(Java8Util.cvt(layer => layer match {
+            case layer: DropoutNoiseLayer => layer.shuffle()
+            case _ =>
+          }))
+          super.reset()
+        }
+      }.setMinHistory(4).setMaxHistory(20))
       trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ (s match {
-        case s if s.contains("LBFGS") ⇒ new StaticLearningRate().setRate(1.0)
+        case s if s.contains("LBFGS") ⇒ new ArmijoWolfeSearch().setAlpha(1.0)
         case _ ⇒ new ArmijoWolfeSearch().setAlpha(1e-5)
       })))
       trainer.setTerminateThreshold(0.0)
       trainer
-    }
-    monitor.clear()
-    model = trainingNetwork
-    trainer1.run()
+    } run
+
     model = sourceNetwork
 
     sourceNetwork.add(new EntropyLossLayer(),
@@ -391,8 +402,9 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
         sourceNetwork.add(new SchemaBiasLayer(),
           sourceNetwork.add(new BandPoolingLayer().setMode(BandPoolingLayer.PoolingMode.Avg),
             sourceNetwork.add(new SchemaOutputLayer(newFeatureDimensions(2), -4).setSchema((1 to numberOfCategories).map(_.toString):_*),
-              sourceNetwork.add(featuresLabel, additionalLayer,
-                Option(sourceNetwork.getByLabel(featuresLabel)).getOrElse(sourceNetwork.getInput(0))))))
+              sourceNetwork.add(new DropoutNoiseLayer(),
+                sourceNetwork.add(featuresLabel, additionalLayer,
+                  Option(sourceNetwork.getByLabel(featuresLabel)).getOrElse(sourceNetwork.getInput(0)))))))
       ),
       sourceNetwork.getInput(1)
     )
@@ -418,14 +430,14 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
       model.asInstanceOf[DAGNetwork].visit((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
         layer.asInstanceOf[SchemaComponent].setSchema(categoryArray:_*)
       } : Unit)
-      val trainer2 = out.eval {
+      out.eval {
         assert(null != data)
         var inner: Trainable = new StochasticArrayTrainable(selectedCategories.values.flatten.toList.asJava, model, sampleSize)
         val trainer = new IterativeTrainer(inner)
         trainer.setMonitor(monitor)
         trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
         trainer.setIterationsPerSample(iterationsPerSample)
-        trainer.setOrientation(new LBFGS() {
+        trainer.setOrientation(new CLBFGS() {
           override def reset(): Unit = {
             model.asInstanceOf[DAGNetwork].visit(Java8Util.cvt(layer => layer match {
               case layer: DropoutNoiseLayer => layer.shuffle()
@@ -440,8 +452,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
         })))
         trainer.setTerminateThreshold(0.0)
         trainer
-      }
-      trainer2.run()
+      } run
     }: Unit, modelName)
     val thisModel = model
     (for (_ <- 1 to 5) yield Random.shuffle(selectedCategories.keys).take(2).toList).distinct.foreach {
