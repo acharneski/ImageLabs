@@ -23,6 +23,7 @@ import java.awt.geom.AffineTransform
 import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
 import java.io._
+import java.util
 import java.util.concurrent.TimeUnit
 import java.util.function.Supplier
 import java.util.stream.Collectors
@@ -316,9 +317,13 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
   private def preprocessFeatures(sourceNetwork: PipelineNetwork, priorFeaturesNode: DAGNode, trainingData: List[_ <: Supplier[Array[Tensor]]]): Array[Array[Tensor]] = {
     assert(null != data)
     val rawTrainingData: Array[Array[Tensor]] = trainingData.map(_.get()).toArray
-    val featureTrainingData: Array[Tensor] = CudaExecutionContext.gpuContexts.map((cuda:CudaExecutionContext)=>priorFeaturesNode.get(cuda, sourceNetwork.buildExeCtx(
-      NNResult.batchResultArray(rawTrainingData.map(_.take(2))): _*)).getData
-      .stream().collect(Collectors.toList()).asScala.toArray)
+    val featureTrainingData: Array[Tensor] = GpuController.INSTANCE.distribute[Array[Tensor]](
+      rawTrainingData.map(_.take(2)).toList.asJava,
+      (data : util.List[Array[Tensor]], gpu : CudaExecutionContext)=>{
+        priorFeaturesNode.get(gpu, sourceNetwork.buildExeCtx(
+          NNResult.batchResultArray(data.asScala.toArray): _*)).getData
+          .stream().collect(Collectors.toList()).asScala.toArray
+      }, (a : Array[Tensor],b : Array[Tensor])=>a++b)
     (0 until featureTrainingData.length).map(i => Array(featureTrainingData(i), rawTrainingData(i)(1))).toArray
   }
 
