@@ -393,8 +393,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
       trainer.setMonitor(monitor)
       trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
       trainer.setIterationsPerSample(20)
-      trainer.setOrientation(new TrustRegionStrategy(new QQN().setMinHistory(4).setMaxHistory(20)) {
-      //trainer.setOrientation(new QQN() {
+      trainer.setOrientation(new QQN() {
         override def reset(): Unit = {
           model.asInstanceOf[DAGNetwork].visit(Java8Util.cvt(layer => layer match {
             case layer: DropoutNoiseLayer => layer.shuffle()
@@ -406,8 +405,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
         def getRegionPolicy(layer: NNLayer) = layer match {
           case _ => new SingleOrthant
         }
-      //}.setMinHistory(4).setMaxHistory(20))
-      })
+      }.setMinHistory(4).setMaxHistory(20))
       trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ (s match {
         case s if s.contains("QQN") ⇒ new ArmijoWolfeSearch().setAlpha(1.0)
         case _ ⇒ new ArmijoWolfeSearch().setAlpha(1e-2)
