@@ -87,9 +87,9 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     declareTestHandler()
     out.h1("Incremental GoogLeNet Builder with Adversarial Images")
     out.out("<hr/>")
-    val initMinutes = 15
-    val trainMinutes = 15
-    val imagesPerIteration = 100
+    val initMinutes = 60
+    val trainMinutes = 120
+    val imagesPerIteration = 500
     val set1 = selectCategories(5).map(_._1).toSet //Set("chimp", "owl", "chess-board")
     val set2 = selectCategories(15).map(_._1).toSet //Set("owl", "teddy-bear", "zebra", "chess-board", "binoculars", "bonsai-101", "brain-101")
     require(set1.forall(categories.contains))
