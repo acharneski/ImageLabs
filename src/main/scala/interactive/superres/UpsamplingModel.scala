@@ -32,7 +32,7 @@ import com.simiacryptus.mindseye.layers.loss.MeanSqLossLayer
 import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgReshapeLayer}
 import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer}
 import com.simiacryptus.mindseye.layers.util.{ConstNNLayer, MonitoringWrapper}
-import com.simiacryptus.mindseye.layers.{DeltaBuffer, NNLayer}
+import com.simiacryptus.mindseye.layers.{Delta, NNLayer}
 import com.simiacryptus.mindseye.network.graph.{DAGNetwork, DAGNode}
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
