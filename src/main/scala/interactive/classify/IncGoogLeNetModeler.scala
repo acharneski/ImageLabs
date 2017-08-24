@@ -348,7 +348,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
 
 
   private def addLayer(trainingArray: Array[Array[Tensor]], sourceNetwork: PipelineNetwork, priorFeaturesNode: DAGNode, additionalLayer: NNLayer,
-                       reconstructionLayer: PipelineNetwork, cropLayer: ImgCropLayer = null,
+                       reconstructionLayer: PipelineNetwork,
                        trainingMin: Int, sampleSize: Int,
                        featuresLabel:String = "features"): DAGNode =
   {
@@ -361,7 +361,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
       new SumInputsLayer(),
       // Features should be relevant - predict the class given a final linear/softmax transform
       Array(
-        trainingNetwork.add(new LinearActivationLayer().setScale(0.1).setBias(0.1).freeze(),
+        trainingNetwork.add(new LinearActivationLayer().setScale(0.1).freeze(),
           trainingNetwork.add(new EntropyLossLayer(),
             trainingNetwork.add(new SoftmaxActivationLayer(),
               trainingNetwork.add(new BandPoolingLayer().setMode(BandPoolingLayer.PoolingMode.Avg),
@@ -372,16 +372,16 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
           )
         ),
         // Features should be able to reconstruct input - Preserve information
-        trainingNetwork.add(new LinearActivationLayer().setScale(0.1).setBias(1).freeze(),
+        trainingNetwork.add(new LinearActivationLayer().setScale(0.1).freeze(),
           trainingNetwork.add(new NthPowerActivationLayer().setPower(0.5).freeze(),
             trainingNetwork.add(new MeanSqLossLayer(),
               trainingNetwork.add(reconstructionLayer, dropoutNode),
-              trainingNetwork.add(cropLayer, trainingNetwork.getInput(0))
+              trainingNetwork.getInput(0)
             )
           )
         ),
         // Features signal should target a uniform magnitude to balance the network
-        trainingNetwork.add(new LinearActivationLayer().setScale(1.0).setBias(0.01).freeze(),
+        trainingNetwork.add(new LinearActivationLayer().setScale(1.0).freeze(),
           trainingNetwork.add(new AbsActivationLayer(),
             trainingNetwork.add(new LinearActivationLayer().setBias(-1).freeze(),
               trainingNetwork.add(new AvgReducerLayer(),
