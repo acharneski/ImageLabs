@@ -86,21 +86,23 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     declareTestHandler()
     out.h1("Incremental GoogLeNet Builder with Adversarial Images")
     out.out("<hr/>")
-    case class Parameters(initMinutes: Int, ganImages: Int, trainMinutes: Int, imagesPerIteration: Int)
+    case class Parameters(initMinutes: Int, ganImages: Int, trainMinutes: Int, imagesPerIterationTrain: Int, imagesPerIterationInit: Int)
     val p = "daytime" match {
       case "smoke" =>
         new Parameters(
           initMinutes = 1,
           ganImages = 1,
           trainMinutes = 1,
-          imagesPerIteration = 100
+          imagesPerIterationTrain = 100,
+          imagesPerIterationInit = 100
         )
       case "daytime" =>
         new Parameters(
           initMinutes = 60,
           ganImages = 5,
           trainMinutes = 60,
-          imagesPerIteration = 500
+          imagesPerIterationTrain = 500,
+          imagesPerIterationInit = 100
         )
     }
     val set1 = selectCategories(5).map(_._1).toSet //Set("chimp", "owl", "chess-board")
@@ -111,29 +113,29 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     val targetClass = "owl"
     out.h2("Layer Set 1")
     step_Generate()
-    step_AddLayer1(trainingMin = p.initMinutes, sampleSize = p.imagesPerIteration)
-    step_Train(trainingMin = p.trainMinutes, categories = set1, sampleSize = p.imagesPerIteration, iterationsPerSample = 10, ganImages = p.ganImages)
-    step_Train(trainingMin = p.trainMinutes, categories = set2, sampleSize = p.imagesPerIteration, iterationsPerSample = 10, ganImages = p.ganImages)
+    step_AddLayer1(trainingMin = p.initMinutes, sampleSize = p.imagesPerIterationInit)
+    step_Train(trainingMin = p.trainMinutes, categories = set1, sampleSize = p.imagesPerIterationTrain, iterationsPerSample = 10, ganImages = p.ganImages)
+    step_Train(trainingMin = p.trainMinutes, categories = set2, sampleSize = p.imagesPerIterationTrain, iterationsPerSample = 10, ganImages = p.ganImages)
     step_GAN(imageCount = p.ganImages,sourceCategory = sourceClass,targetCategory = targetClass)
     out.h2("Layer Set 2")
-    step_AddLayer2(trainingMin = p.initMinutes, sampleSize = p.imagesPerIteration)
-    step_Train(trainingMin = p.trainMinutes, categories = set1, sampleSize = p.imagesPerIteration, iterationsPerSample = 10, ganImages = p.ganImages)
-    step_Train(trainingMin = p.trainMinutes, categories = set2, sampleSize = p.imagesPerIteration, iterationsPerSample = 10, ganImages = p.ganImages)
+    step_AddLayer2(trainingMin = p.initMinutes, sampleSize = p.imagesPerIterationInit)
+    step_Train(trainingMin = p.trainMinutes, categories = set1, sampleSize = p.imagesPerIterationTrain, iterationsPerSample = 10, ganImages = p.ganImages)
+    step_Train(trainingMin = p.trainMinutes, categories = set2, sampleSize = p.imagesPerIterationTrain, iterationsPerSample = 10, ganImages = p.ganImages)
     step_GAN(imageCount = p.ganImages,sourceCategory = sourceClass,targetCategory = targetClass)
     out.h2("Layer Set 3")
-    step_AddLayer3(trainingMin = p.initMinutes, sampleSize = p.imagesPerIteration)
-    step_Train(trainingMin = p.trainMinutes, categories = set1, sampleSize = p.imagesPerIteration, iterationsPerSample = 10, ganImages = p.ganImages)
-    step_Train(trainingMin = p.trainMinutes, categories = set2, sampleSize = p.imagesPerIteration, iterationsPerSample = 10, ganImages = p.ganImages)
+    step_AddLayer3(trainingMin = p.initMinutes, sampleSize = p.imagesPerIterationInit)
+    step_Train(trainingMin = p.trainMinutes, categories = set1, sampleSize = p.imagesPerIterationTrain, iterationsPerSample = 10, ganImages = p.ganImages)
+    step_Train(trainingMin = p.trainMinutes, categories = set2, sampleSize = p.imagesPerIterationTrain, iterationsPerSample = 10, ganImages = p.ganImages)
     step_GAN(imageCount = p.ganImages,sourceCategory = sourceClass,targetCategory = targetClass)
     out.h2("Layer Set 4")
-    step_AddLayer4(trainingMin = p.initMinutes, sampleSize = p.imagesPerIteration)
-    step_Train(trainingMin = p.trainMinutes, categories = set1, sampleSize = p.imagesPerIteration, iterationsPerSample = 10, ganImages = p.ganImages)
-    step_Train(trainingMin = p.trainMinutes, categories = set2, sampleSize = p.imagesPerIteration, iterationsPerSample = 10, ganImages = p.ganImages)
+    step_AddLayer4(trainingMin = p.initMinutes, sampleSize = p.imagesPerIterationInit)
+    step_Train(trainingMin = p.trainMinutes, categories = set1, sampleSize = p.imagesPerIterationTrain, iterationsPerSample = 10, ganImages = p.ganImages)
+    step_Train(trainingMin = p.trainMinutes, categories = set2, sampleSize = p.imagesPerIterationTrain, iterationsPerSample = 10, ganImages = p.ganImages)
     step_GAN(imageCount = p.ganImages,sourceCategory = sourceClass,targetCategory = targetClass)
     out.h2("Layer Set 5")
-    step_AddLayer5(trainingMin = p.initMinutes, sampleSize = p.imagesPerIteration)
-    step_Train(trainingMin = p.trainMinutes, categories = set1, sampleSize = p.imagesPerIteration, iterationsPerSample = 10, ganImages = p.ganImages)
-    step_Train(trainingMin = p.trainMinutes, categories = set2, sampleSize = p.imagesPerIteration, iterationsPerSample = 10, ganImages = p.ganImages)
+    step_AddLayer5(trainingMin = p.initMinutes, sampleSize = p.imagesPerIterationInit)
+    step_Train(trainingMin = p.trainMinutes, categories = set1, sampleSize = p.imagesPerIterationTrain, iterationsPerSample = 10, ganImages = p.ganImages)
+    step_Train(trainingMin = p.trainMinutes, categories = set2, sampleSize = p.imagesPerIterationTrain, iterationsPerSample = 10, ganImages = p.ganImages)
     step_GAN(imageCount = p.ganImages,sourceCategory = sourceClass,targetCategory = targetClass)
     out.out("<hr/>")
     if (awaitExit) waitForExit()
@@ -403,7 +405,8 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
       trainer.setMonitor(monitor)
       trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
       trainer.setIterationsPerSample(20)
-      trainer.setOrientation(new QQN() {
+      //trainer.setOrientation(new QQN() {
+      trainer.setOrientation(new LBFGS() {
         override def reset(): Unit = {
           model.asInstanceOf[DAGNetwork].visit(Java8Util.cvt(layer => layer match {
             case layer: DropoutNoiseLayer => layer.shuffle()
@@ -509,7 +512,8 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
 //            case _ => new SingleOrthant
 //          }
 //        })
-        trainer.setOrientation(new QQN() {
+        //trainer.setOrientation(new QQN() {
+        trainer.setOrientation(new LBFGS() {
           override def reset(): Unit = {
             model.asInstanceOf[DAGNetwork].visit(Java8Util.cvt(layer => layer match {
               case layer: DropoutNoiseLayer => layer.shuffle()
