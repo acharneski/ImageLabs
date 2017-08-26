@@ -57,8 +57,8 @@
     <orderEntry type="library" name="Maven: org.jcuda:jcurand-natives:windows-x86_64:0.8.0" level="project" />
     <orderEntry type="library" name="Maven: org.jcuda:jnvgraph:0.8.0" level="project" />
     <orderEntry type="library" name="Maven: org.jcuda:jnvgraph-natives:windows-x86_64:0.8.0" level="project" />
-    <orderEntry type="library" name="Maven: org.jcuda:jcudnn:0.8.0-SNAPSHOT" level="project" />
-    <orderEntry type="library" name="Maven: org.jcuda:jcudnn-natives:windows-x86_64:0.8.0-SNAPSHOT" level="project" />
+    <orderEntry type="library" name="Maven: org.jcuda:jcudnn:0.8.0" level="project" />
+    <orderEntry type="library" name="Maven: org.jcuda:jcudnn-natives:windows-x86_64:0.8.0" level="project" />
     <orderEntry type="library" scope="TEST" name="Maven: org.georegression:georegression:0.12" level="project" />
     <orderEntry type="library" scope="TEST" name="Maven: org.ddogleg:ddogleg:0.10" level="project" />
     <orderEntry type="library" scope="TEST" name="Maven: org.ejml:core:0.30" level="project" />

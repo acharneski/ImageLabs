@@ -330,7 +330,7 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
     })
     phase(modelName, (model: NNLayer) ⇒ {
       out.h1("Integration Training")
-      model.asInstanceOf[DAGNetwork].visit((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+      model.asInstanceOf[DAGNetwork].visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
         layer.asInstanceOf[SchemaComponent].setSchema(categoryArray:_*)
       } : Unit)
       val trainer2 = out.eval {
@@ -342,7 +342,7 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
         trainer.setIterationsPerSample(iterationsPerSample)
         trainer.setOrientation(new LBFGS() {
           override def reset(): Unit = {
-            model.asInstanceOf[DAGNetwork].visit(Java8Util.cvt(layer => layer match {
+            model.asInstanceOf[DAGNetwork].visitLayers(Java8Util.cvt(layer => layer match {
               case layer: DropoutNoiseLayer => layer.shuffle()
               case _ =>
             }))
@@ -378,7 +378,7 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
     val sourceClass = toOutNDArray(categoryArray.length, sourceClassId)
     val targetClass = toOutNDArray(categoryArray.length, targetClassId)
     val adversarialOutput = new ArrayBuffer[Array[Tensor]]()
-    model.asInstanceOf[DAGNetwork].visit((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+    model.asInstanceOf[DAGNetwork].visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
       layer.asInstanceOf[SchemaComponent].setSchema(categoryArray:_*)
     } : Unit)
     val rows = data(sourceCategory)

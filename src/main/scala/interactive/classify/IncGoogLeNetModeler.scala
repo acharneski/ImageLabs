@@ -194,7 +194,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
       val sourceNetwork = model.asInstanceOf[PipelineNetwork]
       val priorFeaturesNode = Option(sourceNetwork.getByLabel("features")).getOrElse(sourceNetwork.getHead)
       val trainingData = takeNonNull(sampleSize, selectedCategories)
-      model.asInstanceOf[DAGNetwork].visit((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+      model.asInstanceOf[DAGNetwork].visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
         layer.asInstanceOf[SchemaComponent].setSchema(selectedCategories.keys.toArray:_*)
       } : Unit)
       addLayer(
@@ -226,7 +226,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
       var selectedCategories = categories.map(s=>s->data(s)).toMap
       val sourceNetwork = model.asInstanceOf[PipelineNetwork]
       val priorFeaturesNode = sourceNetwork.getByLabel("features")
-      sourceNetwork.visit((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+      sourceNetwork.visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
         layer.asInstanceOf[SchemaComponent].setSchema(selectedCategories.keys.toArray:_*)
       } : Unit)
       addLayer(
@@ -258,7 +258,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
       var selectedCategories = categories.map(s=>s->data(s)).toMap
       val sourceNetwork = model.asInstanceOf[PipelineNetwork]
       val priorFeaturesNode = sourceNetwork.getByLabel("features")
-      sourceNetwork.visit((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+      sourceNetwork.visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
         layer.asInstanceOf[SchemaComponent].setSchema(selectedCategories.keys.toArray:_*)
       } : Unit)
       addLayer(
@@ -286,7 +286,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
       var selectedCategories = categories.map(s=>s->data(s)).toMap
       val sourceNetwork = model.asInstanceOf[PipelineNetwork]
       val priorFeaturesNode = sourceNetwork.getByLabel("features")
-      sourceNetwork.visit((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+      sourceNetwork.visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
         layer.asInstanceOf[SchemaComponent].setSchema(selectedCategories.keys.toArray:_*)
       } : Unit)
       addLayer(
@@ -316,7 +316,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
       var selectedCategories = categories.map(s=>s->data(s)).toMap
       val sourceNetwork = model.asInstanceOf[PipelineNetwork]
       val priorFeaturesNode = sourceNetwork.getByLabel("features")
-      sourceNetwork.visit((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+      sourceNetwork.visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
         layer.asInstanceOf[SchemaComponent].setSchema(selectedCategories.keys.toArray:_*)
       } : Unit)
       addLayer(
@@ -408,7 +408,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
       //trainer.setOrientation(new QQN() {
       trainer.setOrientation(new LBFGS() {
         override def reset(): Unit = {
-          model.asInstanceOf[DAGNetwork].visit(Java8Util.cvt(layer => layer match {
+          model.asInstanceOf[DAGNetwork].visitLayers(Java8Util.cvt(layer => layer match {
             case layer: DropoutNoiseLayer => layer.shuffle()
             case _ =>
           }))
@@ -489,7 +489,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     })
     phase(modelName, (model: NNLayer) ⇒ {
       out.h1("Integration Training")
-      model.asInstanceOf[DAGNetwork].visit((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+      model.asInstanceOf[DAGNetwork].visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
         layer.asInstanceOf[SchemaComponent].setSchema(categoryArray:_*)
       } : Unit)
       out.eval {
@@ -501,7 +501,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
         trainer.setIterationsPerSample(iterationsPerSample)
 //        trainer.setOrientation(new TrustRegionStrategy(new QQN().setMinHistory(4).setMaxHistory(20)) {
 //          override def reset(): Unit = {
-//            model.asInstanceOf[DAGNetwork].visit(Java8Util.cvt(layer => layer match {
+//            model.asInstanceOf[DAGNetwork].visitLayers(Java8Util.cvt(layer => layer match {
 //              case layer: DropoutNoiseLayer => layer.shuffle()
 //              case _ =>
 //            }))
@@ -515,7 +515,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
         //trainer.setOrientation(new QQN() {
         trainer.setOrientation(new LBFGS() {
           override def reset(): Unit = {
-            model.asInstanceOf[DAGNetwork].visit(Java8Util.cvt(layer => layer match {
+            model.asInstanceOf[DAGNetwork].visitLayers(Java8Util.cvt(layer => layer match {
               case layer: DropoutNoiseLayer => layer.shuffle()
               case _ =>
             }))
@@ -544,7 +544,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
   def gan(out: HtmlNotebookOutput with ScalaNotebookOutput, model: NNLayer)
            (imageCount: Int = 1, sourceCategory: String = "fire-hydrant", targetCategory: String = "bear") = {
     assert(null != model)
-    model.asInstanceOf[DAGNetwork].visit(Java8Util.cvt(layer => layer match {
+    model.asInstanceOf[DAGNetwork].visitLayers(Java8Util.cvt(layer => layer match {
       case layer: DropoutNoiseLayer => layer.setValue(0.0).shuffle()
       case _ =>
     }))
@@ -555,7 +555,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     out.h1(s"GAN Images Generation: $sourceCategory to $targetCategory (with 3x3 convolution)")
     val sourceClass = toOutNDArray(categoryArray.length, sourceClassId)
     val targetClass = toOutNDArray(categoryArray.length, targetClassId)
-    model.asInstanceOf[DAGNetwork].visit((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+    model.asInstanceOf[DAGNetwork].visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
       layer.asInstanceOf[SchemaComponent].setSchema(categoryArray:_*)
     } : Unit)
     val imagesInput = Random.shuffle(data(sourceCategory))
