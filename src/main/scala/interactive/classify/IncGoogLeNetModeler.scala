@@ -416,7 +416,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
         }
       }.setMinHistory(4).setMaxHistory(20))
       trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ (s match {
-        case s if s.contains("QQN") ⇒ new ArmijoWolfeSearch().setAlpha(1.0)
+        case s if s.contains("LBFGS") ⇒ new ArmijoWolfeSearch().setAlpha(1.0)
         case _ ⇒ new ArmijoWolfeSearch().setAlpha(1e-2)
       })))
       trainer.setTerminateThreshold(0.0)
@@ -523,7 +523,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
           }
         }.setMinHistory(4).setMaxHistory(20))
         trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ (s match {
-          case s if s.contains("QQN") ⇒ new ArmijoWolfeSearch().setAlpha(1e-5)
+          case s if s.contains("LBFGS") ⇒ new ArmijoWolfeSearch().setAlpha(1e-5)
           case _ ⇒ new ArmijoWolfeSearch().setAlpha(1e-5)
         })))
         trainer.setTerminateThreshold(0.0)
