@@ -35,7 +35,7 @@ import com.simiacryptus.mindseye.layers.util.MonitoringWrapper
 import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
 import com.simiacryptus.mindseye.opt.{IterativeTrainer, Step, TrainingMonitor}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, TeeOutputStream}
-import com.simiacryptus.util.test.{CIFAR10, LabeledObject}
+import com.simiacryptus.util.test.{LabeledObject}
 import com.simiacryptus.util.text.TableOutput
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
 import fi.iki.elonen.NanoHTTPD

@@ -37,7 +37,6 @@ import com.simiacryptus.mindseye.opt.orient.LBFGS
 import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
 import com.simiacryptus.util.Util
 import com.simiacryptus.util.io.IOUtil
-import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.text.TableOutput
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}

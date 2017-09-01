@@ -212,7 +212,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
       out.h1("Model Initialization")
       val trainer = out.eval {
         assert(null != data)
-        var inner: Trainable = new StochasticArrayTrainable(data, model, (20 * scaleFactor).toInt, 20)
+        var inner: Trainable = new StochasticArrayTrainable(data, model, (20 * scaleFactor).toInt)
         val trainer = new IterativeTrainer(inner)
         trainer.setMonitor(monitor)
         trainer.setTimeout(5, TimeUnit.MINUTES)
@@ -242,7 +242,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
     monitor.clear()
     out.h1(s"SGD(sampleSize=$sampleSize,timeoutMin=$timeoutMin)")
     val trainer = out.eval {
-      var inner: Trainable = new StochasticArrayTrainable(data, model, sampleSize, 20)
+      var inner: Trainable = new StochasticArrayTrainable(data, model, sampleSize)
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(timeoutMin, TimeUnit.MINUTES)
@@ -268,7 +268,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
     monitor.clear()
     out.h1(s"LBFGS(sampleSize=$sampleSize,timeoutMin=$timeoutMin)")
     val trainer = out.eval {
-      val inner = new StochasticArrayTrainable(data, model, sampleSize, 20)
+      val inner = new StochasticArrayTrainable(data, model, sampleSize)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(timeoutMin, TimeUnit.MINUTES)

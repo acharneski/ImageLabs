@@ -37,7 +37,6 @@ import com.simiacryptus.mindseye.opt.trainable.{HoldoverSampleTrainable, L12Norm
 import com.simiacryptus.mindseye.opt.IterativeTrainer
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil, MarkdownNotebookOutput}
-import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.text.TableOutput
 import guru.nidi.graphviz.engine.{Format, Graphviz}
 

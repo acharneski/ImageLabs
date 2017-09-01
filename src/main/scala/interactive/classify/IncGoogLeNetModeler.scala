@@ -99,15 +99,15 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
         )
       case "daytime" =>
         new Parameters(
-          initMinutes = 60,
+          initMinutes = 120,
           ganImages = 5,
-          trainMinutes = 60,
-          imagesPerIterationTrain = 500,
-          imagesPerIterationInit = 100
+          trainMinutes = 180,
+          imagesPerIterationTrain = 1000,
+          imagesPerIterationInit = 20
         )
     }
-    val set1 = selectCategories(5).map(_._1).toSet //Set("chimp", "owl", "chess-board")
-    val set2 = selectCategories(15).map(_._1).toSet //Set("owl", "teddy-bear", "zebra", "chess-board", "binoculars", "bonsai-101", "brain-101")
+    val set1 = selectCategories(10).map(_._1).toSet //Set("chimp", "owl", "chess-board")
+    val set2 = selectCategories(20).map(_._1).toSet //Set("owl", "teddy-bear", "zebra", "chess-board", "binoculars", "bonsai-101", "brain-101")
     require(set1.forall(categories.contains))
     require(set2.forall(categories.contains))
     val sourceClass = "chimp"
@@ -338,7 +338,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
   private def preprocessFeatures(sourceNetwork: PipelineNetwork, priorFeaturesNode: DAGNode, trainingData: List[_ <: Supplier[Array[Tensor]]]): Array[Array[Tensor]] = {
     assert(null != data)
     val rawTrainingData: Array[Array[Tensor]] = trainingData.map(_.get()).toArray
-    val featureTrainingData: Array[Tensor] = GpuController.INSTANCE.distribute[Array[Tensor]](
+    val featureTrainingData: Array[Tensor] = GpuController.INSTANCE.distribute[Array[Tensor], Array[Tensor]](
       rawTrainingData.map(_.take(2)).toList.asJava,
       (data : util.List[Array[Tensor]], gpu : CudaExecutionContext)=>{
         priorFeaturesNode.get(gpu, sourceNetwork.buildExeCtx(
@@ -407,7 +407,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
       trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
       trainer.setIterationsPerSample(20)
       //trainer.setOrientation(new QQN() {
-      trainer.setOrientation(new LBFGS() {
+      trainer.setOrientation(new QQN() {
         override def reset(): Unit = {
           model.asInstanceOf[DAGNetwork].visitLayers(Java8Util.cvt(layer => layer match {
             case layer: DropoutNoiseLayer => layer.shuffle()
@@ -417,7 +417,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
         }
       }.setMinHistory(4).setMaxHistory(20))
       trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ (s match {
-        case s if s.contains("LBFGS") ⇒ new ArmijoWolfeSearch().setAlpha(1.0)
+        case s if s.contains("QQN") ⇒ new ArmijoWolfeSearch().setAlpha(1.0)
         case _ ⇒ new ArmijoWolfeSearch().setAlpha(1e-2)
       })))
       trainer.setTerminateThreshold(0.0)
@@ -514,7 +514,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
 //          }
 //        })
         //trainer.setOrientation(new QQN() {
-        trainer.setOrientation(new LBFGS() {
+        trainer.setOrientation(new QQN() {
           override def reset(): Unit = {
             model.asInstanceOf[DAGNetwork].visitLayers(Java8Util.cvt(layer => layer match {
               case layer: DropoutNoiseLayer => layer.shuffle()
@@ -524,7 +524,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
           }
         }.setMinHistory(4).setMaxHistory(20))
         trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ (s match {
-          case s if s.contains("LBFGS") ⇒ new ArmijoWolfeSearch().setAlpha(1e-5)
+          case s if s.contains("QQN") ⇒ new ArmijoWolfeSearch().setAlpha(1e-5)
           case _ ⇒ new ArmijoWolfeSearch().setAlpha(1e-5)
         })))
         trainer.setTerminateThreshold(0.0)

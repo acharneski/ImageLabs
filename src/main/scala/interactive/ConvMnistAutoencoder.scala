@@ -36,7 +36,6 @@ import com.simiacryptus.mindseye.opt.trainable.StochasticArrayTrainable
 import com.simiacryptus.mindseye.opt.{IterativeTrainer, Step, TrainingMonitor}
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil, TeeOutputStream}
-import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.text.TableOutput
 import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession

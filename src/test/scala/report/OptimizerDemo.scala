@@ -35,7 +35,6 @@ import com.simiacryptus.mindseye.opt.line.ArmijoWolfeSearch
 import com.simiacryptus.mindseye.opt.orient.{GradientDescent, LBFGS, OwlQn}
 import com.simiacryptus.mindseye.opt.trainable.{ConstL12Normalizer, StochasticArrayTrainable, Trainable}
 import com.simiacryptus.util._
-import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.text.TableOutput
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}

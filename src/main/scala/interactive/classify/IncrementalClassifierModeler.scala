@@ -196,7 +196,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
 
     out.h1("Training New Layer")
     val trainer1 = out.eval {
-      var inner: Trainable = new StochasticArrayTrainable(trainingArray, trainingNetwork, sampleSize, 20)
+      var inner: Trainable = new StochasticArrayTrainable(trainingArray, trainingNetwork, sampleSize)
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
