@@ -43,8 +43,7 @@ import com.simiacryptus.mindseye.opt.trainable._
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
 import com.simiacryptus.util.data.DoubleStatistics
 import com.simiacryptus.util.io.HtmlNotebookOutput
-import com.simiacryptus.util.ml.{Coordinate, Tensor}
-import com.simiacryptus.util.test.ImageTiles.ImageTensorLoader
+import com.simiacryptus.mindseye.data.ImageTiles.ImageTensorLoader
 import com.simiacryptus.util.text.TableOutput
 import _root_.util.Java8Util.cvt
 import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
@@ -52,6 +51,7 @@ import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
 import scala.collection.JavaConverters._
 import scala.util.Random
 import NNLayerUtil._
+import com.simiacryptus.mindseye.data.{Coordinate, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 
 case class DeepNetworkUpsample(

@@ -26,6 +26,7 @@ import java.lang
 import java.util.concurrent.{Semaphore, TimeUnit}
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.simiacryptus.mindseye.data.{Caltech101, Tensor}
 import com.simiacryptus.mindseye.layers.NNLayer
 import com.simiacryptus.mindseye.network.{InceptionLayer, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.layers.activation.SoftmaxActivationLayer
@@ -38,7 +39,6 @@ import com.simiacryptus.mindseye.opt.{IterativeTrainer, Step, TrainingMonitor}
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, TeeOutputStream}
 import com.simiacryptus.util.lang.SupplierWeakCache
-import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.test.{Caltech101, LabeledObject}
 import com.simiacryptus.util.text.TableOutput
 import fi.iki.elonen.NanoHTTPD

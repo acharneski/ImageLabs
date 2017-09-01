@@ -30,6 +30,7 @@ import javax.imageio.ImageIO
 
 import _root_.util.Java8Util.cvt
 import _root_.util._
+import com.simiacryptus.mindseye.data.Tensor
 import com.simiacryptus.mindseye.layers.NNLayer
 import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.layers.cudnn.f32._
@@ -45,7 +46,6 @@ import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
 import com.simiacryptus.mindseye.opt.trainable._
 import com.simiacryptus.util.io.HtmlNotebookOutput
-import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.text.TableOutput
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
 import util.NNLayerUtil._

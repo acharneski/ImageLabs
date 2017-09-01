@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit
 
 import _root_.util.NetworkViz._
 import _root_.util._
+import com.simiacryptus.mindseye.data.{MNIST, Tensor}
 import com.simiacryptus.mindseye.layers.NNLayer
 import com.simiacryptus.mindseye.layers.activation._
 import com.simiacryptus.mindseye.layers.cross.CrossProductLayer
@@ -42,7 +43,6 @@ import com.simiacryptus.mindseye.opt.orient.TrustRegionStrategy
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil, MarkdownNotebookOutput}
 import com.simiacryptus.util.ml.Tensor
-import com.simiacryptus.util.test.MNIST
 import com.simiacryptus.util.text.TableOutput
 import guru.nidi.graphviz.engine.{Format, Graphviz}
 

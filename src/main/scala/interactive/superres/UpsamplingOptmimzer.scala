@@ -44,8 +44,7 @@ import com.simiacryptus.mindseye.opt.orient._
 import com.simiacryptus.mindseye.opt.trainable._
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
 import com.simiacryptus.util.io.HtmlNotebookOutput
-import com.simiacryptus.util.ml.{Coordinate, Tensor}
-import com.simiacryptus.util.test.ImageTiles.ImageTensorLoader
+import com.simiacryptus.mindseye.data.ImageTiles.ImageTensorLoader
 import com.simiacryptus.util.test.LabeledObject
 import com.simiacryptus.util.text.TableOutput
 import org.apache.commons.io.IOUtils
@@ -53,6 +52,7 @@ import org.apache.commons.io.IOUtils
 import scala.collection.JavaConverters._
 import scala.util.Random
 import NNLayerUtil._
+import com.simiacryptus.mindseye.data.{Coordinate, Tensor}
 import com.simiacryptus.mindseye.layers.synapse.BiasLayer
 import com.simiacryptus.mindseye.opt.region.{StaticConstraint, TrustRegion}
 

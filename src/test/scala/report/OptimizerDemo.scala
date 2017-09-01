@@ -35,12 +35,12 @@ import com.simiacryptus.mindseye.opt.line.ArmijoWolfeSearch
 import com.simiacryptus.mindseye.opt.orient.{GradientDescent, LBFGS, OwlQn}
 import com.simiacryptus.mindseye.opt.trainable.{ConstL12Normalizer, StochasticArrayTrainable, Trainable}
 import com.simiacryptus.util._
-import com.simiacryptus.util.ml.{Coordinate, Tensor}
-import com.simiacryptus.util.test.MNIST
+import com.simiacryptus.util.ml.Tensor
 import com.simiacryptus.util.text.TableOutput
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}
 import _root_.util.Java8Util
+import com.simiacryptus.mindseye.data.{Coordinate, MNIST, Tensor, TensorArray}
 
 import scala.collection.JavaConverters._
 

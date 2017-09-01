@@ -29,6 +29,7 @@ import javax.imageio.ImageIO
 
 import _root_.util.Java8Util.cvt
 import _root_.util._
+import com.simiacryptus.mindseye.data.Tensor
 import com.simiacryptus.mindseye.layers.NNLayer.NNExecutionContext
 import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, LinearActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.layers.cudnn.CuDNN
@@ -46,8 +47,9 @@ import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
 import com.simiacryptus.mindseye.opt.trainable._
+import com.simiacryptus.util.function.{SoftCachedSupplier, WeakCachedSupplier}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
-import com.simiacryptus.util.ml.{SoftCachedSupplier, Tensor, WeakCachedSupplier}
+import com.simiacryptus.util.ml.SoftCachedSupplier
 import com.simiacryptus.util.text.TableOutput
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD}
 import interactive.classify.GoogLeNetModeler.tileSize
