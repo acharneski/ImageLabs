@@ -191,10 +191,10 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
 
   def step_AddLayer1(trainingMin: Int, sampleSize: Int, categories: Set[String]): Any = phase(modelName, (model: NNLayer) ⇒
     {
-      var selectedCategories = categories.map(s=>s->data(s)).toMap
+      var selectedCategories: Map[String, List[Supplier[Array[Tensor]]]] = categories.map(s=>s->data(s)).toMap
       val sourceNetwork = model.asInstanceOf[PipelineNetwork]
       val priorFeaturesNode = Option(sourceNetwork.getByLabel("features")).getOrElse(sourceNetwork.getHead)
-      val trainingData = takeNonNull(sampleSize, selectedCategories)
+      val trainingData: List[Supplier[Array[Tensor]]] = takeNonNull(sampleSize, selectedCategories)
       model.asInstanceOf[DAGNetwork].visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
         layer.asInstanceOf[SchemaComponent].setSchema(selectedCategories.keys.toArray:_*)
       } : Unit)

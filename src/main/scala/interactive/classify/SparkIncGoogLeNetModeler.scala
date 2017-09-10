@@ -19,10 +19,12 @@
 
 package interactive.classify
 
+import org.apache.hadoop.fs.{FileSystem, Path}
 import java.awt.geom.AffineTransform
 import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
 import java.io._
+import java.net.URI
 import java.util.concurrent.TimeUnit
 import java.util.stream.Collectors
 import javax.imageio.ImageIO
@@ -60,6 +62,9 @@ import scala.collection.JavaConverters._
 import scala.util.Random
 
 object SparkIncGoogLeNetModeler extends Report {
+  System.setProperty("hadoop.home.dir", "D:\\SimiaCryptus\\hadoop")
+  val dataFolder = "file:///H:/data"
+
   val sc = new SparkContext(new SparkConf().setAppName(getClass.getName))
   val modelName = System.getProperty("modelName", "googlenet_1")
   val tileSize: Int = 224
@@ -77,19 +82,35 @@ object SparkIncGoogLeNetModeler extends Report {
 
 }
 
+import interactive.classify.SparkIncGoogLeNetModeler._
+
 class TrainingData(source: String) extends Serializable {
 
   def loadData(categoryDirectory: File, featureVector: Tensor): RDD[Array[Tensor]] = {
-    sc.parallelize(categoryDirectory.listFiles())
-      .filter(_ != null)
-      .filter(_.exists())
-      .filter(_.length() > 0)
-      .map(readImage(_))
-      .flatMap(variants(_, artificialVariants))
-      .map((x: BufferedImage) => resize(x, tileSize))
-      .map((x: BufferedImage) => toTenors(x, featureVector))
-      .coalesce(128)
-      .persist(StorageLevel.MEMORY_AND_DISK_SER)
+    val categoryName = categoryDirectory.getName
+    val file = s"$dataFolder/category=$categoryName/"
+    println(s"Processing $categoryName")
+    if (FileSystem.get(new URI(file), sc.hadoopConfiguration).exists(new Path(file))) {
+      val rdd: RDD[Array[Tensor]] = sc.objectFile(file)
+      println(s"Loading $categoryName - ${rdd.count()} records from $file")
+      rdd
+    } else {
+      val rdd = sc.parallelize(categoryDirectory.listFiles())
+        .filter(_ != null)
+        .filter(_.exists())
+        .filter(_.length() > 0)
+        .map(readImage(_))
+        .filter(_ != null)
+        .flatMap(variants(_, artificialVariants))
+        .map(resize(_, tileSize))
+        .map(toTenors(_, featureVector))
+        .repartition(4)
+        .persist(StorageLevel.MEMORY_AND_DISK_SER)
+      println(s"Done Loading $categoryName - ${rdd.count()} records")
+      rdd.saveAsObjectFile(file)
+      println(s"Saved data for $categoryName to $file")
+      rdd
+    }
   }
 
   private def readImage(file: File): BufferedImage = {
@@ -121,7 +142,7 @@ class TrainingData(source: String) extends Serializable {
     }
   }
 
-  private def resize(originalRef:BufferedImage, tileSize:Int): BufferedImage = {
+  def resize(originalRef:BufferedImage, tileSize:Int): BufferedImage = {
     try {
       val original = originalRef
       if (null == original) null
@@ -189,8 +210,6 @@ class TrainingData(source: String) extends Serializable {
     }).toMap
 }
 
-import interactive.classify.SparkIncGoogLeNetModeler._
-
 class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 
   val data = {
@@ -220,7 +239,7 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
     out.h1("Incremental GoogLeNet Builder with Adversarial Images")
     out.out("<hr/>")
     case class Parameters(initMinutes: Int, ganImages: Int, trainMinutes: Int, imagesPerIterationTrain: Int, imagesPerIterationInit: Int)
-    val p = "smoke" match {
+    val p = "daytime" match {
       case "smoke" =>
         new Parameters(
           initMinutes = 1,
@@ -467,7 +486,7 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
       val gpu = Random.shuffle(CudaExecutionContext.gpuContexts.getAll.asScala).head
       val array: Array[Tensor] = priorFeaturesNode.get(gpu, sourceNetwork.buildExeCtx(
         NNResult.batchResultArray(Array(inputs)): _*)).getData.stream().collect(Collectors.toList()).asScala.toArray
-      inputs.take(1) ++ array
+      array.take(1) ++ inputs.tail
     })
   }
 
@@ -524,8 +543,7 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
     model = trainingNetwork
     addMonitoring(model.asInstanceOf[DAGNetwork])
     out.eval {
-      val sampled = rdd.sample(false,sampleSize * 1.0 / rdd.count).cache()
-      var inner: Trainable = new SparkTrainable(sampled, trainingNetwork)
+      var inner: Trainable = new SparkTrainable(rdd, trainingNetwork, sampleSize).setPartitions(1).cached()
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
@@ -604,11 +622,7 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
     val categoryArray = categories.toArray
     val categoryIndices = categoryArray.zipWithIndex.toMap
     val selectedCategories = categories.map(e=>{
-      e -> data.data(e).map(f=>{
-        val tensors: Array[Tensor] = f
-        val t: Array[Tensor] = if(null==tensors) Array(new Tensor(tileSize,tileSize,3)) else tensors.take(1)
-        t ++ Array(data.toOutNDArray(categoryIndices.size, categoryIndices(e)))
-      })
+      e -> data.data(e).map(_.take(1) ++ Array(data.toOutNDArray(categoryIndices.size, categoryIndices(e))))
     }).toMap
     phase(modelName, (model: NNLayer) ⇒ {
       out.h1("Integration Training")
@@ -617,8 +631,7 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
       } : Unit)
       out.eval {
         val rdd = selectedCategories.values.reduce(_.union(_)).cache()
-        val sampled = rdd.sample(false,sampleSize * 1.0 / rdd.count)
-        var inner: Trainable = new SparkTrainable(sampled, model)
+        var inner: Trainable = new SparkTrainable(rdd, model, sampleSize).setPartitions(1).cached()
         val trainer = new IterativeTrainer(inner)
         trainer.setMonitor(monitor)
         trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
