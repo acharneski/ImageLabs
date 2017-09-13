@@ -65,7 +65,7 @@ object SparkIncGoogLeNetModeler extends Report {
   System.setProperty("hadoop.home.dir", "D:\\SimiaCryptus\\hadoop")
   val dataFolder = "file:///H:/data"
 
-  val sc = new SparkContext(new SparkConf().setAppName(getClass.getName))
+  val sc = new SparkContext(new SparkConf().setAppName(getClass.getName).set("spark.serializer", "org.apache.spark.serializer.KryoSerializer"))
   val modelName = System.getProperty("modelName", "googlenet_1")
   val tileSize: Int = 224
   val fuzz = 1e-4
@@ -543,7 +543,7 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
     model = trainingNetwork
     addMonitoring(model.asInstanceOf[DAGNetwork])
     out.eval {
-      var inner: Trainable = new SparkTrainable(rdd, trainingNetwork, sampleSize).setPartitions(1).cached()
+      var inner: Trainable = new LocalSparkTrainable(rdd, trainingNetwork, sampleSize).setPartitions(1).cached()
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
@@ -590,9 +590,9 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
           case _:MonitoringWrapper => // Ignore
           case layer: DAGNetwork =>
             addMonitoring(layer.asInstanceOf[DAGNetwork])
-            node.setLayer(new MonitoringWrapper(layer).addTo(monitoringRoot))
+            node.setLayer(new MonitoringWrapper(layer).setActivityStats(false).addTo(monitoringRoot))
           case layer =>
-            node.setLayer(new MonitoringWrapper(layer).addTo(monitoringRoot))
+            node.setLayer(new MonitoringWrapper(layer).setActivityStats(false).addTo(monitoringRoot))
         }
       case _ =>
     })
@@ -621,9 +621,7 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
     monitor.clear()
     val categoryArray = categories.toArray
     val categoryIndices = categoryArray.zipWithIndex.toMap
-    val selectedCategories = categories.map(e=>{
-      e -> data.data(e).map(_.take(1) ++ Array(data.toOutNDArray(categoryIndices.size, categoryIndices(e))))
-    }).toMap
+    val selectedCategories = trainingData(categories, categoryIndices, data)
     phase(modelName, (model: NNLayer) ⇒ {
       out.h1("Integration Training")
       model.asInstanceOf[DAGNetwork].visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
@@ -631,7 +629,7 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
       } : Unit)
       out.eval {
         val rdd = selectedCategories.values.reduce(_.union(_)).cache()
-        var inner: Trainable = new SparkTrainable(rdd, model, sampleSize).setPartitions(1).cached()
+        var inner: Trainable = new LocalSparkTrainable(rdd, model, sampleSize).setPartitions(1).cached()
         val trainer = new IterativeTrainer(inner)
         trainer.setMonitor(monitor)
         trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
@@ -658,6 +656,12 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
       case Seq(from: String, to: String) =>
         gan(out, thisModel)(imageCount = ganImages, sourceCategory = from, targetCategory = to)
     }
+  }
+
+  private def trainingData(categories: Set[String], categoryIndices: Map[String, Int], data: TrainingData) = {
+    categories.map(e => {
+      e -> data.data(e).map(_.take(1) ++ Array(data.toOutNDArray(categoryIndices.size, categoryIndices(e))))
+    }).toMap
   }
 
   def step_GAN(imageCount: Int = 10, sourceCategory: String = "fire-hydrant", targetCategory: String = "bear") = phase(modelName, (model: NNLayer) ⇒ {
