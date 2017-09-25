@@ -65,7 +65,10 @@ object SparkIncGoogLeNetModeler extends Report {
   System.setProperty("hadoop.home.dir", "D:\\SimiaCryptus\\hadoop")
   val dataFolder = "file:///H:/data"
 
-  val sc = new SparkContext(new SparkConf().setAppName(getClass.getName).set("spark.serializer", "org.apache.spark.serializer.KryoSerializer"))
+  lazy val sparkConf: SparkConf = new SparkConf().setAppName(getClass.getName)
+    //.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+    //.set("spark.kryoserializer.buffer.max", "64")
+  lazy val sc = new SparkContext(sparkConf)
   val modelName = System.getProperty("modelName", "googlenet_1")
   val tileSize: Int = 224
   val fuzz = 1e-4
@@ -90,12 +93,27 @@ class TrainingData(source: String) extends Serializable {
     val categoryName = categoryDirectory.getName
     val file = s"$dataFolder/category=$categoryName/"
     println(s"Processing $categoryName")
-    if (FileSystem.get(new URI(file), sc.hadoopConfiguration).exists(new Path(file))) {
-      val rdd: RDD[Array[Tensor]] = sc.objectFile(file)
-      println(s"Loading $categoryName - ${rdd.count()} records from $file")
-      rdd
+    load(categoryDirectory, featureVector, categoryName, file)
+  }
+
+  def load(categoryDirectory: File, featureVector: Tensor, categoryName: String, file: String) : RDD[Array[Tensor]] = {
+    val fileSystem = FileSystem.get(new URI(file), sc.hadoopConfiguration)
+    if (fileSystem.exists(new Path(file))) {
+      try {
+        val rdd: RDD[Array[Tensor]] = sc.objectFile(file)
+        println(s"Loading $categoryName - ${rdd.count()} records from $file")
+        rdd
+      } catch {
+        case e : Throwable =>
+          val path = new Path(if (file.endsWith("/")) file.dropRight(1) else file)
+
+          if(!fileSystem.delete(path, true)) throw e
+          print(s"Deleted $path")
+          e.printStackTrace()
+          load(categoryDirectory, featureVector, categoryName, file)
+      }
     } else {
-      val rdd = sc.parallelize(categoryDirectory.listFiles())
+      val rdd: RDD[Array[Tensor]] = sc.parallelize(categoryDirectory.listFiles())
         .filter(_ != null)
         .filter(_.exists())
         .filter(_.length() > 0)
@@ -104,8 +122,8 @@ class TrainingData(source: String) extends Serializable {
         .flatMap(variants(_, artificialVariants))
         .map(resize(_, tileSize))
         .map(toTenors(_, featureVector))
-        .repartition(4)
-        .persist(StorageLevel.MEMORY_AND_DISK_SER)
+        .repartition(64)
+        .persist(StorageLevel.NONE)
       println(s"Done Loading $categoryName - ${rdd.count()} records")
       rdd.saveAsObjectFile(file)
       println(s"Saved data for $categoryName to $file")
@@ -250,7 +268,7 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
         )
       case "daytime" =>
         new Parameters(
-          initMinutes = 120,
+          initMinutes = 90,
           ganImages = 5,
           trainMinutes = 180,
           imagesPerIterationTrain = 1000,
@@ -483,7 +501,7 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
 
   private def preprocessFeatures(sourceNetwork: PipelineNetwork, priorFeaturesNode: DAGNode, trainingData: RDD[Array[Tensor]]): RDD[Array[Tensor]] = {
     trainingData.map(inputs=>{
-      val gpu = Random.shuffle(CudaExecutionContext.gpuContexts.getAll.asScala).head
+      val gpu: CudaExecutionContext = Random.shuffle(CudaExecutionContext.gpuContexts.getAll.asScala).head
       val array: Array[Tensor] = priorFeaturesNode.get(gpu, sourceNetwork.buildExeCtx(
         NNResult.batchResultArray(Array(inputs)): _*)).getData.stream().collect(Collectors.toList()).asScala.toArray
       array.take(1) ++ inputs.tail
@@ -538,12 +556,40 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
     )
     require(null != PipelineNetwork.fromJson(trainingNetwork.getJson))
 
-    out.h1("Training New Layer")
+    out.h1(s"Training New Layer with $sampleSize images")
+    val relativeScale = 2
+    val trainingMin1 = trainingMin / relativeScale
+    val sampleSize2 = relativeScale * sampleSize
+
     monitor.clear()
     model = trainingNetwork
     addMonitoring(model.asInstanceOf[DAGNetwork])
     out.eval {
-      var inner: Trainable = new LocalSparkTrainable(rdd, trainingNetwork, sampleSize).setPartitions(1).cached()
+      var inner: Trainable = new LocalSparkTrainable(rdd, trainingNetwork, sampleSize).setPartitions(1).setStorageLevel(StorageLevel.MEMORY_AND_DISK).cached()
+      val trainer = new IterativeTrainer(inner)
+      trainer.setMonitor(monitor)
+      trainer.setTimeout(trainingMin1, TimeUnit.MINUTES)
+      trainer.setIterationsPerSample(20)
+      trainer.setOrientation(new QQN() {
+        override def reset(): Unit = {
+          model.asInstanceOf[DAGNetwork].visitLayers(Java8Util.cvt(layer => layer match {
+            case layer: DropoutNoiseLayer => layer.shuffle()
+            case _ =>
+          }))
+          super.reset()
+        }
+      }.setMinHistory(4).setMaxHistory(20))
+      trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ (s match {
+        case s if s.contains("QQN") ⇒ new ArmijoWolfeSearch().setAlpha(1.0)
+        case _ ⇒ new ArmijoWolfeSearch().setAlpha(1e-2)
+      })))
+      trainer.setTerminateThreshold(0.0)
+      trainer
+    } run
+
+    out.h1(s"Training New Layer with $sampleSize2 images")
+    out.eval {
+      var inner: Trainable = new LocalSparkTrainable(rdd, trainingNetwork, sampleSize2).setPartitions(relativeScale).setStorageLevel(StorageLevel.MEMORY_AND_DISK).cached()
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
@@ -622,14 +668,15 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
     val categoryArray = categories.toArray
     val categoryIndices = categoryArray.zipWithIndex.toMap
     val selectedCategories = trainingData(categories, categoryIndices, data)
+    addMonitoring(model.asInstanceOf[DAGNetwork])
     phase(modelName, (model: NNLayer) ⇒ {
       out.h1("Integration Training")
       model.asInstanceOf[DAGNetwork].visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
         layer.asInstanceOf[SchemaComponent].setSchema(categoryArray:_*)
       } : Unit)
       out.eval {
-        val rdd = selectedCategories.values.reduce(_.union(_)).cache()
-        var inner: Trainable = new LocalSparkTrainable(rdd, model, sampleSize).setPartitions(1).cached()
+        val rdd = selectedCategories.values.reduce(_.union(_)).persist(StorageLevel.NONE)
+        var inner: Trainable = new LocalSparkTrainable(rdd, model, sampleSize).setPartitions(50/sampleSize).setStorageLevel(StorageLevel.MEMORY_AND_DISK).cached()
         val trainer = new IterativeTrainer(inner)
         trainer.setMonitor(monitor)
         trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
@@ -651,6 +698,7 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
         trainer
       } run
     }: Unit, modelName)
+    removeMonitoring(model.asInstanceOf[DAGNetwork])
     val thisModel = model
     (for (_ <- 1 to 2) yield Random.shuffle(selectedCategories.keys).take(2).toList).distinct.foreach {
       case Seq(from: String, to: String) =>
