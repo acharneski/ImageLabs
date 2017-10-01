@@ -676,7 +676,7 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
       } : Unit)
       out.eval {
         val rdd = selectedCategories.values.reduce(_.union(_)).persist(StorageLevel.NONE)
-        var inner: Trainable = new LocalSparkTrainable(rdd, model, sampleSize).setPartitions(50/sampleSize).setStorageLevel(StorageLevel.MEMORY_AND_DISK).cached()
+        var inner: Trainable = new LocalSparkTrainable(rdd, model, sampleSize).setPartitions(Math.max(1,50/sampleSize)).setStorageLevel(StorageLevel.MEMORY_AND_DISK).cached()
         val trainer = new IterativeTrainer(inner)
         trainer.setMonitor(monitor)
         trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
