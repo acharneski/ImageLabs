@@ -7,6 +7,7 @@
       <sourceFolder url="file://$MODULE_DIR$/src/main/scala" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/test/resources" type="java-test-resource" />
       <sourceFolder url="file://$MODULE_DIR$/src/test/scala" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/src/main/resources" type="java-resource" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />
@@ -273,6 +274,21 @@
     <orderEntry type="library" name="Maven: org.apache.parquet:parquet-hadoop:1.8.1" level="project" />
     <orderEntry type="library" name="Maven: org.apache.parquet:parquet-format:2.3.0-incubating" level="project" />
     <orderEntry type="library" name="Maven: org.apache.parquet:parquet-jackson:1.8.1" level="project" />
+    <orderEntry type="library" name="Maven: org.apache.spark:spark-mllib_2.11:2.1.1" level="project" />
+    <orderEntry type="library" name="Maven: org.apache.spark:spark-streaming_2.11:2.1.1" level="project" />
+    <orderEntry type="library" name="Maven: org.apache.spark:spark-graphx_2.11:2.1.1" level="project" />
+    <orderEntry type="library" name="Maven: com.github.fommil.netlib:core:1.1.2" level="project" />
+    <orderEntry type="library" name="Maven: net.sourceforge.f2j:arpack_combined_all:0.1" level="project" />
+    <orderEntry type="library" name="Maven: org.apache.spark:spark-mllib-local_2.11:2.1.1" level="project" />
+    <orderEntry type="library" name="Maven: org.scalanlp:breeze_2.11:0.12" level="project" />
+    <orderEntry type="library" name="Maven: org.scalanlp:breeze-macros_2.11:0.12" level="project" />
+    <orderEntry type="library" name="Maven: net.sf.opencsv:opencsv:2.3" level="project" />
+    <orderEntry type="library" name="Maven: com.github.rwl:jtransforms:2.4.0" level="project" />
+    <orderEntry type="library" name="Maven: org.spire-math:spire_2.11:0.7.4" level="project" />
+    <orderEntry type="library" name="Maven: org.spire-math:spire-macros_2.11:0.7.4" level="project" />
+    <orderEntry type="library" name="Maven: com.chuusai:shapeless_2.11:2.0.0" level="project" />
+    <orderEntry type="library" name="Maven: org.jpmml:pmml-model:1.2.15" level="project" />
+    <orderEntry type="library" name="Maven: org.jpmml:pmml-schema:1.2.15" level="project" />
     <orderEntry type="library" name="Maven: com.aparapi:aparapi:1.3.4" level="project" />
     <orderEntry type="library" name="Maven: com.aparapi:aparapi-jni:1.1.2" level="project" />
   </component>
