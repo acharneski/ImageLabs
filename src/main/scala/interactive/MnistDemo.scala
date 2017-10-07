@@ -31,10 +31,9 @@ import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.MonitoringWrapper
 import com.simiacryptus.mindseye.network.graph._
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.opt.orient.{GradientDescent, LBFGS, TrustRegionStrategy}
-import com.simiacryptus.mindseye.opt.region.{SingleOrthant, TrustRegion}
-import com.simiacryptus.mindseye.opt.trainable.{HoldoverSampleTrainable, L12Normalizer, StochasticArrayTrainable}
 import com.simiacryptus.mindseye.opt.IterativeTrainer
+import com.simiacryptus.mindseye.opt.orient.GradientDescent
+import com.simiacryptus.mindseye.opt.trainable.{L12Normalizer, StochasticArrayTrainable}
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil, MarkdownNotebookOutput}
 import com.simiacryptus.util.text.TableOutput
@@ -73,42 +72,6 @@ object MnistDemo_L1Normalizations extends Report {
         trainer.setTerminateThreshold(0.0)
         trainer
       })
-    }.run)
-    System.exit(0)
-  }
-}
-
-
-object MnistDemo2 extends Report {
-
-  def main(args: Array[String]): Unit = {
-    report((s,log)⇒new MnistDemo(s,log){
-
-      override def buildTrainer(data: Seq[Array[Tensor]]): Stream[IterativeTrainer] = Stream(log.eval {
-        val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
-        val executor = HoldoverSampleTrainable.Pow(data.toArray, trainingNetwork, 1000, 10, 0.0)
-          .setShuffled(true).setHoldoverFraction(0.001)
-        val normalized = new L12Normalizer(executor) {
-          override protected def getL1(layer: NNLayer): Double = layer match {
-            case _ : DenseSynapseLayer ⇒ -0.0001
-            case _ ⇒ 0.0
-          }
-
-          override protected def getL2(layer: NNLayer): Double = 0.0
-        }
-        val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(normalized)
-        trainer.setMonitor(monitor)
-        trainer.setOrientation(new TrustRegionStrategy(new LBFGS) {
-          override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
-            case _ : BiasLayer ⇒ new SingleOrthant
-            case _ ⇒ null
-          }
-        });
-        trainer.setTimeout(trainingTime, TimeUnit.MINUTES)
-        trainer.setTerminateThreshold(0.0)
-        trainer
-      })
-
     }.run)
     System.exit(0)
   }
