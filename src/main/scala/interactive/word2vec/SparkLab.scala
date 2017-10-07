@@ -20,6 +20,7 @@
 package interactive.word2vec
 
 import java.io._
+import java.lang
 import java.net.URI
 import java.util.zip.GZIPInputStream
 
@@ -30,7 +31,7 @@ import com.simiacryptus.util.lang.CodeUtil
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.fs.{Path, RemoteIterator}
 import org.apache.spark.SparkConf
-import org.apache.spark.mllib.clustering.{GaussianMixture, KMeans, PowerIterationClustering}
+import org.apache.spark.mllib.clustering.KMeans
 import org.apache.spark.mllib.feature.Word2VecModel
 import org.apache.spark.mllib.linalg
 import org.apache.spark.mllib.linalg.Vectors
@@ -39,8 +40,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.storage.StorageLevel
 
-import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, WrappedArray}
 import scala.util.Try
 
 object SparkLab extends Report {
@@ -48,17 +48,13 @@ object SparkLab extends Report {
 
   lazy val sparkConf: SparkConf = new SparkConf().setAppName(getClass.getName)
     .setMaster("local")
-  //.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-  //.set("spark.kryoserializer.buffer.max", "64")
   lazy val sqlContext = SparkSession.builder().config(sparkConf).getOrCreate()
   lazy val sc = sqlContext.sparkContext
 
   def main(args: Array[String]): Unit = {
-
     report((server, out) ⇒ args match {
       case Array() ⇒ new SparkLab(server, out).run()
     })
-
   }
 
 }
@@ -68,45 +64,10 @@ import interactive.word2vec.VectorUtils._
 
 class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 
-  def synonymns(rdd: RDD[(String, Array[Float])], a: String) = out.eval {
-    val List(vector) = findVector(rdd, a)
-    System.out.println(s"Related to $a")
-    val result = rdd.map(x => {
-      val (key, vector) = x
-      key -> (vector ^ vector)
-    }).filter(!_._2.toDouble.isNaN)
-      .sortBy(_._2).take(50).map(t => (t._1, t._2)).toList
-    result.foreach(x => System.out.println("%s -> %.3f".format(x._1, x._2)))
-    result
-  }
-
-  def wordCluster(rdd: RDD[(String, Array[Float])],
-                  positiveExamples: Seq[String],
-                  negativeExamples: Seq[String] = Seq.empty,
-                  n: Int = 50,
-                  power: Int = 1): List[(String, Double, Array[Float])] = out.eval {
-    val allItems = (positiveExamples ++ negativeExamples).distinct.toList
-    val allvectors = allItems.zip(findVector(rdd, allItems: _*)).toMap
-    val posVectors = positiveExamples.map(allvectors(_))
-    val negVectors = negativeExamples.map(allvectors(_))
-    System.out.println(s"Related to ${positiveExamples.mkString(", ")} but not ${negativeExamples.mkString(", ")} ")
-    val result = rdd.map(x => {
-      val (key, vector) = x
-      (key,
-        if (positiveExamples.contains(key)) Double.NegativeInfinity else {
-          negVectors.map(v => Math.pow(v ^ vector, power)).sum - posVectors.map(v => Math.pow(v ^ vector, power)).sum *
-            java.lang.Double.compare(0, power)
-        },
-        vector)
-    }).filter(!_._2.isNaN).sortBy(_._2).take(n).toList
-    result.foreach(x => System.out.println("%s -> %.3f".format(x._1, x._2)))
-    result
-  }
-
   def inplane(rdd: RDD[(String, Array[Float])], positiveExamples: Seq[String], n: Int = 50) = out.eval {
     val primaryBasis = findVector(rdd, positiveExamples: _*)
     val orthogonalBasis = new ArrayBuffer[Array[Float]]()
-    orthogonalBasis += primaryBasis.reduce(_+_) / primaryBasis.size
+    orthogonalBasis += primaryBasis.reduce(_ + _) / primaryBasis.size
     primaryBasis.foreach(vector => {
       orthogonalBasis += orthogonalBasis.tail.foldLeft(vector - orthogonalBasis.head)((l, r) => l without r).unitV
     })
@@ -121,25 +82,12 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
     result
   }
 
-  def analogy1(rdd: RDD[(String, Array[Float])], n: Int = 50)(a: String, b: String)(c: String) = out.eval {
-    System.out.println(s"$a is to $b as $c is to...")
-    val List(va, vb, vc) = findVector(rdd, a, b, c)
-    val vd = vb - va + vc
-    val result = rdd.map(x => {
-      val (key, vector) = x
-      key -> (vd ^ vector)
-    }).filter(!_._2.toDouble.isNaN)
-      .sortBy(_._2).take(n).map(t => (t._1, t._2)).toList
-    result.foreach(x => System.out.println("%s -> %.3f".format(x._1, x._2)))
-    result
-  }
-
-  def analogy2(rdd: RDD[(String, Array[Float])], b: String, a: String)(c: String)(n: Int) = out.eval {
+  def analogy(rdd: RDD[(String, Array[Float])], b: String, a: String)(c: String)(n: Int) = out.eval {
     System.out.println(s"$a is to $b as $c is to...")
     val List(va, vb, vc) = findVector(rdd, a, b, c)
     val result = rdd.map(x => {
       val (key, vector) = x
-      key -> ((vb ^ vector) - (va ^ vector) + (vc ^ vector))
+      key -> Math.abs((vb ^ vector) - (va ^ vector) + (vc ^ vector))
     }).filter(!_._2.toDouble.isNaN)
       .sortBy(_._2).take(n).map(t => (t._1, t._2)).toList
     result.foreach(x => System.out.println("%s -> %.3f".format(x._1, x._2)))
@@ -176,7 +124,7 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
   def writeModel(rdd: Seq[(String, Array[Float])], file: String) = {
     val fileSystem = org.apache.hadoop.fs.FileSystem.get(new URI(file), sc.hadoopConfiguration)
 
-    val sortedGroups = clusterKMeans(numClusters = 10,
+    val sortedGroups = clusterKMeans2(numClusters = 10,
       numIterations = 20,
       tuples = rdd.toList).zipWithIndex.flatMap(x => x._1.map(y => (y._1, y._2, x._2)))
 
@@ -203,7 +151,9 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
     CodeUtil.projectRoot = new File("../image-labs")
     out.sourceRoot = "https://github.com/acharneski/imagelabs/tree/blog-2017-10-07/"
 
-    val rdd = loadRDD().mapValues(v => v.unitV).persist(StorageLevel.MEMORY_ONLY)
+    //val rdd = loadWord2VecRDD().mapValues(v => v.unitV).persist(StorageLevel.MEMORY_ONLY)
+    val rdd = loadFastTextRDD().mapValues(v => v.unitV).persist(StorageLevel.MEMORY_ONLY)
+
 
     out.out("Our first example is to generate a tree of words with the seed words \"happy\", \"sad\", \"laughing\", \"crying\", \"depressed\", and \"excited\"")
     writeModel(selectCluster_inplane(rdd = rdd,
@@ -229,25 +179,12 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
     continuum(rdd, "good", "bad")
 
     out.out("We can also search for analogic matches")
-    analogy2(rdd, "boy", "girl")("man")(50)
-    analogy2(rdd, "wait", "waiting")("run")(50)
-    analogy2(rdd, "on", "off")("up")(50)
-    analogy2(rdd, "USA", "USSR")("England")(50)
+    analogy(rdd, "boy", "girl")("man")(50)
+    analogy(rdd, "wait", "waiting")("run")(50)
+    analogy(rdd, "on", "off")("up")(50)
+    analogy(rdd, "USA", "USSR")("England")(50)
 
     if (awaitExit) waitForExit()
-  }
-
-  private def selectCluster_power(rdd: RDD[(String, Array[Float])], positiveExamples: List[String], negativeExamples: List[String] = List.empty) = {
-    val data = wordCluster(rdd = rdd,
-      positiveExamples = positiveExamples,
-      negativeExamples = negativeExamples,
-      n = 1000)
-    Try {
-      printTree_KMeans(positiveExamples, numberOfClusters = 3, data)
-    }
-    //    Try { printTree_Gaussian(positiveExamples, numberOfClusters, data) }
-    //    Try { printTree_PIC(positiveExamples, numberOfClusters, data) }
-    data
   }
 
   private def selectCluster_inplane(rdd: RDD[(String, Array[Float])], positiveExamples: List[String]) = {
@@ -257,134 +194,56 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
     Try {
       printTree_KMeans(positiveExamples, numberOfClusters = 13, data)
     }
-    //    Try { printTree_Gaussian(positiveExamples, numberOfClusters, data) }
-    //    Try { printTree_PIC(positiveExamples, numberOfClusters, data) }
     data
   }
 
   private def printTree_KMeans(positiveExamples: List[String], numberOfClusters: Int, data: List[(String, Double, Array[Float])], levelIndent: String = "  ") = out.eval {
-    val sortedGroups: List[List[(String, Double, Array[Float])]] = clusterKMeans2(numClusters = numberOfClusters,
+    val sortedGroups: List[List[(String, Double, Array[Float])]] = clusterKMeans3(numClusters = numberOfClusters,
       numIterations = 20,
       tuples = data).sortBy(_.map(_._2).sum)
 
-    def printNode(group: List[(String, Double, Array[Float])], indent: String = levelIndent): Unit = {
+    def printNode(group: List[(String, Double, Array[Float])], indent: String) = {
+      val axis = group.flatMap(x => group.map(y => (x, y))).maxBy(t => t._1._3 ^ t._2._3)
+      for (item <- group.sortBy(x => {
+        val a = x._3 ^ axis._1._3
+        val b = x._3 ^ axis._2._3
+        a / (a + b)
+      })) {
+        System.out.println(indent + "%s".format(item._1))
+      }
+    }
+
+    def printTree(group: List[(String, Double, Array[Float])], indent: String = levelIndent): Unit = {
       if (group.size < (numberOfClusters * 3)) {
-        for (item <- group) {
-          System.out.println(indent + "%s".format(item._1))
-        }
+        printNode(group, indent)
       } else try {
-        for (group <- clusterKMeans2(group, 5, 20).sortBy(_.map(_._2).sum)) {
+        for (group <- clusterKMeans3(group, 5, 20).sortBy(_.map(_._2).sum)) {
           System.out.println(indent + "-----------------------------")
-          printNode(group, indent = indent + levelIndent)
+          printTree(group, indent = indent + levelIndent)
         }
       } catch {
         case e: Throwable =>
-          for (item <- group) {
-            System.out.println(indent + "%s".format(item._1))
-          }
+          printNode(group, indent)
       }
     }
 
     for (group <- sortedGroups) {
       System.out.println("-----------------------------")
-      printNode(group)
+      printTree(group)
     }
     sortedGroups
   }
 
-  private def printTree_Gaussian(positiveExamples: List[String], numberOfClusters: Int, data: List[(String, Double, Array[Float])], levelIndent: String = "  ") = out.eval {
-    val sortedGroups: List[List[(String, Double, Array[Float])]] = clusterGaussian(numClusters = numberOfClusters,
-      numIterations = 20,
-      tuples = data).sortBy(_.map(_._2).sum)
-
-    def printNode(group: List[(String, Double, Array[Float])], indent: String = ""): Unit = {
-      if (group.size < (numberOfClusters * 3)) {
-        for (item <- group) {
-          System.out.println(indent + "%s - %.3f".format(item._1, item._2))
-        }
-      } else try {
-        for (group <- clusterGaussian(group, 5, 20).sortBy(_.map(_._2).sum)) {
-          System.out.println(indent + "-----------------------------")
-          printNode(group, indent = indent + levelIndent)
-        }
-      } catch {
-        case e: Throwable =>
-          for (item <- group) {
-            System.out.println(indent + "%s".format(item._1))
-          }
-      }
-    }
-
-    for (group <- sortedGroups) {
-      System.out.println("-----------------------------")
-      printNode(group)
-    }
-    sortedGroups
-  }
-
-  private def printTree_PIC(positiveExamples: List[String], numberOfClusters: Int, data: List[(String, Double, Array[Float])], levelIndent: String = "  ") = out.eval {
-    val sortedGroups: List[List[(String, Double, Array[Float])]] = clusterPIC(numClusters = numberOfClusters,
-      numIterations = 20,
-      tuples = data).sortBy(_.map(_._2).sum)
-
-    def printNode(group: List[(String, Double, Array[Float])], indent: String = ""): Unit = {
-      if (group.size < (numberOfClusters * 3)) {
-        for (item <- group) {
-          System.out.println(indent + "%s - %.3f".format(item._1, item._2))
-        }
-      } else try {
-        for (group <- clusterPIC(group, 5, 20).sortBy(_.map(_._2).sum)) {
-          System.out.println(indent + "-----------------------------")
-          printNode(group, indent = indent + levelIndent)
-        }
-      } catch {
-        case e: Throwable =>
-          for (item <- group) {
-            System.out.println(indent + "%s".format(item._1))
-          }
-      }
-    }
-
-    for (group <- sortedGroups) {
-      System.out.println("-----------------------------")
-      printNode(group)
-    }
-    sortedGroups
-  }
-
-  private def clusterKMeans2(tuples: List[(String, Double, Array[Float])], numClusters: Int, numIterations: Int): List[List[(String, Double, Array[Float])]] = {
+  private def clusterKMeans3(tuples: List[(String, Double, Array[Float])], numClusters: Int, numIterations: Int): List[List[(String, Double, Array[Float])]] = {
     val parsedData: RDD[linalg.Vector] = sc.parallelize(tuples.map(x => Vectors.dense(x._3.map(_.toDouble))))
     val clusters = KMeans.train(parsedData, numClusters, numIterations)
     tuples.groupBy(t => clusters.predict(Vectors.dense(t._3.map(_.toDouble)))).values.toList
   }
 
-  private def clusterKMeans(tuples: List[(String, Array[Float])], numClusters: Int, numIterations: Int): List[List[(String, Array[Float])]] = {
+  private def clusterKMeans2(tuples: List[(String, Array[Float])], numClusters: Int, numIterations: Int): List[List[(String, Array[Float])]] = {
     val parsedData: RDD[linalg.Vector] = sc.parallelize(tuples.map(x => Vectors.dense(x._2.map(_.toDouble))))
     val clusters = KMeans.train(parsedData, numClusters, numIterations)
     tuples.groupBy(t => clusters.predict(Vectors.dense(t._2.map(_.toDouble)))).values.toList
-  }
-
-  private def clusterGaussian(tuples: List[(String, Double, Array[Float])], numClusters: Int, numIterations: Int): List[List[(String, Double, Array[Float])]] = {
-    val data: RDD[linalg.Vector] = sc.parallelize(tuples.map(x => Vectors.dense(x._3.map(_.toDouble))))
-    val clusters = new GaussianMixture().setK(numClusters).setMaxIterations(20).run(data)
-    tuples.groupBy(t => clusters.predict(Vectors.dense(t._3.map(_.toDouble)))).values.toList
-  }
-
-  private def clusterPIC(tuples: List[(String, Double, Array[Float])], numClusters: Int, numIterations: Int): List[List[(String, Double, Array[Float])]] = {
-    val nameIndex: Map[String, Int] = tuples.map(_._1).zipWithIndex.toMap
-    val reverseIndex = tuples.map(_._1).zipWithIndex.map(x => x._2 -> x._1).toMap
-    val rows = tuples.map(x => x._1 -> x).toMap
-    val primaryRdd = sc.parallelize(tuples)
-    val distances = primaryRdd.cartesian(primaryRdd).map(x => {
-      val ((k1, d1, v1), (k2, d2, v2)) = x
-      (nameIndex(k1).toLong, nameIndex(k2).toLong, v1 ^ v2)
-    })
-    val model = new PowerIterationClustering()
-      .setK(numClusters)
-      .setMaxIterations(numIterations)
-      .setInitializationMode("degree")
-      .run(distances)
-    model.assignments.collect().groupBy(_.cluster).mapValues(_.map(_.id).map(_.toInt).map(reverseIndex(_))).mapValues(_.map(rows(_)).toList).values.toList
   }
 
   class Word2VecLocalModel(keys: List[String], flatValues: Array[Float]) {
@@ -400,23 +259,25 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
     def dimensions = keys.size / flatValues.length
   }
 
-  def loadRDD(): RDD[(String, Array[Float])] = {
-    val dataFolder = "file:///H:/data_word2vec0"
-    val file = "C:\\Users\\andre\\Downloads\\GoogleNews-vectors-negative300.bin.gz"
-    val fileSystem = org.apache.hadoop.fs.FileSystem.get(new URI(dataFolder), sc.hadoopConfiguration)
+  def readUntil(inputStream: DataInputStream, term: Char, maxLength: Int = 1024 * 8): String = {
+    var char: Char = inputStream.readByte().toChar
+    val str = new StringBuilder
+    while (!char.equals(term)) {
+      str.append(char)
+      assert(str.size < maxLength)
+      char = inputStream.readByte().toChar
+    }
+    str.toString
+  }
 
+  implicit def toList[T](v: RemoteIterator[T]) = {
+    Stream.continually[Option[T]](if (v.hasNext) Option(v.next()) else None).takeWhile(_.isDefined).map(_.get)
+  }
+
+  def loadWord2VecRDD( parquetUrl: String = "file:///H:/data_word2vec0/final",
+                       binUrl: String = "C:\\Users\\andre\\Downloads\\GoogleNews-vectors-negative300.bin.gz"
+                     ): RDD[(String, Array[Float])] = {
     def loadStream(inputStream: DataInputStream): Stream[(String, Array[Float])] = {
-      def readUntil(inputStream: DataInputStream, term: Char, maxLength: Int = 1024 * 8): String = {
-        var char: Char = inputStream.readByte().toChar
-        val str = new StringBuilder
-        while (!char.equals(term)) {
-          str.append(char)
-          assert(str.size < maxLength)
-          char = inputStream.readByte().toChar
-        }
-        str.toString
-      }
-
       val header = readUntil(inputStream, '\n')
       val (records, dimensions) = header.split(" ") match {
         case Array(records, dimensions) => (records.toInt, dimensions.toInt)
@@ -428,28 +289,48 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
         }).toArray
       })
     }
+    cache(parquetUrl) { loadStream(new DataInputStream(new GZIPInputStream(new FileInputStream(binUrl)))) }
+  }
 
-    implicit def toList[T](v: RemoteIterator[T]) = {
-      Stream.continually[Option[T]](if (v.hasNext) Option(v.next()) else None).takeWhile(_.isDefined).map(_.get)
+  def loadFastTextRDD( parquetUrl: String = "file:///H:/data_wiki.en/final",
+                       binUrl: String = "C:\\Users\\andre\\Downloads\\wiki.en\\wiki.en.vec"
+                     ): RDD[(String, Array[Float])] = {
+    def loadStream(inputStream: DataInputStream): Stream[(String, Array[Float])] = {
+      val header = readUntil(inputStream, ',')
+      val (records, dimensions) = header.split(" ") match {
+        case Array(records, dimensions) => (records.toInt, dimensions.toDouble.toInt)
+      }
+      readUntil(inputStream, ' ') // Throw out first space
+      (0 until records).toStream.map(recordIndex => {
+        val vector = (0 until dimensions).map(dimensionIndex => {
+          java.lang.Float.parseFloat(readUntil(inputStream, ' '))
+        }).toArray
+        readUntil(inputStream, ' ').tail -> vector
+      })
     }
+    cache(parquetUrl) { loadStream(new DataInputStream(new FileInputStream(binUrl))) }
+  }
 
-    val finalFolder = dataFolder + "/final"
+  private def cache(file: String)(data: => Stream[(String, Array[Float])]) = {
+    val fileSystem = org.apache.hadoop.fs.FileSystem.get(new URI(file), sc.hadoopConfiguration)
+    if (!fileSystem.exists(new Path(file))) {
+      save(file, data)
+    }
+    sqlContext.read.parquet(file).rdd.map(row => row.getAs[String]("term") -> row.getAs[WrappedArray.ofRef[lang.Float]]("vector").toArray.map(_.toFloat))
+  }
+
+  private def save(finalFolder: String, stream: Stream[(String, Array[Float])]): Unit = {
+    val fileSystem = org.apache.hadoop.fs.FileSystem.get(new URI(finalFolder), sc.hadoopConfiguration)
     val cleanup = new ArrayBuffer[String]()
-    if (!fileSystem.exists(new Path(finalFolder))) {
-      loadStream(new DataInputStream(new GZIPInputStream(new FileInputStream(file)))).grouped(200000).zipWithIndex.map(x => {
-        val dataFolder1 = dataFolder + "/" + x._2
-        cleanup += dataFolder1
-        val model = new Word2VecModel(x._1.toMap)
-        println(model.getVectors.keys.mkString(", "))
-        val rdd: RDD[(String, Array[Float])] = sc.parallelize(model.getVectors.toList, 1)
-        val value = StructType(List(StructField("term", StringType), StructField("vector", ArrayType(FloatType))))
-        val dataFrame = sqlContext.createDataFrame(rdd.map(x => Row(x._1, x._2)), value)
-        dataFrame.write.parquet(dataFolder1)
-        sqlContext.read.parquet(dataFolder1)
-      }).reduce(_.union(_)).repartition(16).write.parquet(finalFolder)
-    }
+    stream.grouped(200000).zipWithIndex.map(x => {
+      val tempDest = finalFolder + "/../" + x._2
+      cleanup += tempDest
+      val rdd: RDD[(String, Array[Float])] = sc.parallelize(x._1, 1)
+      val schema = StructType(List(StructField("term", StringType), StructField("vector", ArrayType(FloatType))))
+      sqlContext.createDataFrame(rdd.map(x => Row(x._1, x._2)), schema).write.parquet(tempDest)
+      sqlContext.read.parquet(tempDest)
+    }).reduce(_.union(_)).repartition(16).write.parquet(finalFolder)
     for (file <- cleanup) fileSystem.delete(new Path(file), true)
-    sqlContext.read.parquet(dataFolder + "/final").rdd.map(row => row.getAs[String]("term") -> row.getAs[mutable.WrappedArray.ofRef[java.lang.Float]]("vector").toArray.map(_.toFloat))
   }
 }
 
