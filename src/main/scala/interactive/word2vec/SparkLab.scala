@@ -154,6 +154,14 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
     //val rdd = loadWord2VecRDD().mapValues(v => v.unitV).persist(StorageLevel.MEMORY_ONLY)
     val rdd = loadFastTextRDD().mapValues(v => v.unitV).persist(StorageLevel.MEMORY_ONLY)
 
+    continuum(rdd, "hell", "heaven")
+    continuum(rdd, "moist", "dry")
+    continuum(rdd, "love", "hate")
+    continuum(rdd, "imperfect", "perfection")
+    writeModel(selectCluster_inplane(rdd = rdd,
+      positiveExamples = List("holy", "bible", "god", "cult", "armageddon", "sin", "hell", "heaven")
+    ).map(x => (x._1, x._3)), "file:///D://SimiaCryptus/data/wordCluster_emotes")
+
 
     out.out("Our first example is to generate a tree of words with the seed words \"happy\", \"sad\", \"laughing\", \"crying\", \"depressed\", and \"excited\"")
     writeModel(selectCluster_inplane(rdd = rdd,
@@ -259,13 +267,13 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
     def dimensions = keys.size / flatValues.length
   }
 
-  def readUntil(inputStream: DataInputStream, term: Char, maxLength: Int = 1024 * 8): String = {
-    var char: Char = inputStream.readByte().toChar
+  def readUntil(inputStream: InputStream, term: Char, maxLength: Int = 1024 * 8): String = {
+    var char: Char = inputStream.read().toChar
     val str = new StringBuilder
     while (!char.equals(term)) {
       str.append(char)
       assert(str.size < maxLength)
-      char = inputStream.readByte().toChar
+      char = inputStream.read().toChar
     }
     str.toString
   }
@@ -277,7 +285,8 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
   def loadWord2VecRDD( parquetUrl: String = "file:///H:/data_word2vec0/final",
                        binUrl: String = "C:\\Users\\andre\\Downloads\\GoogleNews-vectors-negative300.bin.gz"
                      ): RDD[(String, Array[Float])] = {
-    def loadStream(inputStream: DataInputStream): Stream[(String, Array[Float])] = {
+    cache(parquetUrl) {
+      val inputStream = new DataInputStream(new GZIPInputStream(new BufferedInputStream(new FileInputStream(binUrl))))
       val header = readUntil(inputStream, '\n')
       val (records, dimensions) = header.split(" ") match {
         case Array(records, dimensions) => (records.toInt, dimensions.toInt)
@@ -285,52 +294,52 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
       (0 until records).toStream.map(recordIndex => {
         readUntil(inputStream, ' ') -> (0 until dimensions).map(dimensionIndex => {
           java.lang.Float.intBitsToFloat(java.lang.Integer.reverseBytes(inputStream.readInt()))
-
         }).toArray
       })
     }
-    cache(parquetUrl) { loadStream(new DataInputStream(new GZIPInputStream(new FileInputStream(binUrl)))) }
   }
 
   def loadFastTextRDD( parquetUrl: String = "file:///H:/data_wiki.en/final",
                        binUrl: String = "C:\\Users\\andre\\Downloads\\wiki.en\\wiki.en.vec"
                      ): RDD[(String, Array[Float])] = {
-    def loadStream(inputStream: DataInputStream): Stream[(String, Array[Float])] = {
-      val header = readUntil(inputStream, ',')
-      val (records, dimensions) = header.split(" ") match {
-        case Array(records, dimensions) => (records.toInt, dimensions.toDouble.toInt)
+    cache(parquetUrl) {
+
+      val inputStream = new BufferedReader(new InputStreamReader(new FileInputStream(binUrl)))
+      val header = inputStream.readLine()
+      val (records, dimensions) = header.split(' ') match {
+        case Array(records, dimensions) => (records.toInt, dimensions.toInt)
       }
-      readUntil(inputStream, ' ') // Throw out first space
-      (0 until records).toStream.map(recordIndex => {
-        val vector = (0 until dimensions).map(dimensionIndex => {
-          java.lang.Float.parseFloat(readUntil(inputStream, ' '))
-        }).toArray
-        readUntil(inputStream, ' ').tail -> vector
-      })
+      (0 until records).map(recordIndex  => try {
+        val str = inputStream.readLine()
+        val line = str.split(' ')
+        line.head -> line.tail.map(_.toFloat)
+      } catch {
+        case e:Throwable=>
+          e.printStackTrace()
+          null
+      }).toStream.takeWhile(null != _)
     }
-    cache(parquetUrl) { loadStream(new DataInputStream(new FileInputStream(binUrl))) }
   }
 
-  private def cache(file: String)(data: => Stream[(String, Array[Float])]) = {
+  private def cache(file: String)(data: => Stream[(String, Array[Float])],
+                                  tempFolder: String = file + "/../",
+                                  bufferSize: Int = 100000
+  ): RDD[(String, Array[Float])] = {
     val fileSystem = org.apache.hadoop.fs.FileSystem.get(new URI(file), sc.hadoopConfiguration)
     if (!fileSystem.exists(new Path(file))) {
-      save(file, data)
+      val cleanup = new ArrayBuffer[String]()
+      data.grouped(bufferSize).zipWithIndex.map(x => {
+        val tempDest = tempFolder + x._2
+        cleanup += tempDest
+        val rdd: RDD[(String, Array[Float])] = sc.parallelize(x._1, 1)
+        val schema = StructType(List(StructField("term", StringType), StructField("vector", ArrayType(FloatType))))
+        sqlContext.createDataFrame(rdd.map(x => Row(x._1, x._2)), schema).write.parquet(tempDest)
+        sqlContext.read.parquet(tempDest)
+      }).reduce(_.union(_)).repartition(16).write.parquet(file)
+      for (file <- cleanup) fileSystem.delete(new Path(file), true)
     }
     sqlContext.read.parquet(file).rdd.map(row => row.getAs[String]("term") -> row.getAs[WrappedArray.ofRef[lang.Float]]("vector").toArray.map(_.toFloat))
   }
 
-  private def save(finalFolder: String, stream: Stream[(String, Array[Float])]): Unit = {
-    val fileSystem = org.apache.hadoop.fs.FileSystem.get(new URI(finalFolder), sc.hadoopConfiguration)
-    val cleanup = new ArrayBuffer[String]()
-    stream.grouped(200000).zipWithIndex.map(x => {
-      val tempDest = finalFolder + "/../" + x._2
-      cleanup += tempDest
-      val rdd: RDD[(String, Array[Float])] = sc.parallelize(x._1, 1)
-      val schema = StructType(List(StructField("term", StringType), StructField("vector", ArrayType(FloatType))))
-      sqlContext.createDataFrame(rdd.map(x => Row(x._1, x._2)), schema).write.parquet(tempDest)
-      sqlContext.read.parquet(tempDest)
-    }).reduce(_.union(_)).repartition(16).write.parquet(finalFolder)
-    for (file <- cleanup) fileSystem.delete(new Path(file), true)
-  }
 }
 
