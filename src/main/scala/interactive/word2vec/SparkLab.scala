@@ -29,10 +29,10 @@ import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.HtmlNotebookOutput
 import com.simiacryptus.util.lang.CodeUtil
 import org.apache.commons.io.IOUtils
+import org.apache.commons.text.similarity.LevenshteinDistance
 import org.apache.hadoop.fs.{Path, RemoteIterator}
 import org.apache.spark.SparkConf
 import org.apache.spark.mllib.clustering.KMeans
-import org.apache.spark.mllib.feature.Word2VecModel
 import org.apache.spark.mllib.linalg
 import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.rdd.RDD
@@ -64,7 +64,7 @@ import interactive.word2vec.VectorUtils._
 
 class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 
-  def inplane(rdd: RDD[(String, Array[Float])], positiveExamples: Seq[String], n: Int = 50) = out.eval {
+  def inplane1(rdd: RDD[(String, Array[Float])], positiveExamples: Seq[String], n: Int = 50) = out.eval {
     val primaryBasis = findVector(rdd, positiveExamples: _*)
     val orthogonalBasis = new ArrayBuffer[Array[Float]]()
     orthogonalBasis += primaryBasis.reduce(_ + _) / primaryBasis.size
@@ -82,12 +82,36 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
     result
   }
 
-  def analogy(rdd: RDD[(String, Array[Float])], b: String, a: String)(c: String)(n: Int) = out.eval {
+  def inplane2(rdd: RDD[(String, Array[Float])], positiveExamples: Seq[_<:Seq[String]], n: Int = 50) = out.eval {
+    val map = positiveExamples.flatten.zip(findVector(rdd, positiveExamples.flatten: _*)).toMap
+    val orthogonalBasis: Seq[Array[Array[Float]]] = positiveExamples.map(positiveExamples=>{
+      val primaryBasis = positiveExamples.map(map.apply)
+      val orthogonalBasis = new ArrayBuffer[Array[Float]]()
+      orthogonalBasis += primaryBasis.reduce(_ + _) / primaryBasis.size
+      primaryBasis.foreach(vector => {
+        orthogonalBasis += orthogonalBasis.tail.foldLeft(vector - orthogonalBasis.head)((l, r) => l without r).unitV
+      })
+      orthogonalBasis.toArray
+    })
+    System.out.println(s"Inplane with $positiveExamples")
+    val result = rdd.map(x => {
+      val (key, vector) = x
+      (key, orthogonalBasis.map(orthogonalBasis=>{
+        orthogonalBasis.tail.foldLeft(vector - orthogonalBasis.head)((l, r) => l without r).magnitude.toDouble
+      }).map(x=>x*x).reduceOption(_+_).map(Math.sqrt).get, vector)
+//    }).reduce(_*_), vector)
+    }).filter(!_._2.toDouble.isNaN)
+      .sortBy(_._2).take(n).toList
+    System.out.println(result.map(_._1).mkString(", "))
+    result
+  }
+
+  def analogy(rdd: RDD[(String, Array[Float])], a: String, b: String)(c: String)(n: Int): List[(String, Double)] = out.eval {
     System.out.println(s"$a is to $b as $c is to...")
     val List(va, vb, vc) = findVector(rdd, a, b, c)
     val result = rdd.map(x => {
       val (key, vector) = x
-      key -> Math.abs((vb ^ vector) - (va ^ vector) + (vc ^ vector))
+      key -> Math.sqrt(Math.pow((vc ^ vector) - (vb ^ va), 2) + Math.pow((vb ^ vector) - (vc ^ va), 2))
     }).filter(!_._2.toDouble.isNaN)
       .sortBy(_._2).take(n).map(t => (t._1, t._2)).toList
     result.foreach(x => System.out.println("%s -> %.3f".format(x._1, x._2)))
@@ -128,23 +152,20 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
       numIterations = 20,
       tuples = rdd.toList).zipWithIndex.flatMap(x => x._1.map(y => (y._1, y._2, x._2)))
 
-    {
-      val out = fileSystem.create(new Path(file + "/metadata.txt"), true)
-      IOUtils.write("Label\tGroup\n", out)
-      IOUtils.write(sortedGroups.map(x => List(x._1, x._3).mkString("\t")).mkString("\n"), out)
-      out.close()
-    }
-    {
-      val out = fileSystem.create(new Path(file + "/data.tsv"), true)
-      IOUtils.write(sortedGroups.map(_._2.mkString("\t")).mkString("\n"), out)
-      out.close()
-    }
+    val metadata_out = fileSystem.create(new Path(file + "/metadata.txt"), true)
+    IOUtils.write("Label\tGroup\n", metadata_out)
+    IOUtils.write(sortedGroups.map(x => List(x._1, x._3).mkString("\t")).mkString("\n"), metadata_out)
+    metadata_out.close()
+
+    val data_out = fileSystem.create(new Path(file + "/data.tsv"), true)
+    IOUtils.write(sortedGroups.map(_._2.mkString("\t")).mkString("\n"), data_out)
+    data_out.close()
   }
 
   def findVector(rdd: RDD[(String, Array[Float])], str: String*): List[Array[Float]] = {
     val caseList = str.map(_.toLowerCase)
     val value: Map[String, Array[Float]] = rdd.filter(x => caseList.contains(x._1.toLowerCase)).collect().toMap
-    str.map(key => value.getOrElse(key, value.map(t => t._1.toLowerCase -> t._2).getOrElse(key.toLowerCase, null))).toList
+    str.map(key => value.getOrElse(key, value.map(t => t._1.toLowerCase -> t._2).getOrElse(key.toLowerCase, null))).toList.filter(_!=null)
   }
 
   def run(awaitExit: Boolean = true): Unit = {
@@ -154,95 +175,108 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
     //val rdd = loadWord2VecRDD().mapValues(v => v.unitV).persist(StorageLevel.MEMORY_ONLY)
     val rdd = loadFastTextRDD().mapValues(v => v.unitV).persist(StorageLevel.MEMORY_ONLY)
 
-    continuum(rdd, "hell", "heaven")
-    continuum(rdd, "moist", "dry")
-    continuum(rdd, "love", "hate")
-    continuum(rdd, "imperfect", "perfection")
-    writeModel(selectCluster_inplane(rdd = rdd,
-      positiveExamples = List("holy", "bible", "god", "cult", "armageddon", "sin", "hell", "heaven")
-    ).map(x => (x._1, x._3)), "file:///D://SimiaCryptus/data/wordCluster_emotes")
-
-
-    out.out("Our first example is to generate a tree of words with the seed words \"happy\", \"sad\", \"laughing\", \"crying\", \"depressed\", and \"excited\"")
-    writeModel(selectCluster_inplane(rdd = rdd,
-      positiveExamples = List("happy", "sad", "laughing", "crying", "depressed", "excited")
-    ).map(x => (x._1, x._3)), "file:///D://SimiaCryptus/data/wordCluster_emotes")
-
-    out.out("We can also generate a continuous spectrum from one term to another")
-    continuum(rdd, "happy", "sad")
-
-    out.out("The understanding of word relationships will naturally resemble other groupings, such as geography and politics:")
-    writeModel(selectCluster_inplane(rdd = rdd,
-      positiveExamples = List("Earth", "London", "Chicago", "USA", "England", "USSR", "Africa", "Saturn", "Sun")
-    ).map(x => (x._1, x._3)), "file:///D://SimiaCryptus/data/wordCluster_locale")
-    continuum(rdd, "USA", "USSR")
-    writeModel(selectCluster_inplane(rdd = rdd,
-      positiveExamples = List("communist", "democrat", "republican", "conservative", "liberal")
-    ).map(x => (x._1, x._3)), "file:///D://SimiaCryptus/data/wordCluster_politics")
-
-    out.out("A couple of other examples:")
-    writeModel(selectCluster_inplane(rdd = rdd,
-      positiveExamples = List("math", "science", "english", "history", "art", "gym")
-    ).map(x => (x._1, x._3)), "file:///D://SimiaCryptus/data/wordCluster_subjects")
-    continuum(rdd, "good", "bad")
-
     out.out("We can also search for analogic matches")
     analogy(rdd, "boy", "girl")("man")(50)
     analogy(rdd, "wait", "waiting")("run")(50)
-    analogy(rdd, "on", "off")("up")(50)
-    analogy(rdd, "USA", "USSR")("England")(50)
+    analogy(rdd, "red", "green")("white")(50)
+
+    out.out("Our first example is to generate a tree of words with the seed words \"happy\", \"sad\", \"laughing\", \"crying\", \"depressed\", and \"excited\"")
+    writeModel(selectCluster_inplane1(rdd = rdd, n = 200,
+      positiveExamples = List("happy", "sad", "laughing", "crying", "depressed", "excited")
+    ).map(x => (x._1, x._3)), "file:///D://SimiaCryptus/data/wordCluster_emote_200")
+
+    writeModel(selectCluster_inplane1(rdd = rdd, n = 200,
+      positiveExamples = List("USA", "England", "Japan", "USSR")
+    ).map(x => (x._1, x._3)), "file:///D://SimiaCryptus/data/wordCluster_countries_200")
+
+    out.out("We can also generate a continuous spectrums from one term to another")
+    continuum(rdd, "hell", "heaven")
+    continuum(rdd, "love", "hate")
+    continuum(rdd, "happy", "sad")
+
+    out.out("Here is a more involved term listing, which maps out the world of politics!")
+    writeModel(selectCluster_inplane1(rdd = rdd, n = 1000,
+      positiveExamples = List("democrat", "republican", "conservative", "liberal")).map(x => (x._1, x._3)), "file:///D://SimiaCryptus/data/wordCluster_politics_1000")
 
     if (awaitExit) waitForExit()
   }
 
-  private def selectCluster_inplane(rdd: RDD[(String, Array[Float])], positiveExamples: List[String]) = {
-    val data = inplane(rdd = rdd,
+  def aggregate1(words: List[String], maxEditDistance: Int = 2) = {
+    val lines = new ArrayBuffer[ArrayBuffer[String]]()
+    for(word <- words) {
+      lines.find(_.contains((x : String)=>LevenshteinDistance.getDefaultInstance.apply(x, word))).getOrElse({
+        val obj = new ArrayBuffer[String]()
+        lines += obj
+        obj
+      }) += word
+    }
+    lines.map(_.mkString(", ")).mkString("\n")
+  }
+
+  def aggregate2(words: List[String], maxEditDistance: Int = 2) = {
+    val summarizedString = words.foldLeft("" -> "")((t, w) => {
+      if (LevenshteinDistance.getDefaultInstance.apply(t._2, w) <= maxEditDistance) {
+        (if (t._1.isEmpty) w else (t._1 + ", " + w)) -> w
+      } else {
+        (if (t._1.isEmpty) w else (t._1 + "\n" + w)) -> w
+      }
+    })._1
+    summarizedString
+  }
+
+  private def selectCluster_inplane1(rdd: RDD[(String, Array[Float])], positiveExamples: List[String], n: Int = 2000) = {
+    val data = inplane1(rdd = rdd,
       positiveExamples = positiveExamples,
-      n = 1000)
+      n = n)
     Try {
-      printTree_KMeans(positiveExamples, numberOfClusters = 13, data)
+      printTree_KMeans(data)
     }
     data
   }
 
-  private def printTree_KMeans(positiveExamples: List[String], numberOfClusters: Int, data: List[(String, Double, Array[Float])], levelIndent: String = "  ") = out.eval {
-    val sortedGroups: List[List[(String, Double, Array[Float])]] = clusterKMeans3(numClusters = numberOfClusters,
-      numIterations = 20,
-      tuples = data).sortBy(_.map(_._2).sum)
+  private def selectCluster_inplane2(rdd: RDD[(String, Array[Float])], positiveExamples: List[List[String]], n: Int = 5000) = {
+    val data = inplane2(rdd = rdd,
+      positiveExamples = positiveExamples,
+      n = n)
+    Try {
+      printTree_KMeans(data)
+    }
+    data
+  }
 
+  private def printTree_KMeans(data: List[(String, Double, Array[Float])], levelIndent: String = "  "): Unit = out.eval {
     def printNode(group: List[(String, Double, Array[Float])], indent: String) = {
       val axis = group.flatMap(x => group.map(y => (x, y))).maxBy(t => t._1._3 ^ t._2._3)
-      for (item <- group.sortBy(x => {
+      val words = group.sortBy(x => {
         val a = x._3 ^ axis._1._3
         val b = x._3 ^ axis._2._3
         a / (a + b)
-      })) {
-        System.out.println(indent + "%s".format(item._1))
-      }
+      }).map(_._1)
+      System.out.println(indent + "-----------------------------")
+      System.out.println(indent + aggregate1(words).replaceAll("\n","\n"+indent))
     }
-
     def printTree(group: List[(String, Double, Array[Float])], indent: String = levelIndent): Unit = {
-      if (group.size < (numberOfClusters * 3)) {
-        printNode(group, indent)
-      } else try {
-        for (group <- clusterKMeans3(group, 5, 20).sortBy(_.map(_._2).sum)) {
-          System.out.println(indent + "-----------------------------")
-          printTree(group, indent = indent + levelIndent)
+      try {
+        if (group.size <= 13) {
+          printNode(group, indent)
+        } else if (group.size <= 100) {
+          for (group <- clusterKMeans3(tuples = group, numIterations = 20, numClusters = 3).sortBy(_.map(_._2).sum)) {
+            printTree(group, indent = indent + levelIndent)
+          }
+        } else {
+          for (group <- clusterKMeans3(tuples = group, numIterations = 20, numClusters = 7).sortBy(_.map(_._2).sum)) {
+            printTree(group, indent = indent + levelIndent)
+          }
         }
       } catch {
         case e: Throwable =>
           printNode(group, indent)
       }
     }
-
-    for (group <- sortedGroups) {
-      System.out.println("-----------------------------")
-      printTree(group)
-    }
-    sortedGroups
+    printTree(data)
   }
 
-  private def clusterKMeans3(tuples: List[(String, Double, Array[Float])], numClusters: Int, numIterations: Int): List[List[(String, Double, Array[Float])]] = {
+  private def clusterKMeans3(tuples: List[(String, Double, Array[Float])], numIterations: Int, numClusters:Int) = {
     val parsedData: RDD[linalg.Vector] = sc.parallelize(tuples.map(x => Vectors.dense(x._3.map(_.toDouble))))
     val clusters = KMeans.train(parsedData, numClusters, numIterations)
     tuples.groupBy(t => clusters.predict(Vectors.dense(t._3.map(_.toDouble)))).values.toList
