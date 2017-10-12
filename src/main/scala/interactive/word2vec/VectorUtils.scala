@@ -58,11 +58,11 @@ case class VectorUtils(values: Array[Float]) {
 
   def withMath: VectorUtils = this
 
-  def ^(right: Array[Float]): Double = Math.acos((this * right).l1 / (this.magnitude * right.magnitude))
+  def ^(right: Array[Float]): Double = Math.acos((this.unitV * right.unitV).l1)
 
   def ~(right: Array[Float]): Double = (this - right).magnitude
 
-  def along(right: Array[Float]): Array[Float] = right * ((this * right) / this.magnitude)
+  def along(right: Array[Float]): Array[Float] = right.unitV * (this * right.unitV)
 
   def without(right: Array[Float]) = this - (this along right)
 }

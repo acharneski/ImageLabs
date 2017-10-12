@@ -40,6 +40,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.storage.StorageLevel
 
+import scala.collection.immutable
 import scala.collection.mutable.{ArrayBuffer, WrappedArray}
 import scala.util.Try
 
@@ -66,20 +67,27 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
 
   def inplane1(rdd: RDD[(String, Array[Float])], positiveExamples: Seq[String], n: Int = 50) = out.eval {
     val primaryBasis = findVector(rdd, positiveExamples: _*)
-    val orthogonalBasis = new ArrayBuffer[Array[Float]]()
-    orthogonalBasis += primaryBasis.reduce(_ + _) / primaryBasis.size
-    primaryBasis.foreach(vector => {
-      orthogonalBasis += orthogonalBasis.tail.foldLeft(vector - orthogonalBasis.head)((l, r) => l without r).unitV
-    })
-    val orthogonalBasisArray = orthogonalBasis.toArray
     System.out.println(s"Inplane with $positiveExamples")
+    val metric: (Array[Float]) => Double = orthogonalDistance(primaryBasis:_*)
     val result = rdd.map(x => {
       val (key, vector) = x
-      (key, orthogonalBasisArray.tail.foldLeft(vector - orthogonalBasisArray.head)((l, r) => l without r).magnitude.toDouble, vector)
+      (key, metric(vector), vector)
     }).filter(!_._2.toDouble.isNaN)
       .sortBy(_._2).take(n).toList
     System.out.println(result.map(_._1).mkString(", "))
     result
+  }
+
+  def orthogonalDistance(basis: Array[Float]*): (Array[Float]) => Double = {
+    val orthogonalBasis = new ArrayBuffer[Array[Float]]()
+    orthogonalBasis += basis.reduce(_ + _) / basis.size
+    basis.foreach(vector => {
+      orthogonalBasis += orthogonalBasis.tail.foldLeft(vector - orthogonalBasis.head)((l, r) => l without r).unitV
+    })
+    val orthogonalBasisArray = orthogonalBasis.toArray
+    vector => {
+      orthogonalBasisArray.tail.foldLeft(vector - orthogonalBasisArray.head)((l, r) => l without r).magnitude.toDouble
+    }
   }
 
   def inplane2(rdd: RDD[(String, Array[Float])], positiveExamples: Seq[_<:Seq[String]], n: Int = 50) = out.eval {
@@ -106,15 +114,18 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
     result
   }
 
-  def analogy(rdd: RDD[(String, Array[Float])], a: String, b: String)(c: String)(n: Int): List[(String, Double)] = out.eval {
+  def analogy(rdd: RDD[(String, Array[Float])], a: String, b: String)(c: String)(n: Int): Seq[(String, (Double, Double))] = out.eval {
     System.out.println(s"$a is to $b as $c is to...")
     val List(va, vb, vc) = findVector(rdd, a, b, c)
+    val orthoDist = orthogonalDistance(va,vb,vc)
     val result = rdd.map(x => {
       val (key, vector) = x
-      key -> Math.sqrt(Math.pow((vc ^ vector) - (vb ^ va), 2) + Math.pow((vb ^ vector) - (vc ^ va), 2))
-    }).filter(!_._2.toDouble.isNaN)
-      .sortBy(_._2).take(n).map(t => (t._1, t._2)).toList
-    result.foreach(x => System.out.println("%s -> %.3f".format(x._1, x._2)))
+      val xc = ((vc ^ vector) - (vb ^ va))
+      val xb = ((vb ^ vector) - (vc ^ va))
+      key -> (Math.sqrt(Math.pow(xc, 2) + Math.pow(xb, 2)), orthoDist(vector))
+    }).filter(!_._2._1.toDouble.isNaN)
+      .sortBy(_._2._1).take(n).map(t => (t._1, t._2)).toList
+    result.foreach(x => System.out.println("%s -> %.3f / %.3f".format(x._1, x._2._1, x._2._2)))
     result
   }
 
@@ -175,33 +186,34 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
     //val rdd = loadWord2VecRDD().mapValues(v => v.unitV).persist(StorageLevel.MEMORY_ONLY)
     val rdd = loadFastTextRDD().mapValues(v => v.unitV).persist(StorageLevel.MEMORY_ONLY)
 
-    out.out("We can also search for analogic matches")
+    out.out("Our first example is to use our data solve analogy problems:")
     analogy(rdd, "boy", "girl")("man")(50)
     analogy(rdd, "wait", "waiting")("run")(50)
     analogy(rdd, "red", "green")("white")(50)
+    analogy(rdd, "England", "London")("USA")(50)
 
-    out.out("Our first example is to generate a tree of words with the seed words \"happy\", \"sad\", \"laughing\", \"crying\", \"depressed\", and \"excited\"")
-    writeModel(selectCluster_inplane1(rdd = rdd, n = 200,
+    out.out("We can also generate word taxonomies given a few base words:")
+    writeModel(selectCluster_inplane(rdd = rdd, n = 500,
       positiveExamples = List("happy", "sad", "laughing", "crying", "depressed", "excited")
-    ).map(x => (x._1, x._3)), "file:///D://SimiaCryptus/data/wordCluster_emote_200")
+    ).map(x => (x._1, x._3)), "file:///D://SimiaCryptus/data/wordCluster_emote_500")
 
-    writeModel(selectCluster_inplane1(rdd = rdd, n = 200,
+    writeModel(selectCluster_inplane(rdd = rdd, n = 500,
       positiveExamples = List("USA", "England", "Japan", "USSR")
-    ).map(x => (x._1, x._3)), "file:///D://SimiaCryptus/data/wordCluster_countries_200")
+    ).map(x => (x._1, x._3)), "file:///D://SimiaCryptus/data/wordCluster_countries_500")
 
-    out.out("We can also generate a continuous spectrums from one term to another")
+    out.out("We can also generate a continuous spectrums from one term to another:")
     continuum(rdd, "hell", "heaven")
     continuum(rdd, "love", "hate")
     continuum(rdd, "happy", "sad")
 
     out.out("Here is a more involved term listing, which maps out the world of politics!")
-    writeModel(selectCluster_inplane1(rdd = rdd, n = 1000,
+    writeModel(selectCluster_inplane(rdd = rdd, n = 1000,
       positiveExamples = List("democrat", "republican", "conservative", "liberal")).map(x => (x._1, x._3)), "file:///D://SimiaCryptus/data/wordCluster_politics_1000")
 
     if (awaitExit) waitForExit()
   }
 
-  def aggregate1(words: List[String], maxEditDistance: Int = 2) = {
+  def aggregateWordList(words: List[String], maxEditDistance: Int = 2) = {
     val lines = new ArrayBuffer[ArrayBuffer[String]]()
     for(word <- words) {
       lines.find(_.contains((x : String)=>LevenshteinDistance.getDefaultInstance.apply(x, word))).getOrElse({
@@ -213,29 +225,8 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
     lines.map(_.mkString(", ")).mkString("\n")
   }
 
-  def aggregate2(words: List[String], maxEditDistance: Int = 2) = {
-    val summarizedString = words.foldLeft("" -> "")((t, w) => {
-      if (LevenshteinDistance.getDefaultInstance.apply(t._2, w) <= maxEditDistance) {
-        (if (t._1.isEmpty) w else (t._1 + ", " + w)) -> w
-      } else {
-        (if (t._1.isEmpty) w else (t._1 + "\n" + w)) -> w
-      }
-    })._1
-    summarizedString
-  }
-
-  private def selectCluster_inplane1(rdd: RDD[(String, Array[Float])], positiveExamples: List[String], n: Int = 2000) = {
+  private def selectCluster_inplane(rdd: RDD[(String, Array[Float])], positiveExamples: List[String], n: Int = 2000) = {
     val data = inplane1(rdd = rdd,
-      positiveExamples = positiveExamples,
-      n = n)
-    Try {
-      printTree_KMeans(data)
-    }
-    data
-  }
-
-  private def selectCluster_inplane2(rdd: RDD[(String, Array[Float])], positiveExamples: List[List[String]], n: Int = 5000) = {
-    val data = inplane2(rdd = rdd,
       positiveExamples = positiveExamples,
       n = n)
     Try {
@@ -253,7 +244,7 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
         a / (a + b)
       }).map(_._1)
       System.out.println(indent + "-----------------------------")
-      System.out.println(indent + aggregate1(words).replaceAll("\n","\n"+indent))
+      System.out.println(indent + aggregateWordList(words).replaceAll("\n","\n"+indent))
     }
     def printTree(group: List[(String, Double, Array[Float])], indent: String = levelIndent): Unit = {
       try {
