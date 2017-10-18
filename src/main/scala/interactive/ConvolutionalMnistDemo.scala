@@ -22,8 +22,7 @@ package interactive
 import java.util.concurrent.TimeUnit
 
 import _root_.util._
-import com.simiacryptus.mindseye.data.Tensor
-import com.simiacryptus.mindseye.layers.NNLayer
+import com.simiacryptus.mindseye.lang.{NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.activation.{ReLuActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.layers.media.MaxSubsampleLayer

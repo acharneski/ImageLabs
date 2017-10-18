@@ -31,8 +31,8 @@ import javax.imageio.ImageIO
 
 import _root_.util.Java8Util.cvt
 import _root_.util._
-import com.simiacryptus.mindseye.data.Tensor
-import com.simiacryptus.mindseye.layers.NNLayer.NNExecutionContext
+import com.simiacryptus.mindseye.lang.{NNLayer, NNResult, Tensor}
+import com.simiacryptus.mindseye.lang.NNLayer.NNExecutionContext
 import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, LinearActivationLayer, NthPowerActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.layers.cudnn.CudaExecutionContext
 import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode

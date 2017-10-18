@@ -29,7 +29,7 @@ import java.util.function.{DoubleSupplier, IntToDoubleFunction}
 import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.google.gson.{GsonBuilder, JsonObject}
-import com.simiacryptus.mindseye.layers.{NNLayer, NNResult}
+import com.simiacryptus.mindseye.layers.NNLayer
 import com.simiacryptus.mindseye.layers.activation._
 import com.simiacryptus.mindseye.layers.loss.{EntropyLossLayer, MeanSqLossLayer}
 import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgReshapeLayer, MaxSubsampleLayer}
@@ -52,7 +52,8 @@ import org.apache.commons.io.IOUtils
 import scala.collection.JavaConverters._
 import scala.util.Random
 import NNLayerUtil._
-import com.simiacryptus.mindseye.data.{Coordinate, Tensor}
+import com.simiacryptus.mindseye.data.Coordinate
+import com.simiacryptus.mindseye.lang.{NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.synapse.BiasLayer
 import com.simiacryptus.mindseye.opt.region.{StaticConstraint, TrustRegion}
 

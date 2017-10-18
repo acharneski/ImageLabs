@@ -53,7 +53,8 @@ import org.apache.commons.io.IOUtils
 import scala.collection.JavaConverters._
 import scala.util.Random
 import NNLayerUtil._
-import com.simiacryptus.mindseye.data.{Coordinate, Tensor}
+import com.simiacryptus.mindseye.data.Coordinate
+import com.simiacryptus.mindseye.lang.{NNLayer, NNResult, Tensor}
 import com.simiacryptus.mindseye.layers.synapse.BiasLayer
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 import com.simiacryptus.mindseye.opt.region.{StaticConstraint, TrustRegion}

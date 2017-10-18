@@ -24,8 +24,8 @@ import java.lang
 import java.util.concurrent.TimeUnit
 import java.util.function.ToDoubleFunction
 
-import com.simiacryptus.mindseye.data.{Coordinate, MNIST, Tensor}
-import com.simiacryptus.mindseye.layers.NNLayer
+import com.simiacryptus.mindseye.data.{Coordinate, MNIST}
+import com.simiacryptus.mindseye.lang.{Coordinate, NNLayer, Tensor}
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer

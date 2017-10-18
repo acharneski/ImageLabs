@@ -39,7 +39,8 @@ import com.simiacryptus.util.text.TableOutput
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}
 import _root_.util.Java8Util
-import com.simiacryptus.mindseye.data.{Coordinate, MNIST, Tensor, TensorArray}
+import com.simiacryptus.mindseye.data.{Coordinate, MNIST, TensorArray}
+import com.simiacryptus.mindseye.lang._
 
 import scala.collection.JavaConverters._
 

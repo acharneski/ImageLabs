@@ -25,9 +25,9 @@ import java.lang
 import java.util.concurrent.{Semaphore, TimeUnit}
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.simiacryptus.mindseye.data.{Coordinate, MNIST, Tensor, TensorArray}
+import com.simiacryptus.mindseye.data.{Coordinate, MNIST, TensorArray}
+import com.simiacryptus.mindseye.lang.{Coordinate, NNLayer, Tensor, TensorArray}
 import com.simiacryptus.mindseye.network.{ConvAutoencoderNetwork, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.layers.NNLayer
 import com.simiacryptus.mindseye.layers.activation._
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.layers.synapse.DenseSynapseLayer

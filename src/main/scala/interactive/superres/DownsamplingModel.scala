@@ -28,7 +28,6 @@ import java.util.function.{DoubleSupplier, IntToDoubleFunction}
 
 import _root_.util.Java8Util.cvt
 import _root_.util._
-import com.simiacryptus.mindseye.layers.NNLayer
 import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, HyperbolicActivationLayer, ReLuActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.MeanSqLossLayer
 import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgReshapeLayer}
@@ -49,7 +48,8 @@ import com.simiacryptus.util.text.TableOutput
 import scala.collection.JavaConverters._
 import scala.util.Random
 import NNLayerUtil._
-import com.simiacryptus.mindseye.data.{Coordinate, Tensor}
+import com.simiacryptus.mindseye.data.Coordinate
+import com.simiacryptus.mindseye.lang.{Coordinate, NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 
 case class DeepNetworkDownsample(weight1 : Double) {

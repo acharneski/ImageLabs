@@ -30,8 +30,8 @@ import util.{ReportNotebook, ScalaNotebookOutput}
 import java.{lang, util}
 import javax.imageio.ImageIO
 
-import com.simiacryptus.mindseye.data.{Coordinate, MNIST, Tensor}
-import com.simiacryptus.mindseye.layers.NNLayer
+import com.simiacryptus.mindseye.data.{Coordinate, MNIST}
+import com.simiacryptus.mindseye.lang.{Coordinate, NNLayer, Tensor}
 import com.simiacryptus.mindseye.network.graph._
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.layers.activation._
