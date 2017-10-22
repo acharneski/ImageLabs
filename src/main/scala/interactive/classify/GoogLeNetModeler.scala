@@ -303,7 +303,7 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
 
   def step_Generate() = phase({
     //new GoogLeNet().getNetwork(monitor, monitoringRoot, false)
-    //    lazy val optTraining: Array[Array[Tensor]] = Random.shuffle(data.values.flatten).take(5).map(_.get()).toArray
+    //    lazy val optTraining: Array[Array[Tensor]] = Random.shuffle(data.values.flatten).take(5).mapCoords(_.get()).toArray
     //    require(0 < optTraining.length)
     //    SimplexOptimizer[GoogLeNet](
     //      GoogLeNet(), // GoogLeNet(),

@@ -567,7 +567,7 @@ class WhiteboardDev extends WordSpec with MustMatchers with ReportNotebook {
     //      val trialQuad: Quadrilateral_F32 = new Quadrilateral_F32(v(0).toFloat, v(1).toFloat, v(2).toFloat, v(3).toFloat, v(4).toFloat, v(5).toFloat, v(6).toFloat, v(7).toFloat)
     //      val stepSize = 2
     //      (0 until image.getWidth by stepSize).flatMap(x ⇒ {
-    //        (0 until image.getHeight by stepSize).map(y ⇒ {
+    //        (0 until image.getHeight by stepSize).mapCoords(y ⇒ {
     //          val pt = new Point2D_F32(x, y)
     //          val distance = Distance2D_F32.distance(trialQuad, pt)
     //          val inside = if (Intersection2D_F32.contains(trialQuad, pt)) 1 else -1

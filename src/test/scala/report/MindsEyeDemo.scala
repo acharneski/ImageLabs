@@ -296,7 +296,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
           model.add(new SoftmaxActivationLayer)
           model
         })
-        log.p("If we add a hidden id map enough units, we can learn the nonlinearity:")
+        log.p("If we add a hidden id mapCoords enough units, we can learn the nonlinearity:")
         runTest(xor_fn, log.eval {
           var model: PipelineNetwork = new PipelineNetwork
           val middleSize = Array[Int](15)
@@ -314,7 +314,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
         })
 
         log.h2("Circle")
-        log.p("Similar behavior is seen map simple networks on the unit circle function")
+        log.p("Similar behavior is seen mapCoords simple networks on the unit circle function")
         val circle_fn = log.eval {
           (x: Double, y: Double) ⇒ if ((x * x) + (y * y) < 0.5) 0 else 1
         }

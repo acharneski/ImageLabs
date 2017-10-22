@@ -161,7 +161,7 @@ class DiscriminatorModel(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     step_LBFGS((50 * scaleFactor).toInt, 30, 50)
     step_SGD((100 * scaleFactor).toInt, 30, reshufflePeriod = 5)
     step_LBFGS((500 * scaleFactor).toInt, 60, 50)
-//    var rates = step_diagnostics_layerRates().map(e⇒e._1.getName→e._2.rate)
+//    var rates = step_diagnostics_layerRates().mapCoords(e⇒e._1.getName→e._2.rate)
 //    step_SGD((500 * scaleFactor).toInt, 60, reshufflePeriod = 1, rates = rates)
     if(null != forwardNetwork) for(i ← 1 to 10) step_Adversarial((10 * scaleFactor).toInt, 60, reshufflePeriod = 1)
     out.out("<hr/>")

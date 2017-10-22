@@ -279,7 +279,7 @@ class UpsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebook
   }, modelName)
 
   def lossNetwork = {
-    val mask: Tensor = new Tensor(tileSize, tileSize, 3).map(Java8Util.cvt((v: lang.Double, c: Coordinate) ⇒ {
+    val mask: Tensor = new Tensor(tileSize, tileSize, 3).mapCoords(Java8Util.cvt((v: lang.Double, c: Coordinate) ⇒ {
       if (c.coords(0) < fitnessBorderPadding || c.coords(0) >= (tileSize - fitnessBorderPadding)) {
         0.0
       } else if (c.coords(1) < fitnessBorderPadding || c.coords(1) >= (tileSize - fitnessBorderPadding)) {
