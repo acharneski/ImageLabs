@@ -117,7 +117,7 @@ case class DeepNetworkUpsample(
   def fitness(monitor: TrainingMonitor, monitoringRoot : MonitoredObject, data: Array[Array[Tensor]], n: Int = 2) : Double = {
     val values = (1 to n).map(i ⇒ {
       val network = getNetwork(monitor, monitoringRoot, fitness = true)
-      val measure = new ArrayTrainable(data, network).measure()
+      val measure = new StaticArrayTrainable(data, network).measure()
       measure.value
     }).toList
     val avg = values.sum / n

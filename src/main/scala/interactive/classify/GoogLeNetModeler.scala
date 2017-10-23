@@ -395,7 +395,7 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
       trainingNetwork.add(pipelineNetwork)
       System.out.print(s"Starting to process ${adversarialData.length} images")
       val trainer1 = out.eval {
-        var inner: Trainable = new ArrayTrainable(adversarialData,
+        var inner: Trainable = new StaticArrayTrainable(adversarialData,
           new SimpleLossNetwork(trainingNetwork, new EntropyLossLayer()))
         val trainer = new IterativeTrainer(inner)
         trainer.setMonitor(monitor)

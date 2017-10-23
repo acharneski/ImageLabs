@@ -587,7 +587,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     trainingNetwork.add(pipelineNetwork)
     trainingNetwork.add(new EntropyLossLayer(), trainingNetwork.getHead, trainingNetwork.getInput(1))
     this.model = trainingNetwork
-    var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
+    var inner: Trainable = new StaticArrayTrainable(adversarialData, trainingNetwork)
     val trainer = new IterativeTrainer(inner)
     trainer.setMonitor(monitor)
     trainer.setTimeout(1, TimeUnit.MINUTES)
@@ -610,7 +610,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     trainingNetwork.add(pipelineNetwork)
     trainingNetwork.add(new EntropyLossLayer(), trainingNetwork.getHead, trainingNetwork.getInput(1))
     this.model = trainingNetwork
-    var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
+    var inner: Trainable = new StaticArrayTrainable(adversarialData, trainingNetwork)
     val trainer = new IterativeTrainer(inner)
     trainer.setMonitor(monitor)
     trainer.setTimeout(1, TimeUnit.MINUTES)
@@ -635,7 +635,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
 
     trainingNetwork.add(new EntropyLossLayer(), trainingNetwork.getHead, trainingNetwork.getInput(1))
     this.model = trainingNetwork
-    var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
+    var inner: Trainable = new StaticArrayTrainable(adversarialData, trainingNetwork)
     val trainer = new IterativeTrainer(inner)
     trainer.setMonitor(monitor)
     trainer.setTimeout(1, TimeUnit.MINUTES)
@@ -680,7 +680,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
       )
     )
     this.model = trainingNetwork
-    var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
+    var inner: Trainable = new StaticArrayTrainable(adversarialData, trainingNetwork)
     val trainer = new IterativeTrainer(inner)
     trainer.setMonitor(monitor)
     trainer.setTimeout(1, TimeUnit.MINUTES)

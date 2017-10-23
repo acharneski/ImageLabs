@@ -136,7 +136,7 @@ case class DeepNetworkDescriminator(
   def fitness(monitor: TrainingMonitor, monitoringRoot : MonitoredObject, data: Array[Array[Tensor]], n: Int = 3) : Double = {
     val values = (1 to n).map(i ⇒ {
       val network = getNetwork(monitor, monitoringRoot, fitness = true)
-      val measure = new ArrayTrainable(data, network).measure()
+      val measure = new StaticArrayTrainable(data, network).measure()
       measure.value
     }).toList
     val avg = values.sum / n
@@ -273,7 +273,7 @@ class DiscriminatorModel(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     monitor.clear()
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer())
-      var inner: Trainable = new ArrayTrainable(adversarialData.toList.flatten.toArray, trainingNetwork)
+      var inner: Trainable = new StaticArrayTrainable(adversarialData.toList.flatten.toArray, trainingNetwork)
       //inner = new ConstL12Normalizer(inner).setFactor_L1(0.001)
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)

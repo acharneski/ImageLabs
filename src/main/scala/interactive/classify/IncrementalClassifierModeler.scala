@@ -257,7 +257,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
 
       val trainer1 = out.eval {
         assert(null != data)
-        var inner: Trainable = new ArrayTrainable(Array(adversarialData),
+        var inner: Trainable = new StaticArrayTrainable(Array(adversarialData),
           new SimpleLossNetwork(trainingNetwork, new EntropyLossLayer()))
         val trainer = new IterativeTrainer(inner)
         trainer.setMonitor(monitor)
@@ -285,7 +285,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
 //    out.h1("GAN Images Training")
 //    val trainer2 = out.eval {
 //      assert(null != data)
-//      var inner: Trainable = new ArrayTrainable(adversarialOutput.toArray,
+//      var inner: Trainable = new StaticArrayTrainable(adversarialOutput.toArray,
 //        new SimpleLossNetwork(model, new EntropyLossLayer()))
 //      val trainer = new IterativeTrainer(inner)
 //      trainer.setMonitor(monitor)

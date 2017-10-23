@@ -120,7 +120,7 @@ object UpsamplingOptimizer extends Report {
     network.add(new ProductInputsLayer(), fakeness, network.add(new SumInputsLayer(), wrongness, network.constValue(new Tensor(1).set(0, 1))))
     assert(!targetNode.getLayer.asInstanceOf[ConstNNLayer].isFrozen)
 
-    val executorFunction = new ArrayTrainable(Array(Array()), network)
+    val executorFunction = new StaticArrayTrainable(Array(Array()), network)
     val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
     trainer.setLineSearchFactory(Java8Util.cvt((s) ⇒ new ArmijoWolfeSearch()
       .setC1(0).setC2(1).setStrongWolfe(false).setMaxAlpha(1e8)))
