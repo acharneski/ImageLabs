@@ -22,6 +22,7 @@ package interactive
 import java.util.concurrent.TimeUnit
 
 import _root_.util._
+import com.simiacryptus.mindseye.eval.{L12Normalizer, ScheduledSampleTrainable}
 import com.simiacryptus.mindseye.lang.{NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.activation.{ReLuActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
@@ -33,7 +34,7 @@ import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 import com.simiacryptus.mindseye.opt.IterativeTrainer
 import com.simiacryptus.mindseye.opt.orient.TrustRegionStrategy
 import com.simiacryptus.mindseye.opt.region.{GrowthSphere, LinearSumConstraint, TrustRegion}
-import com.simiacryptus.mindseye.opt.trainable.{L12Normalizer, ScheduledSampleTrainable}
+import com.simiacryptus.mindseye.opt.trainable.ScheduledSampleTrainable
 
 import scala.util.Random
 

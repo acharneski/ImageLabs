@@ -33,13 +33,14 @@ import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line.ArmijoWolfeSearch
 import com.simiacryptus.mindseye.opt.orient.{GradientDescent, LBFGS, OwlQn}
-import com.simiacryptus.mindseye.opt.trainable.{ConstL12Normalizer, StochasticArrayTrainable, Trainable}
+import com.simiacryptus.mindseye.opt.trainable.{StochasticArrayTrainable, Trainable}
 import com.simiacryptus.util._
 import com.simiacryptus.util.text.TableOutput
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}
 import _root_.util.Java8Util
-import com.simiacryptus.mindseye.data.{Coordinate, MNIST, TensorArray}
+import com.simiacryptus.mindseye.data.MNIST
+import com.simiacryptus.mindseye.eval.{ConstL12Normalizer, StochasticArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang._
 
 import scala.collection.JavaConverters._

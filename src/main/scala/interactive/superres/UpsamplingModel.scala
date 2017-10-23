@@ -32,7 +32,6 @@ import com.simiacryptus.mindseye.layers.loss.MeanSqLossLayer
 import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgReshapeLayer}
 import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer}
 import com.simiacryptus.mindseye.layers.util.{ConstNNLayer, MonitoringWrapper}
-import com.simiacryptus.mindseye.layers.NNLayer
 import com.simiacryptus.mindseye.network.graph.{DAGNetwork, DAGNode}
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
@@ -51,7 +50,7 @@ import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
 import scala.collection.JavaConverters._
 import scala.util.Random
 import NNLayerUtil._
-import com.simiacryptus.mindseye.data.Coordinate
+import com.simiacryptus.mindseye.eval.{StaticArrayTrainable, StochasticArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang.{Coordinate, NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 

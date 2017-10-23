@@ -29,7 +29,6 @@ import java.util.function.{DoubleSupplier, IntToDoubleFunction}
 import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.google.gson.{GsonBuilder, JsonObject}
-import com.simiacryptus.mindseye.layers.NNLayer
 import com.simiacryptus.mindseye.layers.activation._
 import com.simiacryptus.mindseye.layers.loss.{EntropyLossLayer, MeanSqLossLayer}
 import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgReshapeLayer, MaxSubsampleLayer}
@@ -52,7 +51,7 @@ import org.apache.commons.io.IOUtils
 import scala.collection.JavaConverters._
 import scala.util.Random
 import NNLayerUtil._
-import com.simiacryptus.mindseye.data.Coordinate
+import com.simiacryptus.mindseye.eval.StaticArrayTrainable
 import com.simiacryptus.mindseye.lang.{NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.synapse.BiasLayer
 import com.simiacryptus.mindseye.opt.region.{StaticConstraint, TrustRegion}
@@ -120,7 +119,7 @@ object UpsamplingOptimizer extends Report {
     network.add(new ProductInputsLayer(), fakeness, network.add(new SumInputsLayer(), wrongness, network.constValue(new Tensor(1).set(0, 1))))
     assert(!targetNode.getLayer.asInstanceOf[ConstNNLayer].isFrozen)
 
-    val executorFunction = new StaticArrayTrainable(Array(Array()), network)
+    val executorFunction = new StaticArrayTrainable(Array(Array()), network, 0)
     val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
     trainer.setLineSearchFactory(Java8Util.cvt((s) ⇒ new ArmijoWolfeSearch()
       .setC1(0).setC2(1).setStrongWolfe(false).setMaxAlpha(1e8)))

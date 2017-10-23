@@ -31,6 +31,7 @@ import javax.imageio.ImageIO
 
 import _root_.util.Java8Util.cvt
 import _root_.util._
+import com.simiacryptus.mindseye.eval.{StaticArrayTrainable, StochasticArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang.{NNLayer, NNResult, Tensor}
 import com.simiacryptus.mindseye.lang.NNLayer.NNExecutionContext
 import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, LinearActivationLayer, NthPowerActivationLayer, SoftmaxActivationLayer}
@@ -43,7 +44,7 @@ import com.simiacryptus.mindseye.layers.meta.{StdDevMetaLayer, WeightExtractor}
 import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, SumInputsLayer, SumReducerLayer}
 import com.simiacryptus.mindseye.layers.synapse.BiasLayer
 import com.simiacryptus.mindseye.layers.util.MonitoringWrapper
-import com.simiacryptus.mindseye.layers.{NNLayer, NNResult, SchemaComponent}
+import com.simiacryptus.mindseye.layers.SchemaComponent
 import com.simiacryptus.mindseye.network.PipelineNetwork
 import com.simiacryptus.mindseye.network.graph.{DAGNetwork, DAGNode, InnerNode}
 import com.simiacryptus.mindseye.opt._

@@ -48,7 +48,7 @@ import com.simiacryptus.util.text.TableOutput
 import scala.collection.JavaConverters._
 import scala.util.Random
 import NNLayerUtil._
-import com.simiacryptus.mindseye.data.Coordinate
+import com.simiacryptus.mindseye.eval.{ConstL12Normalizer, StaticArrayTrainable, StochasticArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang.{Coordinate, NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 
