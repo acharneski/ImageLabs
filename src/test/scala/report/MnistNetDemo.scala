@@ -334,13 +334,13 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
         Map[String, AnyRef](
           "iteration" → state.iteration.toInt.asInstanceOf[Integer],
           "time" → state.time.toDouble.asInstanceOf[lang.Double],
-          "fitness" → state.point.value.toDouble.asInstanceOf[lang.Double]
+          "fitness" → state.point.sum.toDouble.asInstanceOf[lang.Double]
         ).asJava
       ): _*)
     }
     log.eval {
       val plot: PlotCanvas = ScatterPlot.plot(history.map(item ⇒ Array[Double](
-        item.iteration, Math.log(item.point.value)
+        item.iteration, Math.log(item.point.sum)
       )).toArray: _*)
       plot.setTitle("Convergence Plot")
       plot.setAxisLabels("Iteration", "log(Fitness)")

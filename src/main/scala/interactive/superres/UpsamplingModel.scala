@@ -117,7 +117,7 @@ case class DeepNetworkUpsample(
     val values = (1 to n).map(i ⇒ {
       val network = getNetwork(monitor, monitoringRoot, fitness = true)
       val measure = new StaticArrayTrainable(data, network).measure()
-      measure.value
+      measure.sum
     }).toList
     val avg = values.sum / n
     monitor.log(s"Numeric Opt: $this => $avg ($values)")

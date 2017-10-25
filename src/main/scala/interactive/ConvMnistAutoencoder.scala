@@ -388,7 +388,7 @@ class ConvMnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with
     if(!history.isEmpty) {
       log.eval {
         val plot: PlotCanvas = ScatterPlot.plot(history.map(item ⇒ Array[Double](
-          item.iteration, Math.log(item.point.value)
+          item.iteration, Math.log(item.point.sum)
         )).toArray: _*)
         plot.setTitle("Convergence Plot")
         plot.setAxisLabels("Iteration", "log(Fitness)")
@@ -401,7 +401,7 @@ class ConvMnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput with
           Map[String, AnyRef](
             "iteration" → state.iteration.toInt.asInstanceOf[Integer],
             "time" → state.time.toDouble.asInstanceOf[lang.Double],
-            "fitness" → state.point.value.toDouble.asInstanceOf[lang.Double]
+            "fitness" → state.point.sum.toDouble.asInstanceOf[lang.Double]
           ).asJava
         ): _*)
       }
