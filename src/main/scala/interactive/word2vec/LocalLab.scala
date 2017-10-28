@@ -29,12 +29,8 @@ import com.simiacryptus.util.io.HtmlNotebookOutput
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.fs.{Path, RemoteIterator}
 import org.apache.spark.SparkConf
-import org.apache.spark.mllib.feature.Word2VecModel
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.types._
-import org.apache.spark.sql.{Row, SparkSession}
+import org.apache.spark.sql.SparkSession
 
-import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 object LocalLab extends Report {
@@ -58,9 +54,6 @@ object LocalLab extends Report {
 }
 
 import interactive.word2vec.LocalLab._
-
-
-
 import interactive.word2vec.VectorUtils.convert
 
 

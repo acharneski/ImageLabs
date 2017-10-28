@@ -22,37 +22,34 @@ package interactive.superres
 import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
 import java.io._
-import java.{lang, util}
+import java.lang
 import java.util.concurrent.TimeUnit
-import java.util.function.{DoubleSupplier, IntToDoubleFunction, Supplier}
+import java.util.function.{DoubleSupplier, IntToDoubleFunction}
 
+import _root_.util.Java8Util.cvt
 import _root_.util._
-import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, HyperbolicActivationLayer, LinearActivationLayer, ReLuActivationLayer}
+import com.simiacryptus.mindseye.data.ImageTiles.ImageTensorLoader
+import com.simiacryptus.mindseye.eval._
+import com.simiacryptus.mindseye.lang.{Coordinate, NNLayer, Tensor}
+import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, HyperbolicActivationLayer, ReLuActivationLayer}
+import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 import com.simiacryptus.mindseye.layers.loss.MeanSqLossLayer
 import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgReshapeLayer}
+import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
 import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer}
-import com.simiacryptus.mindseye.layers.util.{ConstNNLayer, MonitoringWrapper}
-import com.simiacryptus.mindseye.network.graph.{DAGNetwork, DAGNode}
+import com.simiacryptus.mindseye.layers.util.ConstNNLayer
+import com.simiacryptus.mindseye.network.graph.DAGNode
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
-import com.simiacryptus.mindseye.opt.region._
-import com.simiacryptus.mindseye.opt.trainable._
-import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
-import com.simiacryptus.util.data.DoubleStatistics
 import com.simiacryptus.util.io.HtmlNotebookOutput
-import com.simiacryptus.mindseye.data.ImageTiles.ImageTensorLoader
 import com.simiacryptus.util.text.TableOutput
-import _root_.util.Java8Util.cvt
-import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
+import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
+import util.NNLayerUtil._
 
 import scala.collection.JavaConverters._
 import scala.util.Random
-import NNLayerUtil._
-import com.simiacryptus.mindseye.eval.{StaticArrayTrainable, StochasticArrayTrainable, Trainable}
-import com.simiacryptus.mindseye.lang.{Coordinate, NNLayer, Tensor}
-import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 
 case class DeepNetworkUpsample(
                                      weight1 : Double,
@@ -116,7 +113,7 @@ case class DeepNetworkUpsample(
   def fitness(monitor: TrainingMonitor, monitoringRoot : MonitoredObject, data: Array[Array[Tensor]], n: Int = 2) : Double = {
     val values = (1 to n).map(i ⇒ {
       val network = getNetwork(monitor, monitoringRoot, fitness = true)
-      val measure = new StaticArrayTrainable(data, network).measure()
+      val measure = new ArrayTrainable(data, network).measure()
       measure.sum
     }).toList
     val avg = values.sum / n

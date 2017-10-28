@@ -29,11 +29,11 @@ import javax.imageio.ImageIO
 
 import _root_.util.Java8Util.cvt
 import _root_.util._
-import com.simiacryptus.mindseye.eval.{StaticArrayTrainable, StochasticArrayTrainable, Trainable}
-import com.simiacryptus.mindseye.lang.{NNLayer, NNResult, Tensor}
+import com.simiacryptus.mindseye.eval.{ArrayTrainable, StochasticArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang.NNLayer.NNExecutionContext
+import com.simiacryptus.mindseye.lang.{NNLayer, NNResult, Tensor}
+import com.simiacryptus.mindseye.layers.SchemaComponent
 import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, LinearActivationLayer, SoftmaxActivationLayer}
-import com.simiacryptus.mindseye.layers.cudnn.CuDNN
 import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
 import com.simiacryptus.mindseye.layers.cudnn.f32._
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
@@ -41,13 +41,11 @@ import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
 import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer}
 import com.simiacryptus.mindseye.layers.synapse.BiasLayer
 import com.simiacryptus.mindseye.layers.util.{AssertDimensionsLayer, ConstNNLayer}
-import com.simiacryptus.mindseye.layers.SchemaComponent
 import com.simiacryptus.mindseye.network.graph.{DAGNetwork, DAGNode}
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
-import com.simiacryptus.mindseye.opt.trainable._
 import com.simiacryptus.util.function.{SoftCachedSupplier, WeakCachedSupplier}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
 import com.simiacryptus.util.text.TableOutput
@@ -396,7 +394,7 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
       trainingNetwork.add(pipelineNetwork)
       System.out.print(s"Starting to process ${adversarialData.length} images")
       val trainer1 = out.eval {
-        var inner: Trainable = new StaticArrayTrainable(adversarialData,
+        var inner: Trainable = new ArrayTrainable(adversarialData,
           new SimpleLossNetwork(trainingNetwork, new EntropyLossLayer()))
         val trainer = new IterativeTrainer(inner)
         trainer.setMonitor(monitor)

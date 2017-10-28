@@ -19,7 +19,6 @@
 
 package interactive.classify
 
-import org.apache.hadoop.fs.{FileSystem, Path}
 import java.awt.geom.AffineTransform
 import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
@@ -31,9 +30,10 @@ import javax.imageio.ImageIO
 
 import _root_.util.Java8Util.cvt
 import _root_.util._
-import com.simiacryptus.mindseye.eval.{LocalSparkTrainable, StaticArrayTrainable, Trainable}
-import com.simiacryptus.mindseye.lang.{NNLayer, NNResult, Tensor}
+import com.simiacryptus.mindseye.eval._
 import com.simiacryptus.mindseye.lang.NNLayer.NNExecutionContext
+import com.simiacryptus.mindseye.lang.{NNLayer, NNResult, Tensor}
+import com.simiacryptus.mindseye.layers.SchemaComponent
 import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, LinearActivationLayer, NthPowerActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.layers.cudnn.CudaExecutionContext
 import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
@@ -44,17 +44,16 @@ import com.simiacryptus.mindseye.layers.meta.{StdDevMetaLayer, WeightExtractor}
 import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, SumInputsLayer, SumReducerLayer}
 import com.simiacryptus.mindseye.layers.synapse.BiasLayer
 import com.simiacryptus.mindseye.layers.util.MonitoringWrapper
-import com.simiacryptus.mindseye.layers.SchemaComponent
 import com.simiacryptus.mindseye.network.PipelineNetwork
 import com.simiacryptus.mindseye.network.graph.{DAGNetwork, DAGNode, InnerNode}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
-import com.simiacryptus.mindseye.opt.trainable._
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
 import com.simiacryptus.util.text.TableOutput
 import interactive.classify.SparkIncGoogLeNetModeler.{artificialVariants, fuzz, sc, tileSize}
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.{SparkConf, SparkContext}
@@ -761,7 +760,7 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
     trainingNetwork.add(pipelineNetwork)
     trainingNetwork.add(new EntropyLossLayer(), trainingNetwork.getHead, trainingNetwork.getInput(1))
     this.model = trainingNetwork
-    var inner: Trainable = new StaticArrayTrainable(adversarialData, trainingNetwork)
+    var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
     val trainer = new IterativeTrainer(inner)
     trainer.setMonitor(monitor)
     trainer.setTimeout(1, TimeUnit.MINUTES)
@@ -784,7 +783,7 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
     trainingNetwork.add(pipelineNetwork)
     trainingNetwork.add(new EntropyLossLayer(), trainingNetwork.getHead, trainingNetwork.getInput(1))
     this.model = trainingNetwork
-    var inner: Trainable = new StaticArrayTrainable(adversarialData, trainingNetwork)
+    var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
     val trainer = new IterativeTrainer(inner)
     trainer.setMonitor(monitor)
     trainer.setTimeout(1, TimeUnit.MINUTES)
@@ -809,7 +808,7 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
 
     trainingNetwork.add(new EntropyLossLayer(), trainingNetwork.getHead, trainingNetwork.getInput(1))
     this.model = trainingNetwork
-    var inner: Trainable = new StaticArrayTrainable(adversarialData, trainingNetwork)
+    var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
     val trainer = new IterativeTrainer(inner)
     trainer.setMonitor(monitor)
     trainer.setTimeout(1, TimeUnit.MINUTES)
@@ -854,7 +853,7 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
       )
     )
     this.model = trainingNetwork
-    var inner: Trainable = new StaticArrayTrainable(adversarialData, trainingNetwork)
+    var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
     val trainer = new IterativeTrainer(inner)
     trainer.setMonitor(monitor)
     trainer.setTimeout(1, TimeUnit.MINUTES)

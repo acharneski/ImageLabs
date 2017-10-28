@@ -23,25 +23,22 @@ import java.lang
 import java.util.concurrent.TimeUnit
 import java.util.function.{IntToDoubleFunction, ToDoubleFunction}
 
-import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import util.Java8Util._
-import util.{ReportNotebook, ScalaNotebookOutput}
-import com.simiacryptus.mindseye.layers._
+import com.simiacryptus.mindseye.data.MNIST
+import com.simiacryptus.mindseye.eval.{ConstL12Normalizer, StochasticArrayTrainable, Trainable}
+import com.simiacryptus.mindseye.lang._
 import com.simiacryptus.mindseye.layers.activation.{ReLuActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
+import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line.ArmijoWolfeSearch
 import com.simiacryptus.mindseye.opt.orient.{GradientDescent, LBFGS, OwlQn}
-import com.simiacryptus.mindseye.opt.trainable.{StochasticArrayTrainable, Trainable}
 import com.simiacryptus.util._
 import com.simiacryptus.util.text.TableOutput
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}
-import _root_.util.Java8Util
-import com.simiacryptus.mindseye.data.MNIST
-import com.simiacryptus.mindseye.eval.{ConstL12Normalizer, StochasticArrayTrainable, Trainable}
-import com.simiacryptus.mindseye.lang._
+import util.Java8Util._
+import _root_.util.{Java8Util, ReportNotebook, ScalaNotebookOutput}
 
 import scala.collection.JavaConverters._
 

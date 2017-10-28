@@ -29,21 +29,20 @@ import javax.imageio.ImageIO
 
 import _root_.util.Java8Util.cvt
 import _root_.util._
-import com.simiacryptus.mindseye.eval.{StaticArrayTrainable, StochasticArrayTrainable, Trainable}
+import com.simiacryptus.mindseye.eval.{ArrayTrainable, StochasticArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang.{NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, SoftmaxActivationLayer}
+import com.simiacryptus.mindseye.layers.cudnn.f32._
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
+import com.simiacryptus.mindseye.layers.media.MaxImageBandLayer
 import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
 import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer}
 import com.simiacryptus.mindseye.layers.util.ConstNNLayer
 import com.simiacryptus.mindseye.network.PipelineNetwork
 import com.simiacryptus.mindseye.network.graph.DAGNode
-import com.simiacryptus.mindseye.layers.cudnn.f32._
-import com.simiacryptus.mindseye.layers.media.MaxImageBandLayer
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
-import com.simiacryptus.mindseye.opt.trainable._
 import com.simiacryptus.util.io.HtmlNotebookOutput
 import com.simiacryptus.util.text.TableOutput
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
@@ -72,7 +71,7 @@ object ClassifierModeler extends Report {
   }
 
 }
-import ClassifierModeler._
+import interactive.classify.ClassifierModeler._
 
 object TestClassifier {
 
@@ -162,7 +161,7 @@ case class TestClassifier(
   def fitness(monitor: TrainingMonitor, monitoringRoot : MonitoredObject, data: Array[Array[Tensor]], n: Int = 3) : Double = {
     val values = (1 to n).map(i ⇒ {
       val network = getNetwork(monitor, monitoringRoot, fitness = true)
-      val measure = new StaticArrayTrainable(data, network).measure()
+      val measure = new ArrayTrainable(data, network).measure()
       measure.sum
     }).toList
     val avg = values.sum / n

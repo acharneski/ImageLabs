@@ -792,7 +792,7 @@ class WhiteboardDev extends WordSpec with MustMatchers with ReportNotebook {
             ColorHsv.hsvToRgb(hsvColor(0), hsvColor(1), hsvColor(2), rgbColor)
             segmentColor.getData()(i) = rgbColor
           } else {
-            //segmentColor.getTrainingData()(i) = Array(0.0f, 0.0f, 0.0f)
+            //segmentColor.getData()(i) = Array(0.0f, 0.0f, 0.0f)
             segmentColor.getData()(i) = Array(255.0f, 255.0f, 255.0f)
           }
         })

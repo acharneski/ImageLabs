@@ -28,9 +28,9 @@ import javax.imageio.ImageIO
 
 import _root_.util.Java8Util.cvt
 import _root_.util._
-import com.simiacryptus.mindseye.eval.{StaticArrayTrainable, StochasticArrayTrainable, Trainable}
-import com.simiacryptus.mindseye.lang.{NNLayer, NNResult, Tensor}
+import com.simiacryptus.mindseye.eval.{ArrayTrainable, StochasticArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang.NNLayer.NNExecutionContext
+import com.simiacryptus.mindseye.lang.{NNLayer, NNResult, Tensor}
 import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, LinearActivationLayer, NthPowerActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
 import com.simiacryptus.mindseye.layers.cudnn.f32._
@@ -43,7 +43,6 @@ import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
-import com.simiacryptus.mindseye.opt.trainable._
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.function.WeakCachedSupplier
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
@@ -257,7 +256,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
 
       val trainer1 = out.eval {
         assert(null != data)
-        var inner: Trainable = new StaticArrayTrainable(Array(adversarialData),
+        var inner: Trainable = new ArrayTrainable(Array(adversarialData),
           new SimpleLossNetwork(trainingNetwork, new EntropyLossLayer()))
         val trainer = new IterativeTrainer(inner)
         trainer.setMonitor(monitor)
@@ -285,7 +284,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
 //    out.h1("GAN Images Training")
 //    val trainer2 = out.eval {
 //      assert(null != data)
-//      var inner: Trainable = new StaticArrayTrainable(adversarialOutput.toArray,
+//      var inner: Trainable = new ArrayTrainable(adversarialOutput.toArray,
 //        new SimpleLossNetwork(model, new EntropyLossLayer()))
 //      val trainer = new IterativeTrainer(inner)
 //      trainer.setMonitor(monitor)

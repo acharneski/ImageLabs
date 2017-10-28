@@ -27,19 +27,18 @@ import com.simiacryptus.mindseye.data.MNIST
 import com.simiacryptus.mindseye.eval.StochasticArrayTrainable
 import com.simiacryptus.mindseye.lang.{NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.activation._
-import com.simiacryptus.mindseye.layers.cross.CrossProductLayer
+import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.layers.media.MaxSubsampleLayer
 import com.simiacryptus.mindseye.layers.meta._
-import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, SumInputsLayer, SumReducerLayer}
+import com.simiacryptus.mindseye.layers.reducers.{SumInputsLayer, SumReducerLayer}
 import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
 import com.simiacryptus.mindseye.network.graph._
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
-import com.simiacryptus.mindseye.opt.region.{LinearSumConstraint, TrustRegion}
 import com.simiacryptus.mindseye.opt.IterativeTrainer
 import com.simiacryptus.mindseye.opt.orient.TrustRegionStrategy
+import com.simiacryptus.mindseye.opt.region.TrustRegion
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil, MarkdownNotebookOutput}
 import com.simiacryptus.util.text.TableOutput
@@ -48,7 +47,6 @@ import guru.nidi.graphviz.engine.{Format, Graphviz}
 import scala.collection.JavaConverters._
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import scala.util.Random
 
 
 object MnistAutoinitDemo extends Report {

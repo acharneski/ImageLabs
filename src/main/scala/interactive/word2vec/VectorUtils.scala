@@ -22,7 +22,7 @@ package interactive.word2vec
 object VectorUtils {
   implicit def convert(values: Array[Float]) = new VectorUtils(values)
 }
-import VectorUtils._
+import interactive.word2vec.VectorUtils._
 
 case class VectorUtils(values: Array[Float]) {
   def +(right: Array[Float]): Array[Float] = values.zip(right).map(x => x._1 + x._2)

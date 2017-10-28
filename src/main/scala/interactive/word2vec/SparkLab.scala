@@ -40,7 +40,6 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.storage.StorageLevel
 
-import scala.collection.immutable
 import scala.collection.mutable.{ArrayBuffer, WrappedArray}
 import scala.util.Try
 

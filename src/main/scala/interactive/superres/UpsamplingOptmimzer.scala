@@ -22,39 +22,25 @@ package interactive.superres
 import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
 import java.io._
-import java.lang
 import java.util.concurrent.TimeUnit
-import java.util.function.{DoubleSupplier, IntToDoubleFunction}
 
-import _root_.util.Java8Util.cvt
 import _root_.util._
-import com.google.gson.{GsonBuilder, JsonObject}
-import com.simiacryptus.mindseye.layers.activation._
+import com.simiacryptus.mindseye.data.ImageTiles.ImageTensorLoader
+import com.simiacryptus.mindseye.eval.ArrayTrainable
+import com.simiacryptus.mindseye.lang.{NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.loss.{EntropyLossLayer, MeanSqLossLayer}
-import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgReshapeLayer, MaxSubsampleLayer}
-import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
-import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer, SumReducerLayer}
-import com.simiacryptus.mindseye.layers.util.{ConstNNLayer, MonitoringWrapper}
-import com.simiacryptus.mindseye.network.graph.DAGNode
-import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.layers.reducers.{ProductInputsLayer, SumInputsLayer}
+import com.simiacryptus.mindseye.layers.util.ConstNNLayer
+import com.simiacryptus.mindseye.network.PipelineNetwork
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
-import com.simiacryptus.mindseye.opt.trainable._
-import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
+import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.HtmlNotebookOutput
-import com.simiacryptus.mindseye.data.ImageTiles.ImageTensorLoader
-import com.simiacryptus.util.test.LabeledObject
 import com.simiacryptus.util.text.TableOutput
-import org.apache.commons.io.IOUtils
 
 import scala.collection.JavaConverters._
 import scala.util.Random
-import NNLayerUtil._
-import com.simiacryptus.mindseye.eval.StaticArrayTrainable
-import com.simiacryptus.mindseye.lang.{NNLayer, Tensor}
-import com.simiacryptus.mindseye.layers.synapse.BiasLayer
-import com.simiacryptus.mindseye.opt.region.{StaticConstraint, TrustRegion}
 
 class UpsamplingOptimizer(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 
@@ -119,7 +105,7 @@ object UpsamplingOptimizer extends Report {
     network.add(new ProductInputsLayer(), fakeness, network.add(new SumInputsLayer(), wrongness, network.constValue(new Tensor(1).set(0, 1))))
     assert(!targetNode.getLayer.asInstanceOf[ConstNNLayer].isFrozen)
 
-    val executorFunction = new StaticArrayTrainable(Array(Array()), network, 0)
+    val executorFunction = new ArrayTrainable(Array(Array()), network, 0)
     val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)
     trainer.setLineSearchFactory(Java8Util.cvt((s) ⇒ new ArmijoWolfeSearch()
       .setC1(0).setC2(1).setStrongWolfe(false).setMaxAlpha(1e8)))

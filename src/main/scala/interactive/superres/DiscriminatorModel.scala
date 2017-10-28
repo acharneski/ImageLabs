@@ -22,7 +22,7 @@ package interactive.superres
 import java.awt.image.BufferedImage
 import java.awt.{Graphics2D, RenderingHints}
 import java.io._
-import java.{lang, util}
+import java.lang
 import java.util.concurrent.TimeUnit
 import java.util.function.{DoubleSupplier, IntToDoubleFunction}
 import java.util.stream.Collectors
@@ -30,34 +30,30 @@ import java.util.stream.Collectors
 import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.google.gson.{GsonBuilder, JsonObject}
+import com.simiacryptus.mindseye.data.ImageTiles.ImageTensorLoader
+import com.simiacryptus.mindseye.eval.{ArrayTrainable, LinkedExampleArrayTrainable, Trainable}
+import com.simiacryptus.mindseye.lang.{NNLayer, NNResult, Tensor}
 import com.simiacryptus.mindseye.layers.activation._
-import com.simiacryptus.mindseye.layers.loss.{EntropyLossLayer, MeanSqLossLayer}
+import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
+import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
 import com.simiacryptus.mindseye.layers.media._
 import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
-import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer, SumReducerLayer}
-import com.simiacryptus.mindseye.layers.util.{ConstNNLayer, MonitoringWrapper}
+import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer}
+import com.simiacryptus.mindseye.layers.util.ConstNNLayer
 import com.simiacryptus.mindseye.network.graph.DAGNode
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
-import com.simiacryptus.mindseye.opt.trainable._
-import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
-import com.simiacryptus.mindseye.data.ImageTiles.ImageTensorLoader
 import com.simiacryptus.util.test.LabeledObject
 import com.simiacryptus.util.text.TableOutput
+import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
 import org.apache.commons.io.IOUtils
+import util.NNLayerUtil._
 
 import scala.collection.JavaConverters._
 import scala.util.Random
-import NNLayerUtil._
-import com.simiacryptus.mindseye.eval.{LinkedExampleArrayTrainable, StaticArrayTrainable, Trainable}
-import com.simiacryptus.mindseye.lang.{NNLayer, NNResult, Tensor}
-import com.simiacryptus.mindseye.layers.synapse.BiasLayer
-import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
-import com.simiacryptus.mindseye.opt.region.{StaticConstraint, TrustRegion}
-import interactive.superres.UpsamplingOptimizer.{reconstructImage, resize}
 
 case class DeepNetworkDescriminator(
                                 weight1 : Double,
@@ -135,7 +131,7 @@ case class DeepNetworkDescriminator(
   def fitness(monitor: TrainingMonitor, monitoringRoot : MonitoredObject, data: Array[Array[Tensor]], n: Int = 3) : Double = {
     val values = (1 to n).map(i ⇒ {
       val network = getNetwork(monitor, monitoringRoot, fitness = true)
-      val measure = new StaticArrayTrainable(data, network).measure()
+      val measure = new ArrayTrainable(data, network).measure()
       measure.sum
     }).toList
     val avg = values.sum / n
@@ -272,7 +268,7 @@ class DiscriminatorModel(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
     monitor.clear()
     val trainer = out.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer())
-      var inner: Trainable = new StaticArrayTrainable(adversarialData.toList.flatten.toArray, trainingNetwork)
+      var inner: Trainable = new ArrayTrainable(adversarialData.toList.flatten.toArray, trainingNetwork)
       //inner = new ConstL12Normalizer(inner).setFactor_L1(0.001)
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)

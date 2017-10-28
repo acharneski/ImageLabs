@@ -19,40 +19,10 @@
 
 package interactive.classify
 
+import java.awt.AWTEvent
 import java.awt.event.AWTEventListener
-import java.awt.image.BufferedImage
-import java.awt.{AWTEvent, Graphics2D, RenderingHints}
-import java.io._
-import java.lang
-import java.util.concurrent.TimeUnit
-import java.util.function.{DoubleSupplier, IntToDoubleFunction}
-import javax.imageio.ImageIO
 
-import _root_.util.Java8Util.cvt
 import _root_.util._
-import com.simiacryptus.mindseye.lang.{NNLayer, Tensor}
-import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, SoftmaxActivationLayer}
-import com.simiacryptus.mindseye.layers.cudnn.f32._
-import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.layers.media.MaxImageBandLayer
-import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
-import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer}
-import com.simiacryptus.mindseye.layers.util.ConstNNLayer
-import com.simiacryptus.mindseye.network.PipelineNetwork
-import com.simiacryptus.mindseye.network.graph.DAGNode
-import com.simiacryptus.mindseye.opt._
-import com.simiacryptus.mindseye.opt.line._
-import com.simiacryptus.mindseye.opt.orient._
-import com.simiacryptus.mindseye.opt.trainable._
-import com.simiacryptus.util.io.HtmlNotebookOutput
-import com.simiacryptus.util.text.TableOutput
-import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
-import util.NNLayerUtil._
-
-import scala.collection.JavaConverters._
-import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
 
 object Activity extends Report {
 
@@ -62,7 +32,6 @@ object Activity extends Report {
   }
 
 }
-import interactive.classify.ClassifierModeler._
 
 
 

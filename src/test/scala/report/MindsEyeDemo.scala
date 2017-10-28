@@ -33,13 +33,13 @@ import javax.imageio.ImageIO
 import com.simiacryptus.mindseye.data.MNIST
 import com.simiacryptus.mindseye.eval.StochasticArrayTrainable
 import com.simiacryptus.mindseye.lang.{Coordinate, NNLayer, Tensor}
+import com.simiacryptus.mindseye.layers.activation._
+import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
+import com.simiacryptus.mindseye.layers.loss.{EntropyLossLayer, MeanSqLossLayer}
+import com.simiacryptus.mindseye.layers.reducers.SumReducerLayer
+import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
 import com.simiacryptus.mindseye.network.graph._
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
-import com.simiacryptus.mindseye.layers.activation._
-import com.simiacryptus.mindseye.layers.loss.{EntropyLossLayer, MeanSqLossLayer}
-import com.simiacryptus.mindseye.layers.reducers.{SumInputsLayer, SumReducerLayer}
-import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
-import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 import com.simiacryptus.mindseye.opt.TrainingMonitor
 import com.simiacryptus.util.Util
 import com.simiacryptus.util.text.TableOutput
