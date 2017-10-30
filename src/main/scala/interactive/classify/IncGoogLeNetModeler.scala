@@ -356,7 +356,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
                        featuresLabel:String = "features"): DAGNode =
   {
     val numberOfCategories = trainingArray.head(1).dim()
-    val newFeatureDimensions: Array[Int] = CudaExecutionContext.gpuContexts.map((cuda:CudaExecutionContext)=>additionalLayer.eval(cuda, trainingArray.head.head).getData.get(0).getDimensions)
+    val newFeatureDimensions: Array[Int] = CudaExecutionContext.gpuContexts.run((cuda:CudaExecutionContext)=>additionalLayer.eval(cuda, trainingArray.head.head).getData.get(0).getDimensions)
     val trainingNetwork = new PipelineNetwork(2)
     val featuresNode = trainingNetwork.add(featuresLabel, additionalLayer, trainingNetwork.getInput(0))
     val dropoutNode = trainingNetwork.add(new DropoutNoiseLayer(), featuresNode)
@@ -646,7 +646,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     trainer.run()
     val evalNetwork = new PipelineNetwork()
     evalNetwork.add(adaptationLayer)
-    val adversarialImage = CudaExecutionContext.gpuContexts.map((cuda:CudaExecutionContext)=>evalNetwork.eval(cuda, adversarialData.head.head).getData.get(0))
+    val adversarialImage = CudaExecutionContext.gpuContexts.run((cuda:CudaExecutionContext)=>evalNetwork.eval(cuda, adversarialData.head.head).getData.get(0))
     adversarialImage
   }
 
@@ -690,7 +690,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     trainer.run()
     val evalNetwork = new PipelineNetwork()
     evalNetwork.add(adaptationLayer)
-    val adversarialImage = CudaExecutionContext.gpuContexts.map((cuda:CudaExecutionContext)=>evalNetwork.eval(cuda, adversarialData.head.head).getData.get(0))
+    val adversarialImage = CudaExecutionContext.gpuContexts.run((cuda:CudaExecutionContext)=>evalNetwork.eval(cuda, adversarialData.head.head).getData.get(0))
     adversarialImage
   }
 
