@@ -44,7 +44,7 @@ import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
 import com.simiacryptus.util.io.HtmlNotebookOutput
-import com.simiacryptus.util.text.TableOutput
+import com.simiacryptus.text.TableOutput
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
 import util.NNLayerUtil._
 

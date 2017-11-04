@@ -47,7 +47,7 @@ import boofcv.io.image.ConvertBufferedImage
 import boofcv.struct.feature._
 import boofcv.struct.geo.AssociatedPair
 import boofcv.struct.image.{GrayF32, GrayS32, ImageType, Planar, _}
-import com.simiacryptus.util.ml.DensityTree
+import com.simiacryptus.util.data.DensityTree
 import georegression.geometry.UtilPolygons2D_F32
 import georegression.metric.Intersection2D_F32
 import georegression.struct.homography.Homography2D_F64

@@ -36,7 +36,7 @@ import com.simiacryptus.mindseye.opt.IterativeTrainer
 import com.simiacryptus.mindseye.opt.orient.GradientDescent
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil, MarkdownNotebookOutput}
-import com.simiacryptus.util.text.TableOutput
+import com.simiacryptus.text.TableOutput
 import guru.nidi.graphviz.engine.{Format, Graphviz}
 
 import scala.collection.JavaConverters._

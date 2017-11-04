@@ -39,7 +39,7 @@ import com.simiacryptus.mindseye.opt.{Step, TrainingMonitor}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, TeeOutputStream}
 import com.simiacryptus.util.lang.SupplierWeakCache
 import com.simiacryptus.util.test.LabeledObject
-import com.simiacryptus.util.text.TableOutput
+import com.simiacryptus.text.TableOutput
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
 import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession

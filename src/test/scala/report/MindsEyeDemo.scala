@@ -42,7 +42,7 @@ import com.simiacryptus.mindseye.network.graph._
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt.TrainingMonitor
 import com.simiacryptus.util.Util
-import com.simiacryptus.util.text.TableOutput
+import com.simiacryptus.text.TableOutput
 import guru.nidi.graphviz.engine.{Format, Graphviz}
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}

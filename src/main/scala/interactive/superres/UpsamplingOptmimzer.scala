@@ -37,7 +37,7 @@ import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.HtmlNotebookOutput
-import com.simiacryptus.util.text.TableOutput
+import com.simiacryptus.text.TableOutput
 
 import scala.collection.JavaConverters._
 import scala.util.Random

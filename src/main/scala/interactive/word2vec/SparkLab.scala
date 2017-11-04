@@ -106,7 +106,7 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
       (key, orthogonalBasis.map(orthogonalBasis=>{
         orthogonalBasis.tail.foldLeft(vector - orthogonalBasis.head)((l, r) => l without r).magnitude.toDouble
       }).map(x=>x*x).reduceOption(_+_).map(Math.sqrt).get, vector)
-//    }).reduce(_*_), vector)
+//    }).reduce(_*_), toList)
     }).filter(!_._2.toDouble.isNaN)
       .sortBy(_._2).take(n).toList
     System.out.println(result.map(_._1).mkString(", "))
@@ -356,13 +356,13 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
         val tempDest = tempFolder + x._2
         cleanup += tempDest
         val rdd: RDD[(String, Array[Float])] = sc.parallelize(x._1, 1)
-        val schema = StructType(List(StructField("term", StringType), StructField("vector", ArrayType(FloatType))))
+        val schema = StructType(List(StructField("term", StringType), StructField("toList", ArrayType(FloatType))))
         sqlContext.createDataFrame(rdd.map(x => Row(x._1, x._2)), schema).write.parquet(tempDest)
         sqlContext.read.parquet(tempDest)
       }).reduce(_.union(_)).repartition(16).write.parquet(file)
       for (file <- cleanup) fileSystem.delete(new Path(file), true)
     }
-    sqlContext.read.parquet(file).rdd.map(row => row.getAs[String]("term") -> row.getAs[WrappedArray.ofRef[lang.Float]]("vector").toArray.map(_.toFloat))
+    sqlContext.read.parquet(file).rdd.map(row => row.getAs[String]("term") -> row.getAs[WrappedArray.ofRef[lang.Float]]("toList").toArray.map(_.toFloat))
   }
 
 }

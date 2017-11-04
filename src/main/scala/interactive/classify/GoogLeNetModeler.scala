@@ -48,7 +48,7 @@ import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
 import com.simiacryptus.util.function.{SoftCachedSupplier, WeakCachedSupplier}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
-import com.simiacryptus.util.text.TableOutput
+import com.simiacryptus.text.TableOutput
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD}
 import interactive.classify.GoogLeNetModeler.tileSize
 

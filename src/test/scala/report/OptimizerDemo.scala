@@ -34,7 +34,7 @@ import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line.ArmijoWolfeSearch
 import com.simiacryptus.mindseye.opt.orient.{GradientDescent, LBFGS, OwlQn}
 import com.simiacryptus.util._
-import com.simiacryptus.util.text.TableOutput
+import com.simiacryptus.text.TableOutput
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}
 import util.Java8Util._

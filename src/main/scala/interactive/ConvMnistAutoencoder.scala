@@ -35,7 +35,7 @@ import com.simiacryptus.mindseye.network.{ConvAutoencoderNetwork, PipelineNetwor
 import com.simiacryptus.mindseye.opt.orient.LBFGS
 import com.simiacryptus.mindseye.opt.{Step, TrainingMonitor}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil, TeeOutputStream}
-import com.simiacryptus.util.text.TableOutput
+import com.simiacryptus.text.TableOutput
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD}
 import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession

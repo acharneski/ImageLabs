@@ -53,7 +53,7 @@ import com.simiacryptus.mindseye.opt.orient._
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.function.WeakCachedSupplier
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
-import com.simiacryptus.util.text.TableOutput
+import com.simiacryptus.text.TableOutput
 
 import scala.collection.JavaConverters._
 import scala.collection.parallel.immutable.ParSeq
