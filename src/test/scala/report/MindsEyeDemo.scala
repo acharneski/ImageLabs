@@ -204,12 +204,12 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
           val trainingData: Seq[Array[Tensor]] = Stream.continually({
             val x = Random.nextDouble() * 2.0 - 1.0
             val y = Random.nextDouble() * 2.0 - 1.0
-            Array(new Tensor(Array(2), Array(x, y)), toOutNDArray(function(x, y), 2))
+            Array(new Tensor(Array(x, y), Array(2)), toOutNDArray(function(x, y), 2))
           }).take(100)
           val validationData: Seq[Array[Tensor]] = Stream.continually({
             val x = Random.nextDouble() * 2.0 - 1.0
             val y = Random.nextDouble() * 2.0 - 1.0
-            Array(new Tensor(Array(2), Array(x, y)), toOutNDArray(function(x, y), 2))
+            Array(new Tensor(Array(x, y), Array(2)), toOutNDArray(function(x, y), 2))
           }).take(100)
 
           val trainer = log.eval {
