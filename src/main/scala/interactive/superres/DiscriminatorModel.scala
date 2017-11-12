@@ -89,7 +89,7 @@ case class DeepNetworkDescriminator(
       }
       network.add(new ConvolutionLayer(layerRadius, layerRadius, from * to, simpleBorder)
         .setWeights(weightSeed).setName("conv_" + layerNumber).addTo(monitoringRoot));
-      //network.add(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
+      //network.fn(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
     }
 
     // 64 x 64 x 3
@@ -107,8 +107,8 @@ case class DeepNetworkDescriminator(
     network.add(new AvgImageBandLayer().setName("avgFinal").addTo(monitoringRoot))
     network.add(new SoftmaxActivationLayer)
 
-    //network.add(new ImgReshapeLayer(2,2,true))
-    //network.add(new HyperbolicActivationLayer().setScale(5).freeze().setName("activation4").addTo(monitoringRoot))
+    //network.fn(new ImgReshapeLayer(2,2,true))
+    //network.fn(new HyperbolicActivationLayer().setScale(5).freeze().setName("activation4").addTo(monitoringRoot))
 
     if(fitness) {
       val output = network.getHead

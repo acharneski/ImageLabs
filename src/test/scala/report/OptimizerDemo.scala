@@ -252,7 +252,7 @@ class OptimizerDemo extends WordSpec with MustMatchers with ReportNotebook {
       model.add(new DenseSynapseLayer(inputSize, middleSize)
         .setWeights(cvt((c: Coordinate) ⇒ Util.R.get.nextGaussian * 0.001)))
       model.add(new BiasLayer(middleSize: _*))
-      //model.add(new ReLuActivationLayer().freeze)
+      //model.fn(new ReLuActivationLayer().freeze)
       model.add(new DenseSynapseLayer(middleSize, inputSize)
         .setWeights(cvt((c: Coordinate) ⇒ Util.R.get.nextGaussian * 0.001)))
       model.add(new BiasLayer(outputSize: _*))

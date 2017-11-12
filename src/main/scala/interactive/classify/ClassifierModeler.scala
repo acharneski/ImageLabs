@@ -116,7 +116,7 @@ case class TestClassifier(
       val node = network.add(new ConvolutionLayer(layerRadius, layerRadius, from * to, simpleBorder)
         .setWeights(weightSeed).setName("conv_" + layerNumber).addTo(monitoringRoot)
       )
-      //network.add(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
+      //network.fn(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
       normalizedPoints += node
       if(!auxWeight.isNaN) subPrediction(node) = (to, auxWeight, layerNumber)
       node

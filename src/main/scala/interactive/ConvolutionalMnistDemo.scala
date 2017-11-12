@@ -50,7 +50,7 @@ object ConvolutionalMnistDemo extends Report {
         model.add(new MonitoringWrapper(new ConvolutionLayer(3, 3, 8)
           .setWeights(Java8Util.cvt(() ⇒ 0.1 * (Random.nextDouble() - 0.5)))).addTo(monitoringRoot, "synapse1"))
         model.add(new MonitoringWrapper(new MaxSubsampleLayer(4, 4, 1)).addTo(monitoringRoot, "max1"))
-        //model.add(new MonitoringWrapper(new ImgBandBiasLayer(28,28,8)).addTo(monitoringRoot, "imgbias1"))
+        //model.fn(new MonitoringWrapper(new ImgBandBiasLayer(28,28,8)).addTo(monitoringRoot, "imgbias1"))
         model.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu1"))
         model.add(new MonitoringSynapse().addTo(monitoringRoot, "hidden1"))
 

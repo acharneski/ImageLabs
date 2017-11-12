@@ -83,7 +83,7 @@ case class DeepNetworkUpsample(
         network.add(activationLayer.setName("activation_" + layerNumber).freeze.addTo(monitoringRoot))
       }
       network.add(new ConvolutionLayer(layerRadius, layerRadius, from * to).setWeights(weightSeed).setName("conv_" + layerNumber).addTo(monitoringRoot));
-      //network.add(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
+      //network.fn(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
     }
 
     val l1 = buildLayer(3, 64, "0", weights = Math.pow(10, parameters.weight1), activationLayer = null)

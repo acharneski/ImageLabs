@@ -296,7 +296,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
           model.add(new SoftmaxActivationLayer)
           model
         })
-        log.p("If we add a hidden id mapCoords enough units, we can learn the nonlinearity:")
+        log.p("If we fn a hidden id mapCoords enough units, we can learn the nonlinearity:")
         runTest(xor_fn, log.eval {
           var model: PipelineNetwork = new PipelineNetwork
           val middleSize = Array[Int](15)

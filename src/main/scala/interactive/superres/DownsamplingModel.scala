@@ -76,7 +76,7 @@ case class DeepNetworkDownsample(weight1 : Double) {
         network.add(activationLayer.setName("activation_" + layerNumber).freeze.addTo(monitoringRoot))
       }
       network.add(new ConvolutionLayer(layerRadius, layerRadius, from * to).setWeights(weightSeed).setName("conv_" + layerNumber).addTo(monitoringRoot));
-      //network.add(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
+      //network.fn(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
     }
 
     network.add(new ImgReshapeLayer(4,4,false))

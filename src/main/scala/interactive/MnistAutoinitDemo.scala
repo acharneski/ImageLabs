@@ -91,7 +91,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
 
   lazy val component1 = log.eval {
     var model: PipelineNetwork = new PipelineNetwork
-    //model.add(new MonitoringWrapper(new BiasLayer(inputSize: _*).setName("bias1a")).addTo(monitoringRoot))
+    //model.fn(new MonitoringWrapper(new BiasLayer(inputSize: _*).setName("bias1a")).addTo(monitoringRoot))
     model.add(new MonitoringWrapper(new DenseSynapseLayer(inputSize, midSize)).addTo(monitoringRoot, "synapse1"))
     model.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu1"))
     model.add(new MonitoringWrapper(new BiasLayer(midSize: _*)).addTo(monitoringRoot, "bias1b"))
@@ -120,11 +120,11 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
     model.add(new MonitoringWrapper(component).addTo(monitoringRoot, "component1init"))
     val componentNode = model.add(new MonitoringSynapse().addTo(monitoringRoot, "component1out"))
 
-//    model.add(new AbsActivationLayer(), componentNode)
-//    model.add(new MaxMetaLayer())
-//    model.add(new LinearActivationLayer().setBias(-1).freeze())
-//    model.add(new SqActivationLayer())
-//    val maxLimiter = model.add(new MonitoringSynapse().addTo(monitoringRoot, "valueMean"))
+//    model.fn(new AbsActivationLayer(), componentNode)
+//    model.fn(new MaxMetaLayer())
+//    model.fn(new LinearActivationLayer().setBias(-1).freeze())
+//    model.fn(new SqActivationLayer())
+//    val maxLimiter = model.fn(new MonitoringSynapse().addTo(monitoringRoot, "valueMean"))
 
     model.add(new AvgMetaLayer(), componentNode)
     val means = model.add(new MonitoringSynapse().addTo(monitoringRoot, "valueMean"))
@@ -133,7 +133,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
 
     model.add(new SqActivationLayer(), recentered)
     model.add(new AvgMetaLayer())
-    //model.add(new LinearActivationLayer().setBias(1e-15).freeze())
+    //model.fn(new LinearActivationLayer().setBias(1e-15).freeze())
     val variances = model.add(new MonitoringSynapse().addTo(monitoringRoot, "valueVariance"))
 
     model.add(new ScaleMetaLayer(), recentered, model.add(new NthPowerActivationLayer().setPower(-0.5), variances))
@@ -145,17 +145,17 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
     model.add(new LinearActivationLayer().setBias(-1).freeze())
     val varOffset = model.add(new SqActivationLayer())
 
-//    model.add(new CrossProductLayer(), rescaled)
-//    model.add(new SumMetaLayer())
-//    model.add(new HyperbolicActivationLayer().setScale(1.0).freeze())
-//    model.add(new MonitoringSynapse().addTo(monitoringRoot, "dotNormalizer"))
-//    model.add(new SumReducerLayer())
-//    val dotNormalizer = model.add(new LinearActivationLayer().setScale(1.0).freeze())
+//    model.fn(new CrossProductLayer(), rescaled)
+//    model.fn(new SumMetaLayer())
+//    model.fn(new HyperbolicActivationLayer().setScale(1.0).freeze())
+//    model.fn(new MonitoringSynapse().addTo(monitoringRoot, "dotNormalizer"))
+//    model.fn(new SumReducerLayer())
+//    val dotNormalizer = model.fn(new LinearActivationLayer().setScale(1.0).freeze())
 
     model.add(new SumReducerLayer(), model.add(new SumInputsLayer(),
           varOffset,
           logVariance
-          //  model.add(new HyperbolicActivationLayer(), means)
+          //  model.fn(new HyperbolicActivationLayer(), means)
           ))
 
     model

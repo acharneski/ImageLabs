@@ -125,7 +125,7 @@ class Cifar10Demo {
       val outputSize = Array[Int](10)
       var model: PipelineNetwork = new PipelineNetwork
 
-      //      model.add(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5,5,4)
+      //      model.fn(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5,5,4)
       //        .setWeights(Java8Util.cvt(_⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"conv1"))
 
       model.add(new MonitoringWrapper(new InceptionLayer(Array(
