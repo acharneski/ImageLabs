@@ -29,24 +29,19 @@ import javax.imageio.ImageIO
 import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.simiacryptus.mindseye.eval.{ArrayTrainable, StochasticArrayTrainable, Trainable}
-import com.simiacryptus.mindseye.lang.NNLayer.NNExecutionContext
-import com.simiacryptus.mindseye.lang.{NNLayer, NNResult, Tensor}
-import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, LinearActivationLayer, NthPowerActivationLayer, SoftmaxActivationLayer}
+import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, NNResult, Tensor}
 import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
 import com.simiacryptus.mindseye.layers.cudnn.f32._
-import com.simiacryptus.mindseye.layers.loss.{EntropyLossLayer, MeanSqLossLayer}
-import com.simiacryptus.mindseye.layers.media.{AvgImageBandLayer, ImgCropLayer, ImgReshapeLayer, MaxImageBandLayer}
-import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
-import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer}
-import com.simiacryptus.mindseye.layers.synapse.BiasLayer
+import com.simiacryptus.mindseye.layers.cudnn.f32
+import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
+import com.simiacryptus.text.TableOutput
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.function.WeakCachedSupplier
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
-import com.simiacryptus.text.TableOutput
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable
@@ -163,7 +158,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
     val reconstructionLayer = new ConvolutionLayer(1, 1, featureBands, 4 * inputBands, false).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, weight))
     val trainingNetwork = new PipelineNetwork(2)
     val features = trainingNetwork.add("features", additionalLayer, trainingNetwork.getInput(0))
-    val fitness = trainingNetwork.add(new ProductInputsLayer(),
+    val fitness = trainingNetwork.add(new f32.ProductInputsLayer(),
       // Features should be relevant - predict the class given a final linear/softmax transform
       trainingNetwork.add(new EntropyLossLayer(),
         trainingNetwork.add(new SoftmaxActivationLayer(),
@@ -315,7 +310,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
         TableOutput.create(Random.shuffle(data.values.flatten.toList).take(100).map(_.get()).map(testObj ⇒ Map[String, AnyRef](
           "Image" → out.image(testObj(0).toRgbImage(), ""),
           "Categorization" → categories.toList.sortBy(_._2).map(_._1)
-            .zip(model.eval(new NNLayer.NNExecutionContext() {}, testObj(0)).getData.get(0).getData.map(_ * 100.0))
+            .zip(model.eval(new NNExecutionContext() {}, testObj(0)).getData.get(0).getData.map(_ * 100.0))
         ).asJava): _*)
       }
     } catch {

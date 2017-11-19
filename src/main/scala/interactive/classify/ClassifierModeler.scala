@@ -30,21 +30,17 @@ import javax.imageio.ImageIO
 import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.simiacryptus.mindseye.eval.{ArrayTrainable, StochasticArrayTrainable, Trainable}
-import com.simiacryptus.mindseye.lang.{NNLayer, Tensor}
-import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, SoftmaxActivationLayer}
+import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, Tensor}
+import com.simiacryptus.mindseye.layers.java._
+import com.simiacryptus.mindseye.layers.cudnn.f32
 import com.simiacryptus.mindseye.layers.cudnn.f32._
-import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.layers.media.MaxImageBandLayer
-import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
-import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer}
-import com.simiacryptus.mindseye.layers.util.ConstNNLayer
 import com.simiacryptus.mindseye.network.PipelineNetwork
 import com.simiacryptus.mindseye.network.graph.DAGNode
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
-import com.simiacryptus.util.io.HtmlNotebookOutput
 import com.simiacryptus.text.TableOutput
+import com.simiacryptus.util.io.HtmlNotebookOutput
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
 import interactive.superres.SimplexOptimizer
 import util.NNLayerUtil._
@@ -109,7 +105,7 @@ case class TestClassifier(
                    activationLayer: NNLayer = new ActivationLayer(ActivationLayer.Mode.RELU),
                    auxWeight : Double = Double.NaN): DAGNode = {
       def weightSeed : DoubleSupplier = Java8Util.cvt(() ⇒ rand * weights)
-      network.add(new ImgBandBiasLayer(from).setWeights(zeroSeed).setName("bias_" + layerNumber).addTo(monitoringRoot))
+      network.add(new f32.ImgBandBiasLayer(from).setWeights(zeroSeed).setName("bias_" + layerNumber).addTo(monitoringRoot))
       if (null != activationLayer) {
         network.add(activationLayer.setName("activation_" + layerNumber).freeze.addTo(monitoringRoot))
       }
@@ -150,7 +146,7 @@ case class TestClassifier(
                 network.add(new ConstNNLayer(new Tensor(1).set(0,-target)))
               ))
       val prediction = network.getHead
-      network.add(new ProductInputsLayer(), prediction, network.add(new SumInputsLayer(),
+      network.add(new f32.ProductInputsLayer(), prediction, network.add(new SumInputsLayer(),
                 (List(network.add(new ConstNNLayer(new Tensor(1).set(0,0.1)))) ++ normalizedPoints.map(auxRmsLayer(_,1))):_*
               ))
     }
@@ -161,7 +157,7 @@ case class TestClassifier(
   def fitness(monitor: TrainingMonitor, monitoringRoot : MonitoredObject, data: Array[Array[Tensor]], n: Int = 3) : Double = {
     val values = (1 to n).map(i ⇒ {
       val network = getNetwork(monitor, monitoringRoot, fitness = true)
-      val measure = new ArrayTrainable(data, network).measure(false)
+      val measure = new ArrayTrainable(data, network).measure(false, monitor)
       measure.sum
     }).toList
     val avg = values.sum / n
@@ -299,7 +295,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
         TableOutput.create(Random.shuffle(data.toList).take(100).map(testObj ⇒ Map[String, AnyRef](
           "Image" → out.image(testObj(0).toRgbImage(), ""),
           "Categorization" → categories.toList.sortBy(_._2).map(_._1)
-            .zip(model.eval(new NNLayer.NNExecutionContext() {}, testObj(0)).getData.get(0).getData.map(_ * 100.0))
+            .zip(model.eval(new NNExecutionContext() {}, testObj(0)).getData.get(0).getData.map(_ * 100.0))
         ).asJava): _*)
       }
     } catch {

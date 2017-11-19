@@ -32,22 +32,17 @@ import _root_.util._
 import com.google.gson.{GsonBuilder, JsonObject}
 import com.simiacryptus.mindseye.data.ImageTiles.ImageTensorLoader
 import com.simiacryptus.mindseye.eval.{ArrayTrainable, LinkedExampleArrayTrainable, Trainable}
-import com.simiacryptus.mindseye.lang.{NNLayer, NNResult, Tensor}
-import com.simiacryptus.mindseye.layers.activation._
+import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, NNResult, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
-import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.layers.media._
-import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
-import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer}
-import com.simiacryptus.mindseye.layers.util.ConstNNLayer
+import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.graph.DAGNode
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
+import com.simiacryptus.text.TableOutput
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
 import com.simiacryptus.util.test.LabeledObject
-import com.simiacryptus.text.TableOutput
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
 import org.apache.commons.io.IOUtils
 import util.NNLayerUtil._
@@ -131,7 +126,7 @@ case class DeepNetworkDescriminator(
   def fitness(monitor: TrainingMonitor, monitoringRoot : MonitoredObject, data: Array[Array[Tensor]], n: Int = 3) : Double = {
     val values = (1 to n).map(i ⇒ {
       val network = getNetwork(monitor, monitoringRoot, fitness = true)
-      val measure = new ArrayTrainable(data, network).measure(false)
+      val measure = new ArrayTrainable(data, network).measure(false, monitor)
       measure.sum
     }).toList
     val avg = values.sum / n
@@ -328,7 +323,7 @@ class DiscriminatorModel(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
         TableOutput.create(Random.shuffle(data.flatten.toList).take(100).map(testObj ⇒ Map[String, AnyRef](
           "Image" → out.image(testObj(0).toRgbImage(), ""),
           "Categorization" → categories.toList.sortBy(_._2).map(_._1)
-            .zip(model.eval(new NNLayer.NNExecutionContext() {}, testObj(0)).getData.get(0).getData.map(_ * 100.0))
+            .zip(model.eval(new NNExecutionContext() {}, testObj(0)).getData.get(0).getData.map(_ * 100.0))
         ).asJava): _*)
       }
     } catch {
@@ -363,7 +358,7 @@ class DiscriminatorModel(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
       (obj:Seq[Tensor]) ⇒ {
         import scala.collection.JavaConverters._
         obj.grouped(1000).toStream.flatMap(obj ⇒ {
-          filterNetwork.eval(new NNLayer.NNExecutionContext() {}, NNResult.batchResultArray(obj.map(y ⇒ Array(y)).toArray)).getData.stream().collect(Collectors.toList()).asScala
+          filterNetwork.eval(new NNExecutionContext() {}, NNResult.batchResultArray(obj.map(y ⇒ Array(y)).toArray)).getData.stream().collect(Collectors.toList()).asScala
         })
           .zip(obj).sortBy(-_._1.get(categories("noise"))).take(1000).map(_._2)
       }
@@ -394,7 +389,7 @@ class DiscriminatorModel(source: String, server: StreamNanoHTTPD, out: HtmlNoteb
             "Image" → out.image(testObj.data.toRgbImage(), testObj.data.toString),
             "Label" → testObj.label,
             "Categorization" → categories.toList.sortBy(_._2).map(_._1)
-              .zip(checkpoint.eval(new NNLayer.NNExecutionContext() {}, testObj.data).getData.get(0).getData.map(_ * 100.0)).mkString(", ")
+              .zip(checkpoint.eval(new NNExecutionContext() {}, testObj.data).getData.get(0).getData.map(_ * 100.0)).mkString(", ")
           ).asJava
         } else {
           Map[String, AnyRef](

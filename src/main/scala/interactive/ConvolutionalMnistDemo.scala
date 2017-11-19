@@ -24,12 +24,8 @@ import java.util.concurrent.TimeUnit
 import _root_.util._
 import com.simiacryptus.mindseye.eval.{L12Normalizer, ScheduledSampleTrainable}
 import com.simiacryptus.mindseye.lang.{NNLayer, Tensor}
-import com.simiacryptus.mindseye.layers.activation.{ReLuActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
-import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.layers.media.MaxSubsampleLayer
-import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
-import com.simiacryptus.mindseye.layers.util.{MonitoringSynapse, MonitoringWrapper}
+import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt.IterativeTrainer
 import com.simiacryptus.mindseye.opt.orient.TrustRegionStrategy

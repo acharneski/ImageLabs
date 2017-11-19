@@ -30,21 +30,16 @@ import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.simiacryptus.mindseye.data.ImageTiles.ImageTensorLoader
 import com.simiacryptus.mindseye.eval._
-import com.simiacryptus.mindseye.lang.{Coordinate, NNLayer, Tensor}
-import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, HyperbolicActivationLayer, ReLuActivationLayer}
+import com.simiacryptus.mindseye.lang.{Coordinate, NNExecutionContext, NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
-import com.simiacryptus.mindseye.layers.loss.MeanSqLossLayer
-import com.simiacryptus.mindseye.layers.media.{ImgBandBiasLayer, ImgReshapeLayer}
-import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
-import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer}
-import com.simiacryptus.mindseye.layers.util.ConstNNLayer
+import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.graph.DAGNode
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
-import com.simiacryptus.util.io.HtmlNotebookOutput
 import com.simiacryptus.text.TableOutput
+import com.simiacryptus.util.io.HtmlNotebookOutput
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
 import util.NNLayerUtil._
 
@@ -113,7 +108,7 @@ case class DeepNetworkUpsample(
   def fitness(monitor: TrainingMonitor, monitoringRoot : MonitoredObject, data: Array[Array[Tensor]], n: Int = 2) : Double = {
     val values = (1 to n).map(i ⇒ {
       val network = getNetwork(monitor, monitoringRoot, fitness = true)
-      val measure = new ArrayTrainable(data, network).measure(false)
+      val measure = new ArrayTrainable(data, network).measure(false, monitor)
       measure.sum
     }).toList
     val avg = values.sum / n
@@ -299,7 +294,7 @@ class UpsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebook
             TableOutput.create(Random.shuffle(data).take(100).map(testObj ⇒ Map[String, AnyRef](
               "Source Truth" → out.image(testObj(1).toRgbImage(), ""),
               "Corrupted" → out.image(testObj(0).toRgbImage(), ""),
-              "Reconstruction" → out.image(getModelCheckpoint.eval(new NNLayer.NNExecutionContext() {}, testObj(0)).getData.get(0).toRgbImage(), "")
+              "Reconstruction" → out.image(getModelCheckpoint.eval(new NNExecutionContext() {}, testObj(0)).getData.get(0).toRgbImage(), "")
             ).asJava): _*)
           }
         } catch {

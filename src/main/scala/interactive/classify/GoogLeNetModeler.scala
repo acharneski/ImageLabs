@@ -30,25 +30,20 @@ import javax.imageio.ImageIO
 import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.simiacryptus.mindseye.eval.{ArrayTrainable, StochasticArrayTrainable, Trainable}
-import com.simiacryptus.mindseye.lang.NNLayer.NNExecutionContext
-import com.simiacryptus.mindseye.lang.{NNLayer, NNResult, Tensor}
+import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, NNResult, Tensor}
 import com.simiacryptus.mindseye.layers.SchemaComponent
-import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, LinearActivationLayer, SoftmaxActivationLayer}
+import com.simiacryptus.mindseye.layers.cudnn.f32
 import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
 import com.simiacryptus.mindseye.layers.cudnn.f32._
-import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.layers.meta.StdDevMetaLayer
-import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, ProductInputsLayer, SumInputsLayer}
-import com.simiacryptus.mindseye.layers.synapse.BiasLayer
-import com.simiacryptus.mindseye.layers.util.{AssertDimensionsLayer, ConstNNLayer}
+import com.simiacryptus.mindseye.layers.java.{ImgBandBiasLayer => _, _}
 import com.simiacryptus.mindseye.network.graph.{DAGNetwork, DAGNode}
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
+import com.simiacryptus.text.TableOutput
 import com.simiacryptus.util.function.{SoftCachedSupplier, WeakCachedSupplier}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
-import com.simiacryptus.text.TableOutput
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD}
 import interactive.classify.GoogLeNetModeler.tileSize
 
@@ -109,7 +104,7 @@ import NNLayerUtil._
     val network = new PipelineNetwork(2)
 
     def newInceptionLayer(layerName : String, head: DAGNode = network.getHead, inputBands: Int, bands1x1: Int, bands3x1: Int, bands1x3: Int, bands5x1: Int, bands1x5: Int, bandsPooling: Int): DAGNode = {
-      network.add(new ImgConcatLayer(),
+      network.add(new f32.ImgConcatLayer(),
         network.addAll(head,
           new ConvolutionLayer(1, 1, inputBands, bands1x1).setWeightsLog(layer11 + conv1a).setName("conv_1x1_" + layerName).addTo(monitoringRoot),
           new ImgBandBiasLayer(bands1x1).setName("bias_1x1_" + layerName).addTo(monitoringRoot),
@@ -161,7 +156,7 @@ import NNLayerUtil._
     val inception_5b = newInceptionLayer(layerName = "5b", inputBands = 832, bands1x1 = 384, bands3x1 = 192, bands1x3 = 384, bands5x1 = 48, bands1x5 = 128, bandsPooling = 128)
     val rawCategorization = network.addAll(
       new PoolingLayer().setWindowXY(7, 7).setStrideXY(1, 1).setPaddingXY(0, 0).setMode(PoolingMode.Avg).setName("pool_6").addTo(monitoringRoot),
-      new DropoutNoiseLayer().setValue(0.4).setName("dropout_6").addTo(monitoringRoot),
+      new f32.DropoutNoiseLayer().setValue(0.4).setName("dropout_6").addTo(monitoringRoot),
       new SchemaOutputLayer(1024, layer13).setName("syn_6").addTo(monitoringRoot),
       new SchemaBiasLayer().setName("bias_6").addTo(monitoringRoot))
 
@@ -173,7 +168,7 @@ import NNLayerUtil._
         network.add(new SoftmaxActivationLayer(),
         network.add(new SchemaBiasLayer().setName("bias_out3_4a").addTo(monitoringRoot),
           network.add(new SchemaOutputLayer(1024, trainingShunt).setName("syn_out3_4a").addTo(monitoringRoot),
-            network.add(new DropoutNoiseLayer().setValue(0.7).setName("dropout_4a").addTo(monitoringRoot),
+            network.add(new f32.DropoutNoiseLayer().setValue(0.7).setName("dropout_4a").addTo(monitoringRoot),
               network.add(new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_out3_4a").addTo(monitoringRoot),
                 network.add(new ImgBandBiasLayer(1024).setName("bias_out2_4a").addTo(monitoringRoot),
                   network.add(new ConvolutionLayer(3, 3, 128, 1024, false).setWeightsLog(trainingShunt).setName("syn_out2_4a").addTo(monitoringRoot),
@@ -195,7 +190,7 @@ import NNLayerUtil._
         network.add(new SoftmaxActivationLayer(),
         network.add(new SchemaBiasLayer().setName("bias_out3_4d").addTo(monitoringRoot),
           network.add(new SchemaOutputLayer(1024, trainingShunt).setName("syn_out3_4d").addTo(monitoringRoot),
-            network.add(new DropoutNoiseLayer().setValue(0.7).setName("dropout_4d").addTo(monitoringRoot),
+            network.add(new f32.DropoutNoiseLayer().setValue(0.7).setName("dropout_4d").addTo(monitoringRoot),
               network.add(new ActivationLayer(ActivationLayer.Mode.RELU).freeze().setName("relu_out3_4d").addTo(monitoringRoot),
                 network.add(new ImgBandBiasLayer(1024).setName("bias_out2_4d").addTo(monitoringRoot),
                   network.add(new ConvolutionLayer(3, 3, 128, 1024, false).setWeightsLog(trainingShunt).setName("syn_out2_4d").addTo(monitoringRoot),
@@ -222,7 +217,7 @@ import NNLayerUtil._
             network.add(new StdDevMetaLayer(), layer))
         ))
 
-      network.add(new ProductInputsLayer(),
+      network.add(new f32.ProductInputsLayer(),
         entropy,
         network.add(new SumInputsLayer(), (
           List(network.add(new ConstNNLayer(new Tensor(1).set(0, 0.1)))) ++
@@ -248,7 +243,7 @@ import NNLayerUtil._
       val network = getNetwork(monitor, monitoringRoot, fitness = true)
       require(!data.isEmpty)
       val fn = Java8Util.cvt((x: Tensor) => x.getData()(0))
-      network.eval(new NNLayer.NNExecutionContext() {}, NNResult.batchResultArray(data))
+      network.eval(new NNExecutionContext() {}, NNResult.batchResultArray(data))
         .getData.stream().mapToDouble(fn).sum / data.length
     }).toList
     val avg = values.sum / n
@@ -343,7 +338,7 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
         trainer.setOrientation(new LBFGS() {
           override def reset(): Unit = {
             model.asInstanceOf[DAGNetwork].visitLayers(Java8Util.cvt(layer => layer match {
-              case layer: DropoutNoiseLayer => layer.shuffle()
+              case layer: f32.DropoutNoiseLayer => layer.shuffle()
               case _ =>
             }))
             super.reset()
@@ -443,7 +438,7 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
         TableOutput.create(takeData(5, 10).map(_.get()).map(testObj ⇒ Map[String, AnyRef](
           "Image" → out.image(testObj(0).toRgbImage(), ""),
           "Categorization" → categories.toList.sortBy(_._2).map(_._1)
-            .zip(model.eval(new NNLayer.NNExecutionContext() {}, testObj(0)).getData.get(0).getData.map(_ * 100.0))
+            .zip(model.eval(new NNExecutionContext() {}, testObj(0)).getData.get(0).getData.map(_ * 100.0))
         ).asJava): _*)
       }
     } catch {

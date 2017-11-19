@@ -23,22 +23,20 @@ import java.lang
 import java.util.concurrent.TimeUnit
 import java.util.function.{IntToDoubleFunction, ToDoubleFunction}
 
+import _root_.util.{Java8Util, ReportNotebook, ScalaNotebookOutput}
 import com.simiacryptus.mindseye.data.MNIST
 import com.simiacryptus.mindseye.eval.{ConstL12Normalizer, StochasticArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang._
-import com.simiacryptus.mindseye.layers.activation.{ReLuActivationLayer, SoftmaxActivationLayer}
-import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.layers.synapse.{BiasLayer, DenseSynapseLayer}
+import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line.ArmijoWolfeSearch
 import com.simiacryptus.mindseye.opt.orient.{GradientDescent, LBFGS, OwlQn}
-import com.simiacryptus.util._
 import com.simiacryptus.text.TableOutput
+import com.simiacryptus.util._
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}
 import util.Java8Util._
-import _root_.util.{Java8Util, ReportNotebook, ScalaNotebookOutput}
 
 import scala.collection.JavaConverters._
 
@@ -84,7 +82,7 @@ class OptimizerDemo extends WordSpec with MustMatchers with ReportNotebook {
         trainer.run()
       }
       log.eval {
-        getBlankDeltaSet(model).map.asScala.map(ent ⇒ {
+        getBlankDeltaSet(model).getMap.asScala.map(ent ⇒ {
           val (layer, buffer) = ent
           Map(
             "layer" → layer.getClass.getSimpleName,
@@ -175,7 +173,7 @@ class OptimizerDemo extends WordSpec with MustMatchers with ReportNotebook {
 
   private def getBlankDeltaSet(model: PipelineNetwork) = {
     val set = new DeltaSet()
-    model.eval(new NNLayer.NNExecutionContext() {}, new Tensor(inputSize: _*)).accumulate(set, new TensorArray(new Tensor(outputSize: _*)))
+    model.eval(new NNExecutionContext() {}, new Tensor(inputSize: _*)).accumulate(set, new TensorArray(new Tensor(outputSize: _*)))
     set
   }
 

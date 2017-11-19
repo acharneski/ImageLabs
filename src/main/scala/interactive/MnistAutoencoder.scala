@@ -26,16 +26,14 @@ import java.util.concurrent.{Semaphore, TimeUnit}
 
 import com.simiacryptus.mindseye.data.MNIST
 import com.simiacryptus.mindseye.eval.StochasticArrayTrainable
-import com.simiacryptus.mindseye.lang.{Coordinate, NNLayer, Tensor, TensorArray}
-import com.simiacryptus.mindseye.layers.activation._
-import com.simiacryptus.mindseye.layers.loss.EntropyLossLayer
-import com.simiacryptus.mindseye.layers.synapse.DenseSynapseLayer
+import com.simiacryptus.mindseye.lang._
+import com.simiacryptus.mindseye.layers.java.{DenseSynapseLayer, EntropyLossLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.network.{AutoencoderNetwork, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt.orient.LBFGS
 import com.simiacryptus.mindseye.opt.{Step, TrainingMonitor}
+import com.simiacryptus.text.TableOutput
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil, TeeOutputStream}
-import com.simiacryptus.text.TableOutput
 import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
 import smile.plot.{PlotCanvas, ScatterPlot}
@@ -218,7 +216,7 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
       log.p("The (mis)categorization matrix displays a count matrix for every actual/predicted category: ")
       val categorizationMatrix: Map[Int, Map[Int, Int]] = log.eval {
         MNIST.validationDataStream().iterator().asScala.toStream.map(testObj ⇒ {
-          val result = categorizationNetwork.eval(new NNLayer.NNExecutionContext() {}, testObj.data).getData.get(0)
+          val result = categorizationNetwork.eval(new NNExecutionContext() {}, testObj.data).getData.get(0)
           val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
           val actual: Int = toOut(testObj.label)
           actual → prediction
@@ -244,7 +242,7 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
   private def representationMatrix(log: ScalaNotebookOutput, encoder: NNLayer, decoder: NNLayer, band: Int = 0, probeIntensity : Double = 255.0) = {
     val inputPrototype = data.head
     val dims = inputPrototype.getDimensions()
-    val encoded: Tensor = encoder.eval(new NNLayer.NNExecutionContext() {}, inputPrototype).getData.get(0)
+    val encoded: Tensor = encoder.eval(new NNExecutionContext() {}, inputPrototype).getData.get(0)
     val width = encoded.getDimensions()(0)
     val height = encoded.getDimensions()(1)
     log.draw(gfx ⇒ {
@@ -252,7 +250,7 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
         (0 until height).foreach(y ⇒ {
           encoded.fill(cvt((i: Int) ⇒ 0.0))
           encoded.set(Array(x, y, band), probeIntensity)
-          val tensor: Tensor = decoder.eval(new NNLayer.NNExecutionContext() {}, encoded).getData.get(0)
+          val tensor: Tensor = decoder.eval(new NNExecutionContext() {}, encoded).getData.get(0)
           val min: Double = tensor.getData.min
           val max: Double = tensor.getData.max
           if(min != max) {
@@ -340,7 +338,7 @@ private class MnistAutoencoder(server: StreamNanoHTTPD, log: HtmlNotebookOutput 
         var evalModel: PipelineNetwork = new PipelineNetwork
         evalModel.add(encoder)
         evalModel.add(decoder)
-        val result = evalModel.eval(new NNLayer.NNExecutionContext() {}, testObj).getData.get(0)
+        val result = evalModel.eval(new NNExecutionContext() {}, testObj).getData.get(0)
         Map[String, AnyRef](
           "Input" → log.image(testObj.toImage(), "Input"),
           "Output" → log.image(result.toImage(), "Autoencoder Output")

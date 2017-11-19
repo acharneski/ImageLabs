@@ -28,16 +28,14 @@ import _root_.util._
 import com.simiacryptus.mindseye.data.ImageTiles.ImageTensorLoader
 import com.simiacryptus.mindseye.eval.ArrayTrainable
 import com.simiacryptus.mindseye.lang.{NNLayer, Tensor}
-import com.simiacryptus.mindseye.layers.loss.{EntropyLossLayer, MeanSqLossLayer}
-import com.simiacryptus.mindseye.layers.reducers.{ProductInputsLayer, SumInputsLayer}
-import com.simiacryptus.mindseye.layers.util.ConstNNLayer
+import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.PipelineNetwork
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
+import com.simiacryptus.text.TableOutput
 import com.simiacryptus.util.StreamNanoHTTPD
 import com.simiacryptus.util.io.HtmlNotebookOutput
-import com.simiacryptus.text.TableOutput
 
 import scala.collection.JavaConverters._
 import scala.util.Random

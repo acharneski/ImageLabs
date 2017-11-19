@@ -32,19 +32,12 @@ import javax.imageio.ImageIO
 import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.simiacryptus.mindseye.eval._
-import com.simiacryptus.mindseye.lang.NNLayer.NNExecutionContext
-import com.simiacryptus.mindseye.lang.{NNLayer, NNResult, Tensor}
+import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, NNResult, Tensor}
 import com.simiacryptus.mindseye.layers.SchemaComponent
-import com.simiacryptus.mindseye.layers.activation.{AbsActivationLayer, LinearActivationLayer, NthPowerActivationLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
 import com.simiacryptus.mindseye.layers.cudnn.f32._
-import com.simiacryptus.mindseye.layers.cudnn.{CudaExecutionContext, GpuController}
-import com.simiacryptus.mindseye.layers.loss.{EntropyLossLayer, MeanSqLossLayer}
-import com.simiacryptus.mindseye.layers.media.ImgReshapeLayer
-import com.simiacryptus.mindseye.layers.meta.{StdDevMetaLayer, WeightExtractor}
-import com.simiacryptus.mindseye.layers.reducers.{AvgReducerLayer, SumInputsLayer, SumReducerLayer}
-import com.simiacryptus.mindseye.layers.synapse.BiasLayer
-import com.simiacryptus.mindseye.layers.util.MonitoringWrapper
+import com.simiacryptus.mindseye.layers.cudnn.{CudaExecutionContext, GpuController, f32}
+import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.PipelineNetwork
 import com.simiacryptus.mindseye.network.graph.{DAGNetwork, DAGNode, InnerNode}
 import com.simiacryptus.mindseye.opt._
@@ -163,29 +156,29 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     var conv3b: Double = 0.01
     var conv5a: Double = 0.01
     var conv5b: Double = 0.01
-    network.add(new ImgConcatLayer(),
+    network.add(new f32.ImgConcatLayer(),
       network.addAll(head,
         new ConvolutionLayer(1, 1, inputBands, bands1x1).setWeightsLog(conv1a).setName("conv_1x1_" + layerName),
-        new ImgBandBiasLayer(bands1x1).setName("bias_1x1_" + layerName),
+        new f32.ImgBandBiasLayer(bands1x1).setName("bias_1x1_" + layerName),
         new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_1x1_" + layerName)),
       network.addAll(head,
         new ConvolutionLayer(1, 1, inputBands, bands3x1).setWeightsLog(conv3a).setName("conv_3x1_" + layerName),
-        new ImgBandBiasLayer(bands3x1).setName("bias_3x1_" + layerName),
+        new f32.ImgBandBiasLayer(bands3x1).setName("bias_3x1_" + layerName),
         new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_3x1_" + layerName),
         new ConvolutionLayer(3, 3, bands3x1, bands1x3).setWeightsLog(conv3b).setName("conv_1x3_" + layerName),
-        new ImgBandBiasLayer(bands1x3).setName("bias_1x3_" + layerName),
+        new f32.ImgBandBiasLayer(bands1x3).setName("bias_1x3_" + layerName),
         new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_1x3_" + layerName)),
       network.addAll(head,
         new ConvolutionLayer(1, 1, inputBands, bands5x1).setWeightsLog(conv5a).setName("conv_5x1_" + layerName),
-        new ImgBandBiasLayer(bands5x1).setName("bias_5x1_" + layerName),
+        new f32.ImgBandBiasLayer(bands5x1).setName("bias_5x1_" + layerName),
         new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_5x1_" + layerName),
         new ConvolutionLayer(5, 5, bands5x1, bands1x5).setWeightsLog(conv5b).setName("conv_1x5_" + layerName),
-        new ImgBandBiasLayer(bands1x5).setName("bias_1x5_" + layerName),
+        new f32.ImgBandBiasLayer(bands1x5).setName("bias_1x5_" + layerName),
         new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_1x5_" + layerName)),
       network.addAll(head,
         new PoolingLayer().setWindowXY(3, 3).setStrideXY(1, 1).setPaddingXY(1, 1).setName("pool_" + layerName),
         new ConvolutionLayer(1, 1, inputBands, bandsPooling).setWeightsLog(conv1b).setName("conv_pool_" + layerName),
-        new ImgBandBiasLayer(bandsPooling).setName("bias_pool_" + layerName),
+        new f32.ImgBandBiasLayer(bandsPooling).setName("bias_pool_" + layerName),
         new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_pool_" + layerName)))
   }
 
@@ -204,7 +197,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
         priorFeaturesNode = priorFeaturesNode,
         additionalLayer = new PipelineNetwork(
           new ConvolutionLayer(7, 7, 3, 64).setWeightsLog(-4).setStrideXY(2, 2).setName("conv_1"),
-          new ImgBandBiasLayer(64).setName("bias_1"),
+          new f32.ImgBandBiasLayer(64).setName("bias_1"),
           new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_1"),
           new PoolingLayer().setWindowXY(3, 3).setStrideXY(2, 2).setPaddingXY(1, 1).setName("pool_1")
         ), reconstructionLayer = new PipelineNetwork(
@@ -236,10 +229,10 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
         priorFeaturesNode = priorFeaturesNode,
         additionalLayer = new PipelineNetwork(
           new ConvolutionLayer(1, 1, 64, 64).setWeightsLog(-4).setName("conv_2"),
-          new ImgBandBiasLayer(64).setName("bias_2"),
+          new f32.ImgBandBiasLayer(64).setName("bias_2"),
           new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_2"),
           new ConvolutionLayer(3, 3, 64, 192).setWeightsLog(-4).setName("conv_3"),
-          new ImgBandBiasLayer(192).setName("bias_3"),
+          new f32.ImgBandBiasLayer(192).setName("bias_3"),
           new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_3"),
           new PoolingLayer().setWindowXY(3, 3).setStrideXY(2, 2).setPaddingXY(1, 1).setName("pool_3")
         ), reconstructionLayer = new PipelineNetwork(
@@ -359,7 +352,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     val newFeatureDimensions: Array[Int] = CudaExecutionContext.gpuContexts.run((cuda:CudaExecutionContext)=>additionalLayer.eval(cuda, trainingArray.head.head).getData.get(0).getDimensions)
     val trainingNetwork = new PipelineNetwork(2)
     val featuresNode = trainingNetwork.add(featuresLabel, additionalLayer, trainingNetwork.getInput(0))
-    val dropoutNode = trainingNetwork.add(new DropoutNoiseLayer(), featuresNode)
+    val dropoutNode = trainingNetwork.add(new f32.DropoutNoiseLayer(), featuresNode)
     trainingNetwork.add(
       new SumInputsLayer(),
       // Features should be relevant - predict the class given a final linear/softmax transform
@@ -410,7 +403,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
       trainer.setOrientation(new QQN() {
         override def reset(): Unit = {
           model.asInstanceOf[DAGNetwork].visitLayers(Java8Util.cvt(layer => layer match {
-            case layer: DropoutNoiseLayer => layer.shuffle()
+            case layer: f32.DropoutNoiseLayer => layer.shuffle()
             case _ =>
           }))
           super.reset()
@@ -434,7 +427,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
         sourceNetwork.add(new SchemaBiasLayer(),
           sourceNetwork.add(new BandPoolingLayer().setMode(BandPoolingLayer.PoolingMode.Avg),
             sourceNetwork.add(new SchemaOutputLayer(newFeatureDimensions(2), -4).setSchema(categoryList:_*),
-              sourceNetwork.add(new DropoutNoiseLayer(),
+              sourceNetwork.add(new f32.DropoutNoiseLayer(),
                 sourceNetwork.add(featuresLabel, additionalLayer,
                   inputNode)))))
       ),
@@ -517,7 +510,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
         trainer.setOrientation(new QQN() {
           override def reset(): Unit = {
             model.asInstanceOf[DAGNetwork].visitLayers(Java8Util.cvt(layer => layer match {
-              case layer: DropoutNoiseLayer => layer.shuffle()
+              case layer: f32.DropoutNoiseLayer => layer.shuffle()
               case _ =>
             }))
             super.reset()
@@ -546,7 +539,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
            (imageCount: Int = 1, sourceCategory: String = "fire-hydrant", targetCategory: String = "bear") = {
     assert(null != model)
     model.asInstanceOf[DAGNetwork].visitLayers(Java8Util.cvt(layer => layer match {
-      case layer: DropoutNoiseLayer => layer.setValue(0.0).shuffle()
+      case layer: f32.DropoutNoiseLayer => layer.setValue(0.0).shuffle()
       case _ =>
     }))
     val categoryArray = Array(sourceCategory, targetCategory)
@@ -716,7 +709,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
         TableOutput.create(takeData(5, 10).map(_.get()).map(testObj ⇒ Map[String, AnyRef](
           "Image" → out.image(testObj(0).toRgbImage(), ""),
           "Categorization" → categories.toList.sortBy(_._2).map(_._1)
-            .zip(model.eval(new NNLayer.NNExecutionContext() {}, testObj(0)).getData.get(0).getData.map(_ * 100.0))
+            .zip(model.eval(new NNExecutionContext() {}, testObj(0)).getData.get(0).getData.map(_ * 100.0))
         ).asJava): _*)
       }
     } catch {
