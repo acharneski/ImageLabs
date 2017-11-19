@@ -78,7 +78,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
         log.p("Here we define the logic network that we are about to newTrainer: ")
         var model: PipelineNetwork = log.eval {
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new DenseSynapseLayer(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new FullyConnectedLayer(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.0
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -271,7 +271,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
           (x: Double, y: Double) ⇒ if (x < y) 0 else 1
         }, log.eval {
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new DenseSynapseLayer(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new FullyConnectedLayer(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.1
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -286,7 +286,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
         }
         runTest(xor_fn, log.eval {
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new DenseSynapseLayer(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new FullyConnectedLayer(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.2
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -297,12 +297,12 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
         runTest(xor_fn, log.eval {
           var model: PipelineNetwork = new PipelineNetwork
           val middleSize = Array[Int](15)
-          model.add(new DenseSynapseLayer(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new FullyConnectedLayer(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
           }))
           model.add(new BiasLayer(middleSize: _*))
           model.add(new AbsActivationLayer())
-          model.add(new DenseSynapseLayer(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new FullyConnectedLayer(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -317,7 +317,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
         }
         runTest(circle_fn, log.eval {
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new DenseSynapseLayer(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new FullyConnectedLayer(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.2
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -327,12 +327,12 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
         runTest(circle_fn, log.eval {
           var model: PipelineNetwork = new PipelineNetwork
           val middleSize = Array[Int](15)
-          model.add(new DenseSynapseLayer(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new FullyConnectedLayer(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
           }))
           model.add(new BiasLayer(middleSize: _*))
           model.add(new AbsActivationLayer())
-          model.add(new DenseSynapseLayer(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new FullyConnectedLayer(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 1
           }))
           model.add(new BiasLayer(outputSize: _*))

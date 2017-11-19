@@ -58,10 +58,10 @@ object MnistAutoinitDemoConv extends Report {
 
       override lazy val component1 = log.eval {
         var model: PipelineNetwork = new PipelineNetwork
-        model.add(new MonitoringWrapper(new ConvolutionLayer(3,3,5).setWeights(Java8Util.cvt(()⇒0.01*Math.random()))).addTo(monitoringRoot, "synapse1"))
-        model.add(new MonitoringWrapper(new MaxSubsampleLayer(4,4,1)).addTo(monitoringRoot, "max1"))
-        model.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu1"))
-        model.add(new MonitoringWrapper(new BiasLayer(7,7,5)).addTo(monitoringRoot, "bias1"))
+        model.add(new MonitoringWrapperLayer(new ConvolutionLayer(3,3,5).setWeights(Java8Util.cvt(()⇒0.01*Math.random()))).addTo(monitoringRoot, "synapse1"))
+        model.add(new MonitoringWrapperLayer(new MaxSubsampleLayer(4,4,1)).addTo(monitoringRoot, "max1"))
+        model.add(new MonitoringWrapperLayer(new ReLuActivationLayer).addTo(monitoringRoot, "relu1"))
+        model.add(new MonitoringWrapperLayer(new BiasLayer(7,7,5)).addTo(monitoringRoot, "bias1"))
         model
       }
 
@@ -85,10 +85,10 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
 
   lazy val component1 = log.eval {
     var model: PipelineNetwork = new PipelineNetwork
-    //model.fn(new MonitoringWrapper(new BiasLayer(inputSize: _*).setName("bias1a")).addTo(monitoringRoot))
-    model.add(new MonitoringWrapper(new DenseSynapseLayer(inputSize, midSize)).addTo(monitoringRoot, "synapse1"))
-    model.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu1"))
-    model.add(new MonitoringWrapper(new BiasLayer(midSize: _*)).addTo(monitoringRoot, "bias1b"))
+    //model.fn(new MonitoringWrapperLayer(new BiasLayer(inputSize: _*).setName("bias1a")).addTo(monitoringRoot))
+    model.add(new MonitoringWrapperLayer(new FullyConnectedLayer(inputSize, midSize)).addTo(monitoringRoot, "synapse1"))
+    model.add(new MonitoringWrapperLayer(new ReLuActivationLayer).addTo(monitoringRoot, "relu1"))
+    model.add(new MonitoringWrapperLayer(new BiasLayer(midSize: _*)).addTo(monitoringRoot, "bias1b"))
     model
   }
 
@@ -111,7 +111,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
 
   def autoinitializer(component : NNLayer) = log.eval {
     var model: PipelineNetwork = new PipelineNetwork
-    model.add(new MonitoringWrapper(component).addTo(monitoringRoot, "component1init"))
+    model.add(new MonitoringWrapperLayer(component).addTo(monitoringRoot, "component1init"))
     val componentNode = model.add(new MonitoringSynapse().addTo(monitoringRoot, "component1out"))
 
 //    model.fn(new AbsActivationLayer(), componentNode)
@@ -174,11 +174,11 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
 
   model = log.eval {
     var model: PipelineNetwork = new PipelineNetwork
-    model.add(new MonitoringWrapper(component1).addTo(monitoringRoot, "component1"))
+    model.add(new MonitoringWrapperLayer(component1).addTo(monitoringRoot, "component1"))
     model.add(new MonitoringSynapse().addTo(monitoringRoot, "pre-softmax"))
     model.add(new LinearActivationLayer().setScale(0.01))
-    model.add(new MonitoringWrapper(new DenseSynapseLayer(midSize, outputSize)).addTo(monitoringRoot, "synapseEnd"))
-    model.add(new MonitoringWrapper(new BiasLayer(outputSize: _*)).addTo(monitoringRoot, "outbias"))
+    model.add(new MonitoringWrapperLayer(new FullyConnectedLayer(midSize, outputSize)).addTo(monitoringRoot, "synapseEnd"))
+    model.add(new MonitoringWrapperLayer(new BiasLayer(outputSize: _*)).addTo(monitoringRoot, "outbias"))
     model.add(new SoftmaxActivationLayer)
     model
   }

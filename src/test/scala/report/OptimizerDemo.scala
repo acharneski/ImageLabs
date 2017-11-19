@@ -185,11 +185,11 @@ class OptimizerDemo extends WordSpec with MustMatchers with ReportNotebook {
 
       val middleSize = Array[Int](28, 28, 1)
       var model: PipelineNetwork = new PipelineNetwork
-      model.add(new DenseSynapseLayer(inputSize, middleSize)
+      model.add(new FullyConnectedLayer(inputSize, middleSize)
         .setWeights(cvt((c: Coordinate) ⇒ Util.R.get.nextGaussian * 0.001)))
       model.add(new BiasLayer(middleSize: _*))
       model.add(new ReLuActivationLayer().freeze)
-      model.add(new DenseSynapseLayer(middleSize, outputSize)
+      model.add(new FullyConnectedLayer(middleSize, outputSize)
         .setWeights(cvt((c: Coordinate) ⇒ Util.R.get.nextGaussian * 0.001)))
       model.add(new BiasLayer(outputSize: _*))
       model.add(new SoftmaxActivationLayer)
@@ -247,11 +247,11 @@ class OptimizerDemo extends WordSpec with MustMatchers with ReportNotebook {
       }).toList
 
       var model: PipelineNetwork = new PipelineNetwork
-      model.add(new DenseSynapseLayer(inputSize, middleSize)
+      model.add(new FullyConnectedLayer(inputSize, middleSize)
         .setWeights(cvt((c: Coordinate) ⇒ Util.R.get.nextGaussian * 0.001)))
       model.add(new BiasLayer(middleSize: _*))
       //model.fn(new ReLuActivationLayer().freeze)
-      model.add(new DenseSynapseLayer(middleSize, inputSize)
+      model.add(new FullyConnectedLayer(middleSize, inputSize)
         .setWeights(cvt((c: Coordinate) ⇒ Util.R.get.nextGaussian * 0.001)))
       model.add(new BiasLayer(outputSize: _*))
       (model, data)

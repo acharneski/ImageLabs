@@ -54,7 +54,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
         test(log, log.eval {
           trainingTimeMinutes = 2
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new DenseSynapseLayer(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new FullyConnectedLayer(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.0
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -70,12 +70,12 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
           trainingTimeMinutes = 10
           val middleSize = Array[Int](28, 28, 1)
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new DenseSynapseLayer(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new FullyConnectedLayer(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new BiasLayer(middleSize: _*))
           model.add(new AbsActivationLayer)
-          model.add(new DenseSynapseLayer(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new FullyConnectedLayer(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -91,83 +91,12 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
           trainingTimeMinutes = 10
           val middleSize = Array[Int](28, 28, 1)
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new DenseSynapseLayer(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new FullyConnectedLayer(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new BiasLayer(middleSize: _*))
           model.add(new AbsActivationLayer)
-          model.add(new DenseSynapseLayer(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
-            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
-          }))
-          model.add(new BiasLayer(outputSize: _*))
-          model.add(new SoftmaxActivationLayer)
-          model
-        })
-      })
-    }
-
-    "Toeplitz 2-Layer Abs" in {
-      report("twolayertoeplitz", log ⇒ {
-        test(log, log.eval {
-          trainingTimeMinutes = 60
-          val middleSize = Array[Int](28, 28, 1)
-          var model: PipelineNetwork = new PipelineNetwork
-          model.add(new ToeplitzSynapseLayer(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
-            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
-          }))
-          model.add(new AbsActivationLayer)
-          model.add(new DenseSynapseLayer(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
-            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
-          }))
-          model.add(new BiasLayer(outputSize: _*))
-          model.add(new SoftmaxActivationLayer)
-          model
-        })
-      })
-    }
-
-    "ToeplitzMax 2-Layer Abs" in {
-      report("twolayertoeplitzmax", log ⇒ {
-        test(log, log.eval {
-          trainingTimeMinutes = 60
-          val middleSize1 = Array[Int](28, 28, 4)
-          val middleSize2 = Array[Int](14, 14, 4)
-          var model: PipelineNetwork = new PipelineNetwork
-          model.add(new ToeplitzSynapseLayer(inputSize, middleSize1).setWeights(new ToDoubleFunction[Coordinate] {
-            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
-          }))
-          model.add(new AbsActivationLayer)
-          model.add(new MaxSubsampleLayer(2, 2, 1))
-          model.add(new DenseSynapseLayer(middleSize2, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
-            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
-          }))
-          model.add(new BiasLayer(outputSize: _*))
-          model.add(new SoftmaxActivationLayer)
-          model
-        })
-      })
-    }
-
-    "ToeplitzMax 3-Layer Abs" in {
-      report("threelayertoeplitzmax", log ⇒ {
-        test(log, log.eval {
-          trainingTimeMinutes = 60
-          val middleSize1 = Array[Int](28, 28, 4)
-          val middleSize2 = Array[Int](14, 14, 4)
-          val middleSize3 = Array[Int](14, 14, 16)
-          val middleSize4 = Array[Int](7, 7, 16)
-          var model: PipelineNetwork = new PipelineNetwork
-          model.add(new ToeplitzSynapseLayer(inputSize, middleSize1).setWeights(new ToDoubleFunction[Coordinate] {
-            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
-          }))
-          model.add(new AbsActivationLayer)
-          model.add(new MaxSubsampleLayer(2, 2, 1))
-          model.add(new ToeplitzSynapseLayer(middleSize2, middleSize3).setWeights(new ToDoubleFunction[Coordinate] {
-            override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
-          }))
-          model.add(new AbsActivationLayer)
-          model.add(new MaxSubsampleLayer(2, 2, 1))
-          model.add(new DenseSynapseLayer(middleSize4, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new FullyConnectedLayer(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -196,7 +125,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
 
           def headDims = model.eval(new NNExecutionContext() {}, new Tensor(inputSize: _*)).getData.get(0).getDimensions
 
-          model.add(new DenseSynapseLayer(headDims, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new FullyConnectedLayer(headDims, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new BiasLayer(headDims: _*))

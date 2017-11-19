@@ -27,7 +27,7 @@ import javax.imageio.ImageIO
 import com.simiacryptus.mindseye.data._
 import com.simiacryptus.mindseye.eval.StochasticArrayTrainable
 import com.simiacryptus.mindseye.lang._
-import com.simiacryptus.mindseye.layers.java.{DenseSynapseLayer, EntropyLossLayer, SoftmaxActivationLayer}
+import com.simiacryptus.mindseye.layers.java.{FullyConnectedLayer, EntropyLossLayer, SoftmaxActivationLayer}
 import com.simiacryptus.mindseye.network._
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.orient.LBFGS
@@ -116,7 +116,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook {
         val trainingData: Seq[Array[Tensor]] = MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
           Array(labeledObj.data, toOutNDArray(toOut(labeledObj.label), 10))
         }).toList
-        val categorizationAdapter = new DenseSynapseLayer(Array[Int](5, 5, 1), Array[Int](10))
+        val categorizationAdapter = new FullyConnectedLayer(Array[Int](5, 5, 1), Array[Int](10))
         categorizationAdapter.setWeights(cvt((c:Coordinate)⇒Random.nextGaussian() * 0.001))
         var categorizationNetwork = log.eval {
           val kryo = KryoUtil.kryo()

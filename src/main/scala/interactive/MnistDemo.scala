@@ -57,7 +57,7 @@ object MnistDemo_L1Normalizations extends Report {
         val executor = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
         val normalized = new L12Normalizer(executor) {
           override protected def getL1(layer: NNLayer): Double = layer match {
-            case _ : DenseSynapseLayer ⇒ -0.001
+            case _ : FullyConnectedLayer ⇒ -0.001
             case _ ⇒ 0.0
           }
           override protected def getL2(layer: NNLayer): Double = 0.0
@@ -82,11 +82,11 @@ class MnistDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNoteb
 
   model = log.eval {
     var model: PipelineNetwork = new PipelineNetwork
-    model.add(new MonitoringWrapper(new BiasLayer(inputSize: _*)).addTo(monitoringRoot, "inbias"))
-    model.add(new MonitoringWrapper(new DenseSynapseLayer(inputSize, outputSize)
+    model.add(new MonitoringWrapperLayer(new BiasLayer(inputSize: _*)).addTo(monitoringRoot, "inbias"))
+    model.add(new MonitoringWrapperLayer(new FullyConnectedLayer(inputSize, outputSize)
       .setWeights(Java8Util.cvt(() ⇒ 0.001 * (Random.nextDouble() - 0.5)))).addTo(monitoringRoot, "synapse"))
-    model.add(new MonitoringWrapper(new ReLuActivationLayer).addTo(monitoringRoot, "relu"))
-    model.add(new MonitoringWrapper(new BiasLayer(outputSize: _*)).addTo(monitoringRoot, "outbias"))
+    model.add(new MonitoringWrapperLayer(new ReLuActivationLayer).addTo(monitoringRoot, "relu"))
+    model.add(new MonitoringWrapperLayer(new BiasLayer(outputSize: _*)).addTo(monitoringRoot, "outbias"))
     model.add(new SoftmaxActivationLayer)
     model
   }

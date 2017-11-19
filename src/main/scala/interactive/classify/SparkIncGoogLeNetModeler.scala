@@ -31,8 +31,7 @@ import javax.imageio.ImageIO
 import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.simiacryptus.mindseye.eval._
-import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, NNResult, Tensor}
-import com.simiacryptus.mindseye.layers.SchemaComponent
+import com.simiacryptus.mindseye.lang._
 import com.simiacryptus.mindseye.layers.cudnn.{CudaExecutionContext, f32}
 import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
 import com.simiacryptus.mindseye.layers.cudnn.f32._
@@ -626,12 +625,12 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
     model.getNodes.asScala.foreach({
       case node: InnerNode =>
         node.getLayer() match {
-          case _:MonitoringWrapper => // Ignore
+          case _:MonitoringWrapperLayer => // Ignore
           case layer: DAGNetwork =>
             addMonitoring(layer.asInstanceOf[DAGNetwork])
-            node.setLayer(new MonitoringWrapper(layer).shouldRecordSignalMetrics(false).addTo(monitoringRoot))
+            node.setLayer(new MonitoringWrapperLayer(layer).shouldRecordSignalMetrics(false).addTo(monitoringRoot))
           case layer =>
-            node.setLayer(new MonitoringWrapper(layer).shouldRecordSignalMetrics(false).addTo(monitoringRoot))
+            node.setLayer(new MonitoringWrapperLayer(layer).shouldRecordSignalMetrics(false).addTo(monitoringRoot))
         }
       case _ =>
     })
@@ -641,7 +640,7 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
     model.getNodes.asScala.foreach({
       case node: InnerNode =>
         node.getLayer() match {
-          case layer : MonitoringWrapper => // Ignore
+          case layer : MonitoringWrapperLayer => // Ignore
             node.setLayer(layer.getInner)
           case layer: DAGNetwork =>
             removeMonitoring(layer.asInstanceOf[DAGNetwork])

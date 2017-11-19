@@ -137,17 +137,17 @@ class Caltech101Demo {
     var model: PipelineNetwork = log.eval {
       val outputSize = Array[Int](categories.size)
       var model: PipelineNetwork = new PipelineNetwork
-      model.add(new MonitoringWrapper(new InceptionLayer(Array(
+      model.add(new MonitoringWrapperLayer(new InceptionLayer(Array(
         Array(Array(5,5,3)),
         Array(Array(3,3,9))
       ))).addTo(monitoringRoot,"inception1"))
       model.add(new MaxSubsampleLayer(2,2,1))
-      model.add(new MonitoringWrapper(new InceptionLayer(Array(
+      model.add(new MonitoringWrapperLayer(new InceptionLayer(Array(
         Array(Array(5,5,4)),
         Array(Array(3,3,16))
       ))).addTo(monitoringRoot,"inception2"))
       model.add(new MaxSubsampleLayer(2,2,1))
-      model.add(new MonitoringWrapper(new DenseSynapseLayer(Array[Int](64, 64, 5), outputSize)
+      model.add(new MonitoringWrapperLayer(new FullyConnectedLayer(Array[Int](64, 64, 5), outputSize)
         .setWeights(Java8Util.cvt(()⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"synapse1"))
       model.add(new BiasLayer(outputSize: _*))
       model.add(new SoftmaxActivationLayer)

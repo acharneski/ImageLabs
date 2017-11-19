@@ -121,10 +121,10 @@ class Cifar10Demo {
       val outputSize = Array[Int](10)
       var model: PipelineNetwork = new PipelineNetwork
 
-      //      model.fn(new MonitoringWrapper(new ImgConvolutionSynapseLayer(5,5,4)
+      //      model.fn(new MonitoringWrapperLayer(new ImgConvolutionSynapseLayer(5,5,4)
       //        .setWeights(Java8Util.cvt(_⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"conv1"))
 
-      model.add(new MonitoringWrapper(new InceptionLayer(Array(
+      model.add(new MonitoringWrapperLayer(new InceptionLayer(Array(
         Array(Array(5,5,3)),
         Array(Array(3,3,9))
       ))).addTo(monitoringRoot,"inception1"))
@@ -132,7 +132,7 @@ class Cifar10Demo {
 
 
       model.add(new MaxSubsampleLayer(2,2,1))
-      model.add(new MonitoringWrapper(new DenseSynapseLayer(Array[Int](16, 16, 4), outputSize)
+      model.add(new MonitoringWrapperLayer(new FullyConnectedLayer(Array[Int](16, 16, 4), outputSize)
         .setWeights(Java8Util.cvt(()⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"synapse1"))
       model.add(new BiasLayer(outputSize: _*))
       model.add(new SoftmaxActivationLayer)
