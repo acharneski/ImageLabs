@@ -28,8 +28,7 @@ import com.simiacryptus.mindseye.eval.StochasticArrayTrainable
 import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 import com.simiacryptus.mindseye.layers.java._
-import com.simiacryptus.mindseye.network.graph._
-import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.network.{DAGNetwork, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt.IterativeTrainer
 import com.simiacryptus.mindseye.opt.orient.TrustRegionStrategy
 import com.simiacryptus.mindseye.opt.region.TrustRegion
@@ -220,7 +219,6 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
 
     log.h2("Model")
     log.p("Here we define the logic network that we are about to train: ")
-    model
     defineHeader()
 
     log.p("<a href='/test.html'>Validation Report</a>")

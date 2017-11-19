@@ -32,12 +32,11 @@ import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.simiacryptus.mindseye.eval._
 import com.simiacryptus.mindseye.lang._
-import com.simiacryptus.mindseye.layers.cudnn.{CudaExecutionContext, f32}
 import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
 import com.simiacryptus.mindseye.layers.cudnn.f32._
+import com.simiacryptus.mindseye.layers.cudnn.{CudaExecutionContext, f32}
 import com.simiacryptus.mindseye.layers.java._
-import com.simiacryptus.mindseye.network.PipelineNetwork
-import com.simiacryptus.mindseye.network.graph.{DAGNetwork, DAGNode, InnerNode}
+import com.simiacryptus.mindseye.network.{DAGNetwork, DAGNode, InnerNode, PipelineNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
@@ -371,7 +370,6 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
           new ConvolutionLayer(7, 7, 64, 48).setWeightsLog(-4),
           new ImgReshapeLayer(4, 4, true)
         ), trainingMin = trainingMin, sampleSize = sampleSize)
-      sourceNetwork
     }: Unit, modelName)
 
   def step_AddLayer1(trainingMin: Int = 15, sampleSize: Int = 100, numberOfCategories: Int = 5): Unit = {
@@ -405,7 +403,6 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
           new ConvolutionLayer(3, 3, 192, 64*4).setWeightsLog(-4),
           new ImgReshapeLayer(2, 2, true)
         ), trainingMin = trainingMin, sampleSize = sampleSize)
-      sourceNetwork
     }: Unit, modelName)
 
 
@@ -432,7 +429,6 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
           new ConvolutionLayer(3, 3, 480, 192*4).setWeightsLog(-4),
           new ImgReshapeLayer(2, 2, true)
         ), trainingMin = trainingMin, sampleSize = sampleSize)
-      sourceNetwork
     }: Unit, modelName)
 
 
@@ -462,7 +458,6 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
           new ConvolutionLayer(3, 3, 832, 480 * 4).setWeightsLog(-4),
           new ImgReshapeLayer(2, 2, true)
         ), trainingMin = trainingMin, sampleSize = sampleSize)
-      sourceNetwork
     }: Unit, modelName)
 
   def step_AddLayer5(trainingMin: Int = 15, sampleSize: Int = 100, numberOfCategories: Int = 5): Unit = {
@@ -488,7 +483,6 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
           new ConvolutionLayer(3, 3, 1024, 832 * 7 * 7).setWeightsLog(-4),
           new ImgReshapeLayer(7, 7, true)
         ), trainingMin = trainingMin, sampleSize = sampleSize)
-      sourceNetwork
     }: Unit, modelName)
 
   private def preprocessFeatures(sourceNetwork: PipelineNetwork, priorFeaturesNode: DAGNode, trainingData: RDD[Array[Tensor]]): RDD[Array[Tensor]] = {
@@ -623,8 +617,8 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
 
   final def addMonitoring(model: DAGNetwork) : Unit = {
     model.getNodes.asScala.foreach({
-      case node: InnerNode =>
-        node.getLayer() match {
+      case node: DAGNode =>
+        node.getLayer[NNLayer] match {
           case _:MonitoringWrapperLayer => // Ignore
           case layer: DAGNetwork =>
             addMonitoring(layer.asInstanceOf[DAGNetwork])
@@ -638,8 +632,8 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
 
   final def removeMonitoring(model: DAGNetwork) : Unit = {
     model.getNodes.asScala.foreach({
-      case node: InnerNode =>
-        node.getLayer() match {
+      case node: DAGNode =>
+        node.getLayer[NNLayer] match {
           case layer : MonitoringWrapperLayer => // Ignore
             node.setLayer(layer.getInner)
           case layer: DAGNetwork =>

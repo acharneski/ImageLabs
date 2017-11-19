@@ -35,8 +35,7 @@ import com.simiacryptus.mindseye.layers.cudnn.f32
 import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
 import com.simiacryptus.mindseye.layers.cudnn.f32._
 import com.simiacryptus.mindseye.layers.java.{ImgBandBiasLayer => _, _}
-import com.simiacryptus.mindseye.network.graph.{DAGNetwork, DAGNode}
-import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork}
+import com.simiacryptus.mindseye.network.{DAGNetwork, DAGNode, PipelineNetwork, SimpleLossNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._

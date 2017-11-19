@@ -30,7 +30,8 @@ import com.simiacryptus.mindseye.data.Caltech101
 import com.simiacryptus.mindseye.eval.StochasticArrayTrainable
 import com.simiacryptus.mindseye.lang.{NNExecutionContext, Tensor}
 import com.simiacryptus.mindseye.layers.java._
-import com.simiacryptus.mindseye.network.{InceptionLayer, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.network.util.InceptionLayer
+import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt.{Step, TrainingMonitor}
 import com.simiacryptus.text.TableOutput
 import com.simiacryptus.util.io.{HtmlNotebookOutput, TeeOutputStream}

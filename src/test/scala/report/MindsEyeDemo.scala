@@ -35,8 +35,7 @@ import com.simiacryptus.mindseye.eval.StochasticArrayTrainable
 import com.simiacryptus.mindseye.lang.{Coordinate, NNExecutionContext, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 import com.simiacryptus.mindseye.layers.java._
-import com.simiacryptus.mindseye.network.graph._
-import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
+import com.simiacryptus.mindseye.network._
 import com.simiacryptus.mindseye.opt.TrainingMonitor
 import com.simiacryptus.text.TableOutput
 import com.simiacryptus.util.Util
