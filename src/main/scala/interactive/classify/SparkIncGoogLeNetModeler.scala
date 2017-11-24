@@ -36,7 +36,7 @@ import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
 import com.simiacryptus.mindseye.layers.cudnn.f32._
 import com.simiacryptus.mindseye.layers.cudnn.{CudaExecutionContext, f32}
 import com.simiacryptus.mindseye.layers.java._
-import com.simiacryptus.mindseye.network.{DAGNetwork, DAGNode, InnerNode, PipelineNetwork}
+import com.simiacryptus.mindseye.network.{DAGNetwork, DAGNode, PipelineNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._

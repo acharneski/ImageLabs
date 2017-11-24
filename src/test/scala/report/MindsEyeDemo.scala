@@ -31,7 +31,7 @@ import java.{lang, util}
 import javax.imageio.ImageIO
 
 import com.simiacryptus.mindseye.data.MNIST
-import com.simiacryptus.mindseye.eval.StochasticArrayTrainable
+import com.simiacryptus.mindseye.eval.SampledArrayTrainable
 import com.simiacryptus.mindseye.lang.{Coordinate, NNExecutionContext, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 import com.simiacryptus.mindseye.layers.java._
@@ -99,7 +99,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
         val history = new scala.collection.mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.Step]()
         val _log = log
         val trainer = log.eval {
-          val trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
+          val trainable = new SampledArrayTrainable(data.toArray, trainingNetwork, 1000)
           val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
           trainer.setMonitor(new TrainingMonitor {
             override def log(msg: String): Unit = {
@@ -210,7 +210,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
 
           val trainer = log.eval {
             val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
-            val trainable = new StochasticArrayTrainable(trainingData.toArray, trainingNetwork, 1000)
+            val trainable = new SampledArrayTrainable(trainingData.toArray, trainingNetwork, 1000)
             val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
             trainer.setTimeout(10, TimeUnit.SECONDS)
             trainer.setTerminateThreshold(0.0)
@@ -418,7 +418,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
         log.p("Now we define a standard L-BFGS trainer to optimize the reconstruction")
         val history = new scala.collection.mutable.ArrayBuffer[com.simiacryptus.mindseye.opt.Step]()
         val trainer = log.eval {
-          val trainable = new StochasticArrayTrainable(Seq(Array(zeroInput, blurredImage)).toArray, dagNetwork, 1000)
+          val trainable = new SampledArrayTrainable(Seq(Array(zeroInput, blurredImage)).toArray, dagNetwork, 1000)
           val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
           trainer.setMonitor(new TrainingMonitor {
             override def log(msg: String): Unit = {

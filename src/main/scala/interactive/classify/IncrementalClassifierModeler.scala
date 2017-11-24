@@ -28,7 +28,7 @@ import javax.imageio.ImageIO
 
 import _root_.util.Java8Util.cvt
 import _root_.util._
-import com.simiacryptus.mindseye.eval.{ArrayTrainable, StochasticArrayTrainable, Trainable}
+import com.simiacryptus.mindseye.eval.{ArrayTrainable, SampledArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, NNResult, Tensor}
 import com.simiacryptus.mindseye.layers.cudnn.f32
 import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
@@ -190,7 +190,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
 
     out.h1("Training New Layer")
     val trainer1 = out.eval {
-      var inner: Trainable = new StochasticArrayTrainable(trainingArray, trainingNetwork, sampleSize)
+      var inner: Trainable = new SampledArrayTrainable(trainingArray, trainingNetwork, sampleSize)
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
@@ -217,7 +217,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
     out.h1("Integration Training")
     val trainer2 = out.eval {
       assert(null != data)
-      var inner: Trainable = new StochasticArrayTrainable(data.values.flatten.toList.asJava,
+      var inner: Trainable = new SampledArrayTrainable(data.values.flatten.toList.asJava,
         new SimpleLossNetwork(model, new EntropyLossLayer()), sampleSize, 20)
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)

@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
 import _root_.util.NetworkViz._
 import _root_.util._
 import com.simiacryptus.mindseye.data.MNIST
-import com.simiacryptus.mindseye.eval.{L12Normalizer, StochasticArrayTrainable}
+import com.simiacryptus.mindseye.eval.{L12Normalizer, SampledArrayTrainable}
 import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.{DAGNetwork, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
@@ -53,7 +53,7 @@ object MnistDemo_L1Normalizations extends Report {
     report((s,log)⇒new MnistDemo(s,log){
       override def buildTrainer(data: Seq[Array[Tensor]]): Stream[IterativeTrainer] = Stream(log.eval {
         val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
-        val executor = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
+        val executor = new SampledArrayTrainable(data.toArray, trainingNetwork, 1000)
         val normalized = new L12Normalizer(executor) {
           override protected def getL1(layer: NNLayer): Double = layer match {
             case _ : FullyConnectedLayer ⇒ -0.001
@@ -92,7 +92,7 @@ class MnistDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNoteb
 
   def buildTrainer(data: Seq[Array[Tensor]]): Stream[IterativeTrainer] = Stream(log.eval {
     val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
-    val trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
+    val trainable = new SampledArrayTrainable(data.toArray, trainingNetwork, 1000)
     val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
     trainer.setMonitor(monitor)
     trainer.setOrientation(new GradientDescent);

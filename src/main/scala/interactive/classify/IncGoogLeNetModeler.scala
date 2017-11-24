@@ -37,7 +37,7 @@ import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
 import com.simiacryptus.mindseye.layers.cudnn.f32._
 import com.simiacryptus.mindseye.layers.cudnn.{CudaExecutionContext, GpuController, f32}
 import com.simiacryptus.mindseye.layers.java._
-import com.simiacryptus.mindseye.network.{DAGNetwork, DAGNode, InnerNode, PipelineNetwork}
+import com.simiacryptus.mindseye.network.{DAGNetwork, DAGNode, PipelineNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
@@ -387,7 +387,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
     model = trainingNetwork
     addMonitoring(model.asInstanceOf[DAGNetwork])
     out.eval {
-      var inner: Trainable = new StochasticArrayTrainable(trainingArray, trainingNetwork, sampleSize)
+      var inner: Trainable = new SampledArrayTrainable(trainingArray, trainingNetwork, sampleSize)
       val trainer = new IterativeTrainer(inner)
       trainer.setMonitor(monitor)
       trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
@@ -481,18 +481,18 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
       } : Unit)
       out.eval {
         assert(null != data)
-        var inner: Trainable = new StochasticArrayTrainable(selectedCategories.values.flatten.toList.asJava, model, sampleSize)
+        var inner: Trainable = new SampledArrayTrainable(selectedCategories.values.flatten.toList.asJava, model, sampleSize)
         val trainer = new IterativeTrainer(inner)
         trainer.setMonitor(monitor)
         trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
         trainer.setIterationsPerSample(iterationsPerSample)
 //        trainer.setOrientation(new TrustRegionStrategy(new QQN().setMinHistory(4).setMaxHistory(20)) {
-//          override def reset(): Unit = {
+//          override def restore(): Unit = {
 //            model.asInstanceOf[DAGNetwork].visitLayers(Java8Util.cvt(layer => layer match {
 //              case layer: DropoutNoiseLayer => layer.shuffle()
 //              case _ =>
 //            }))
-//            super.reset()
+//            super.restore()
 //          }
 //
 //          def getRegionPolicy(layer: NNLayer) = layer match {

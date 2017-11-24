@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
 import _root_.util.NetworkViz._
 import _root_.util._
 import com.simiacryptus.mindseye.data.MNIST
-import com.simiacryptus.mindseye.eval.StochasticArrayTrainable
+import com.simiacryptus.mindseye.eval.SampledArrayTrainable
 import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 import com.simiacryptus.mindseye.layers.java._
@@ -157,7 +157,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
   def pretrain(component:NNLayer, data:Array[Array[Tensor]]) = {
     log.eval {
       val autoinitializerNetwork = autoinitializer(component)
-      val trainable = new StochasticArrayTrainable(data, autoinitializerNetwork, 2000)
+      val trainable = new SampledArrayTrainable(data, autoinitializerNetwork, 2000)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
       trainer.setMonitor(monitor)
       trainer.setTimeout(5, TimeUnit.MINUTES)
@@ -184,7 +184,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
 
   def buildTrainer(data: Seq[Array[Tensor]], model: NNLayer): IterativeTrainer = {
     val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
-    val trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
+    val trainable = new SampledArrayTrainable(data.toArray, trainingNetwork, 1000)
     val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
     trainer.setMonitor(monitor)
     //trainer.setOrientations(new GradientDescent);

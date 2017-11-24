@@ -27,7 +27,7 @@ import java.util.concurrent.{Semaphore, TimeUnit}
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.simiacryptus.mindseye.data.Caltech101
-import com.simiacryptus.mindseye.eval.StochasticArrayTrainable
+import com.simiacryptus.mindseye.eval.SampledArrayTrainable
 import com.simiacryptus.mindseye.lang.{NNExecutionContext, Tensor}
 import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.util.InceptionLayer
@@ -163,7 +163,7 @@ class Caltech101Demo {
     log.h2("Training")
     log.p("We newTrainer using a standard iterative L-BFGS strategy: ")
     val trainer = log.eval {
-      val trainable = new StochasticArrayTrainable(data.toArray, trainingNetwork, 1000)
+      val trainable = new SampledArrayTrainable(data.toArray, trainingNetwork, 1000)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
       trainer.setMonitor(monitor)
       trainer.setTimeout(5, TimeUnit.MINUTES)

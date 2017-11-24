@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit
 import java.util.function.ToDoubleFunction
 
 import com.simiacryptus.mindseye.data.MNIST
-import com.simiacryptus.mindseye.eval.StochasticArrayTrainable
+import com.simiacryptus.mindseye.eval.SampledArrayTrainable
 import com.simiacryptus.mindseye.lang.{Coordinate, NNExecutionContext, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 import com.simiacryptus.mindseye.layers.java._
@@ -163,7 +163,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
     log.p("First we pretrain the model on a very small dataset until it is at a reasonable starting point")
     log.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
-      val trainable = new StochasticArrayTrainable(trainingData.toArray, trainingNetwork, 100)
+      val trainable = new SampledArrayTrainable(trainingData.toArray, trainingNetwork, 100)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
       trainer.setOrientation(new LBFGS())
       trainer.setMonitor(monitor)
@@ -174,7 +174,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
     log.p("The second phase of training uses more data")
     log.eval {
       val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
-      val trainable = new StochasticArrayTrainable(trainingData.toArray, trainingNetwork, 2000)
+      val trainable = new SampledArrayTrainable(trainingData.toArray, trainingNetwork, 2000)
       val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
       trainer.setOrientation(new LBFGS())
       trainer.setMonitor(monitor)

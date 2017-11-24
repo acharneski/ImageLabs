@@ -29,7 +29,7 @@ import javax.imageio.ImageIO
 
 import _root_.util.Java8Util.cvt
 import _root_.util._
-import com.simiacryptus.mindseye.eval.{ArrayTrainable, StochasticArrayTrainable, Trainable}
+import com.simiacryptus.mindseye.eval.{ArrayTrainable, SampledArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang._
 import com.simiacryptus.mindseye.layers.cudnn.f32
 import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
@@ -328,7 +328,7 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
       } : Unit)
       val trainer2 = out.eval {
         assert(null != data)
-        var inner: Trainable = new StochasticArrayTrainable(selectedCategories.values.flatten.toList.asJava, model, sampleSize)
+        var inner: Trainable = new SampledArrayTrainable(selectedCategories.values.flatten.toList.asJava, model, sampleSize)
         val trainer = new IterativeTrainer(inner)
         trainer.setMonitor(monitor)
         trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
