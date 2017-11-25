@@ -108,7 +108,7 @@ case class TestClassifier(
       if (null != activationLayer) {
         network.add(activationLayer.setName("activation_" + layerNumber).freeze.addTo(monitoringRoot))
       }
-      val node = network.add(new ConvolutionLayer(layerRadius, layerRadius, from * to, simpleBorder)
+      val node = network.add(new ConvolutionLayer(layerRadius, layerRadius, from * to)
         .setWeights(weightSeed).setName("conv_" + layerNumber).addTo(monitoringRoot)
       )
       //network.fn(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
@@ -119,10 +119,10 @@ case class TestClassifier(
 
     buildLayer(3, 8, "0", layerRadius = 5, weights = Math.pow(10, this.conv1), activationLayer = null, auxWeight = auxLearn1)
     network.add(new PoolingLayer().setName("avg_0").addTo(monitoringRoot))
-    normalizedPoints += network.add(new ConvolutionLayer(1, 1, 8 * 4, false).setWeights(()=>Math.pow(10, this.reduction1)*rand).setName("reduce_1").addTo(monitoringRoot));
+    normalizedPoints += network.add(new ConvolutionLayer(1, 1, 8 * 4).setWeights(()=>Math.pow(10, this.reduction1)*rand).setName("reduce_1").addTo(monitoringRoot));
     buildLayer(4, 30, "1", layerRadius = 5, weights = Math.pow(10, this.conv2), auxWeight = auxLearn2)
     network.add(new PoolingLayer().setName("avg_1").addTo(monitoringRoot))
-    normalizedPoints += network.add(new ConvolutionLayer(1, 1, 30 * 6, false).setWeights(()=>Math.pow(10, this.reduction2)*rand).setName("reduce_2").addTo(monitoringRoot));
+    normalizedPoints += network.add(new ConvolutionLayer(1, 1, 30 * 6).setWeights(()=>Math.pow(10, this.reduction2)*rand).setName("reduce_2").addTo(monitoringRoot));
     buildLayer(6, 24, "2", layerRadius = 4, weights = Math.pow(10, this.conv3), auxWeight = auxLearn3)
     network.add(new PoolingLayer().setName("avg_3").addTo(monitoringRoot))
     buildLayer(24, numberOfCategories, "3", layerRadius = 1, weights = Math.pow(10, this.conv4))
@@ -130,7 +130,7 @@ case class TestClassifier(
     val prediction = network.add(new SoftmaxActivationLayer)
 
     def auxEntropyLayer(source: DAGNode, bands: Int, weight: Double, layerNumber: String) = {
-      val convolution = network.add(new ConvolutionLayer(1, 1, bands * numberOfCategories, false).setWeights(() ⇒ Random.nextDouble() * weight).setName("learningStrut_" + layerNumber), source)
+      val convolution = network.add(new ConvolutionLayer(1, 1, bands * numberOfCategories).setWeights(() ⇒ Random.nextDouble() * weight).setName("learningStrut_" + layerNumber), source)
       normalizedPoints += convolution
       network.add(new EntropyLossLayer(), network.add(new SoftmaxActivationLayer, network.add(new MaxImageBandLayer(), convolution)), network.getInput(1))
     }
