@@ -153,7 +153,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
     val outputFeatureDimensions = additionalLayer.eval(new NNExecutionContext() {}, featureTrainingData.head).getData.get(0).getDimensions
     val inputBands: Int = inputFeatureDimensions(2)
     val featureBands: Int = outputFeatureDimensions(2)
-    val reconstructionCrop = inputFeatureDimensions(0) - outputFeatureDimensions(0)*2
+    val reconstructionCrop = outputFeatureDimensions(0)
     val categorizationLayer = new ConvolutionLayer(1, 1, featureBands, numberOfCategories, false).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, weight))
     val reconstructionLayer = new ConvolutionLayer(1, 1, featureBands, 4 * inputBands, false).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, weight))
     val trainingNetwork = new PipelineNetwork(2)
