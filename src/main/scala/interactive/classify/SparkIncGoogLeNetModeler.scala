@@ -51,6 +51,7 @@ import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.collection.JavaConverters._
 import scala.util.Random
+import Java8Util._
 
 object SparkIncGoogLeNetModeler extends Report {
   System.setProperty("hadoop.home.dir", "D:\\SimiaCryptus\\hadoop")
@@ -471,6 +472,7 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
       sourceNetwork.visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
         layer.asInstanceOf[SchemaComponent].setSchema(categories.toArray:_*)
       } : Unit)
+
       addLayer(
         rdd = preprocessFeatures(sourceNetwork, priorFeaturesNode, categories.map(c => data.data(c)).reduce(_.union(_))),
         sourceNetwork = sourceNetwork,
@@ -480,7 +482,7 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
           newInceptionLayer(layerName = "5b", inputBands = 832, bands1x1 = 384, bands3x1 = 192, bands1x3 = 384, bands5x1 = 48, bands1x5 = 128, bandsPooling = 128),
           new PoolingLayer().setWindowXY(7, 7).setStrideXY(1, 1).setPaddingXY(0, 0).setMode(PoolingMode.Avg).setName("pool_6")
         ), reconstructionLayer = new PipelineNetwork(
-          new ConvolutionLayer(3, 3, 1024, 832 * 7 * 7).setWeightsLog(-4),
+          new ConvolutionLayer(3, 3, 1024, 832 * 7 * 7).setWeights(()=>1e-4 * (Math.random()-0.5)),
           new ImgReshapeLayer(7, 7, true)
         ), trainingMin = trainingMin, sampleSize = sampleSize)
     }: Unit, modelName)
@@ -514,7 +516,7 @@ class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: Htm
           trainingNetwork.add(new EntropyLossLayer(),
             trainingNetwork.add(new SoftmaxActivationLayer(),
               trainingNetwork.add(new BandPoolingLayer().setMode(BandPoolingLayer.PoolingMode.Avg),
-                trainingNetwork.add(new ConvolutionLayer(1, 1, newFeatureDimensions(2), numberOfCategories, true).setWeightsLog(-4),
+                trainingNetwork.add(new ConvolutionLayer(1, 1, newFeatureDimensions(2), numberOfCategories).setWeightsLog(-4),
                   dropoutNode))
             ),
             trainingNetwork.getInput(1)

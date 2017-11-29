@@ -128,7 +128,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
   def step_AddLayer(trainingMin: Int = 15, sampleSize: Int = 100, inputBands: Int, featureBands: Int, radius: Int = 3, mode: PoolingMode = PoolingMode.Max): Any = phase(modelName, (model: NNLayer) ⇒ {
     addLayer(trainingMin, sampleSize, model){
       new PipelineNetwork(
-        new ConvolutionLayer(radius, radius, inputBands, featureBands, false).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, -6)),
+        new ConvolutionLayer(radius, radius, inputBands, featureBands).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, -6)),
         new PoolingLayer().setMode(mode)
       )
     }
@@ -154,8 +154,8 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
     val inputBands: Int = inputFeatureDimensions(2)
     val featureBands: Int = outputFeatureDimensions(2)
     val reconstructionCrop = outputFeatureDimensions(0)
-    val categorizationLayer = new ConvolutionLayer(1, 1, featureBands, numberOfCategories, false).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, weight))
-    val reconstructionLayer = new ConvolutionLayer(1, 1, featureBands, 4 * inputBands, false).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, weight))
+    val categorizationLayer = new ConvolutionLayer(1, 1, featureBands, numberOfCategories).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, weight))
+    val reconstructionLayer = new ConvolutionLayer(1, 1, featureBands, 4 * inputBands).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, weight))
     val trainingNetwork = new PipelineNetwork(2)
     val features = trainingNetwork.add("features", additionalLayer, trainingNetwork.getInput(0))
     val fitness = trainingNetwork.add(new f32.ProductInputsLayer(),

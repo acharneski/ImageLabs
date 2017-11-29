@@ -169,7 +169,7 @@ import NNLayerUtil._
             network.add(new f32.DropoutNoiseLayer().setValue(0.7).setName("dropout_4a").addTo(monitoringRoot),
               network.add(new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_out3_4a").addTo(monitoringRoot),
                 network.add(new ImgBandBiasLayer(1024).setName("bias_out2_4a").addTo(monitoringRoot),
-                  network.add(new ConvolutionLayer(3, 3, 128, 1024, false).setWeightsLog(trainingShunt).setName("syn_out2_4a").addTo(monitoringRoot),
+                  network.add(new ConvolutionLayer(3, 3, 128, 1024).setWeightsLog(trainingShunt).setName("syn_out2_4a").addTo(monitoringRoot),
                     network.add(new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_out1_4a").addTo(monitoringRoot),
                       network.add(new ConvolutionLayer(1, 1, 512, 128).setWeightsLog(trainingShunt).setName("conv_out1_4a").addTo(monitoringRoot),
                         network.add(new PoolingLayer().setWindowXY(7, 7).setStrideXY(3, 3).setMode(PoolingMode.Avg).setName("pool_out1_4a").addTo(monitoringRoot),
@@ -191,7 +191,7 @@ import NNLayerUtil._
             network.add(new f32.DropoutNoiseLayer().setValue(0.7).setName("dropout_4d").addTo(monitoringRoot),
               network.add(new ActivationLayer(ActivationLayer.Mode.RELU).freeze().setName("relu_out3_4d").addTo(monitoringRoot),
                 network.add(new ImgBandBiasLayer(1024).setName("bias_out2_4d").addTo(monitoringRoot),
-                  network.add(new ConvolutionLayer(3, 3, 128, 1024, false).setWeightsLog(trainingShunt).setName("syn_out2_4d").addTo(monitoringRoot),
+                  network.add(new ConvolutionLayer(3, 3, 128, 1024).setWeightsLog(trainingShunt).setName("syn_out2_4d").addTo(monitoringRoot),
                     network.add(new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_out1_4d").addTo(monitoringRoot),
                       network.add(new ConvolutionLayer(1, 1, 528, 128).setWeightsLog(trainingShunt).setName("conv_out1_4d").addTo(monitoringRoot),
                         network.add(new PoolingLayer().setWindowXY(7, 7).setStrideXY(3, 3).setMode(PoolingMode.Avg).setName("pool_out1_4d").addTo(monitoringRoot),
@@ -241,7 +241,7 @@ import NNLayerUtil._
       val network = getNetwork(monitor, monitoringRoot, fitness = true)
       require(!data.isEmpty)
       val fn = Java8Util.cvt((x: Tensor) => x.getData()(0))
-      network.eval(new NNExecutionContext() {}, NNResult.batchResultArray(data))
+      network.eval(new NNExecutionContext() {}, NNResult.batchResultArray(data): _*)
         .getData.stream().mapToDouble(fn).sum / data.length
     }).toList
     val avg = values.sum / n

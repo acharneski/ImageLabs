@@ -354,7 +354,7 @@ class IncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNote
           trainingNetwork.add(new EntropyLossLayer(),
             trainingNetwork.add(new SoftmaxActivationLayer(),
               trainingNetwork.add(new BandPoolingLayer().setMode(BandPoolingLayer.PoolingMode.Avg),
-                trainingNetwork.add(new ConvolutionLayer(1, 1, newFeatureDimensions(2), numberOfCategories, true).setWeightsLog(-4),
+                trainingNetwork.add(new ConvolutionLayer(1, 1, newFeatureDimensions(2), numberOfCategories).setWeightsLog(-4),
                   dropoutNode))
             ),
             trainingNetwork.getInput(1)
