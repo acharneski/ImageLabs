@@ -32,7 +32,7 @@ import _root_.util._
 import com.simiacryptus.mindseye.eval.{ArrayTrainable, SampledArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang._
 import com.simiacryptus.mindseye.layers.cudnn
-import com.simiacryptus.mindseye.layers.cudnn.f32
+import com.simiacryptus.mindseye.layers.cudnn.{ProductLayer, f32}
 import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
 import com.simiacryptus.mindseye.layers.cudnn.f32._
 import com.simiacryptus.mindseye.layers.java.{ImgBandBiasLayer => _, _}
@@ -216,7 +216,7 @@ import NNLayerUtil._
             network.add(new StdDevMetaLayer(), layer))
         ))
 
-      network.add(new cudnn.ProductInputsLayer(),
+      network.add(new ProductLayer(),
         entropy,
         network.add(new SumInputsLayer(), (
           List(network.add(new ConstNNLayer(new Tensor(1).set(0, 0.1)))) ++

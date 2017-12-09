@@ -32,7 +32,7 @@ import _root_.util._
 import com.simiacryptus.mindseye.eval.{ArrayTrainable, SampledArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.cudnn
-import com.simiacryptus.mindseye.layers.cudnn.f32
+import com.simiacryptus.mindseye.layers.cudnn.{BinaryOperationLayer, f32}
 import com.simiacryptus.mindseye.layers.cudnn.f32._
 import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.{DAGNode, PipelineNetwork}
@@ -146,7 +146,7 @@ case class TestClassifier(
                 network.add(new ConstNNLayer(new Tensor(1).set(0,-target)))
               ))
       val prediction = network.getHead
-      network.add(new cudnn.ProductInputsLayer(), prediction, network.add(new SumInputsLayer(),
+      network.add(new cudnn.ProductLayer(), prediction, network.add(new SumInputsLayer(),
                 (List(network.add(new ConstNNLayer(new Tensor(1).set(0,0.1)))) ++ normalizedPoints.map(auxRmsLayer(_,1))):_*
               ))
     }
