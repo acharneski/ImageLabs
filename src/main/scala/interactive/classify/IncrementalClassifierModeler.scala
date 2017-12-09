@@ -30,6 +30,7 @@ import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.simiacryptus.mindseye.eval.{ArrayTrainable, SampledArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, NNResult, Tensor}
+import com.simiacryptus.mindseye.layers.cudnn
 import com.simiacryptus.mindseye.layers.cudnn.f32
 import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
 import com.simiacryptus.mindseye.layers.cudnn.f32._
@@ -158,7 +159,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
     val reconstructionLayer = new ConvolutionLayer(1, 1, featureBands, 4 * inputBands).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, weight))
     val trainingNetwork = new PipelineNetwork(2)
     val features = trainingNetwork.add("features", additionalLayer, trainingNetwork.getInput(0))
-    val fitness = trainingNetwork.add(new f32.ProductInputsLayer(),
+    val fitness = trainingNetwork.add(new cudnn.ProductInputsLayer(),
       // Features should be relevant - predict the class given a final linear/softmax transform
       trainingNetwork.add(new EntropyLossLayer(),
         trainingNetwork.add(new SoftmaxActivationLayer(),

@@ -31,6 +31,7 @@ import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.simiacryptus.mindseye.eval.{ArrayTrainable, SampledArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang._
+import com.simiacryptus.mindseye.layers.cudnn
 import com.simiacryptus.mindseye.layers.cudnn.f32
 import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
 import com.simiacryptus.mindseye.layers.cudnn.f32._
@@ -215,7 +216,7 @@ import NNLayerUtil._
             network.add(new StdDevMetaLayer(), layer))
         ))
 
-      network.add(new f32.ProductInputsLayer(),
+      network.add(new cudnn.ProductInputsLayer(),
         entropy,
         network.add(new SumInputsLayer(), (
           List(network.add(new ConstNNLayer(new Tensor(1).set(0, 0.1)))) ++
