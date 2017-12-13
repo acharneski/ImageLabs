@@ -31,10 +31,9 @@ import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.util.InceptionLayer
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt.{Step, TrainingMonitor}
-import com.simiacryptus.text.TableOutput
 import com.simiacryptus.util.io.{HtmlNotebookOutput, TeeOutputStream}
 import com.simiacryptus.util.test.LabeledObject
-import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
+import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, TableOutput, Util}
 import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
 import smile.plot.{PlotCanvas, ScatterPlot}

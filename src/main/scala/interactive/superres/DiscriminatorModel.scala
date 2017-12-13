@@ -39,10 +39,9 @@ import com.simiacryptus.mindseye.network.{DAGNode, PipelineNetwork, SimpleLossNe
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
-import com.simiacryptus.text.TableOutput
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
 import com.simiacryptus.util.test.LabeledObject
-import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
+import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, TableOutput, Util}
 import org.apache.commons.io.IOUtils
 import util.NNLayerUtil._
 

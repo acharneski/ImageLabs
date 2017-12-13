@@ -32,8 +32,7 @@ import com.simiacryptus.mindseye.network.{DAGNetwork, PipelineNetwork, SimpleLos
 import com.simiacryptus.mindseye.opt.IterativeTrainer
 import com.simiacryptus.mindseye.opt.orient.TrustRegionStrategy
 import com.simiacryptus.mindseye.opt.region.TrustRegion
-import com.simiacryptus.text.TableOutput
-import com.simiacryptus.util.StreamNanoHTTPD
+import com.simiacryptus.util.{StreamNanoHTTPD, TableOutput}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil, MarkdownNotebookOutput}
 import guru.nidi.graphviz.engine.{Format, Graphviz}
 

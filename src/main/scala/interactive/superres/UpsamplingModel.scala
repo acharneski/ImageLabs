@@ -37,9 +37,8 @@ import com.simiacryptus.mindseye.network.{DAGNode, PipelineNetwork, SimpleLossNe
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
-import com.simiacryptus.text.TableOutput
 import com.simiacryptus.util.io.HtmlNotebookOutput
-import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
+import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, TableOutput, Util}
 import util.NNLayerUtil._
 
 import scala.collection.JavaConverters._
@@ -269,7 +268,7 @@ class UpsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebook
   }, modelName)
 
   def lossNetwork = {
-    val mask: Tensor = new Tensor(tileSize, tileSize, 3).mapCoords(Java8Util.cvt((v: lang.Double, c: Coordinate) ⇒ {
+    val mask: Tensor = new Tensor(tileSize, tileSize, 3).mapCoords(Java8Util.cvt((c: Coordinate) ⇒ {
       if (c.coords(0) < fitnessBorderPadding || c.coords(0) >= (tileSize - fitnessBorderPadding)) {
         0.0
       } else if (c.coords(1) < fitnessBorderPadding || c.coords(1) >= (tileSize - fitnessBorderPadding)) {

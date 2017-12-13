@@ -32,8 +32,7 @@ import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, Su
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line.ArmijoWolfeSearch
 import com.simiacryptus.mindseye.opt.orient.{GradientDescent, LBFGS, OwlQn}
-import com.simiacryptus.text.TableOutput
-import com.simiacryptus.util._
+import com.simiacryptus.util.{TableOutput, _}
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}
 import util.Java8Util._

@@ -41,8 +41,7 @@ import com.simiacryptus.mindseye.network.{DAGNetwork, DAGNode, PipelineNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
-import com.simiacryptus.text.TableOutput
-import com.simiacryptus.util.StreamNanoHTTPD
+import com.simiacryptus.util.{StreamNanoHTTPD, TableOutput}
 import com.simiacryptus.util.function.WeakCachedSupplier
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
 

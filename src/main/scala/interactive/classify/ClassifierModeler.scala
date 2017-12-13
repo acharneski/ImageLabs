@@ -39,9 +39,8 @@ import com.simiacryptus.mindseye.network.{DAGNode, PipelineNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
-import com.simiacryptus.text.TableOutput
 import com.simiacryptus.util.io.HtmlNotebookOutput
-import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, Util}
+import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, TableOutput, Util}
 import interactive.superres.SimplexOptimizer
 import util.NNLayerUtil._
 

@@ -40,10 +40,9 @@ import com.simiacryptus.mindseye.network.{DAGNetwork, DAGNode, PipelineNetwork, 
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
-import com.simiacryptus.text.TableOutput
 import com.simiacryptus.util.function.{SoftCachedSupplier, WeakCachedSupplier}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
-import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD}
+import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, TableOutput}
 import interactive.classify.GoogLeNetModeler.tileSize
 
 import scala.collection.JavaConverters._
