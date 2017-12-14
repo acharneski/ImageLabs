@@ -24,7 +24,7 @@ import java.lang
 import java.util.concurrent.{Semaphore, TimeUnit}
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.simiacryptus.mindseye.data.CIFAR10
+import com.simiacryptus.mindseye.test.data.CIFAR10
 import com.simiacryptus.mindseye.eval.SampledArrayTrainable
 import com.simiacryptus.mindseye.lang.{NNExecutionContext, Tensor}
 import com.simiacryptus.mindseye.layers.java._

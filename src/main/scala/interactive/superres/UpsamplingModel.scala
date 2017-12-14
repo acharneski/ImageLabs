@@ -28,7 +28,7 @@ import java.util.function.{DoubleSupplier, IntToDoubleFunction}
 
 import _root_.util.Java8Util.cvt
 import _root_.util._
-import com.simiacryptus.mindseye.data.ImageTiles.ImageTensorLoader
+import com.simiacryptus.mindseye.test.data.ImageTiles.ImageTensorLoader
 import com.simiacryptus.mindseye.eval._
 import com.simiacryptus.mindseye.lang.{Coordinate, NNExecutionContext, NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer

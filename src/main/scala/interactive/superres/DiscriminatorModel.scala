@@ -30,7 +30,7 @@ import java.util.stream.Collectors
 import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.google.gson.{GsonBuilder, JsonObject}
-import com.simiacryptus.mindseye.data.ImageTiles.ImageTensorLoader
+import com.simiacryptus.mindseye.test.data.ImageTiles.ImageTensorLoader
 import com.simiacryptus.mindseye.eval.{ArrayTrainable, LinkedExampleArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, NNResult, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer

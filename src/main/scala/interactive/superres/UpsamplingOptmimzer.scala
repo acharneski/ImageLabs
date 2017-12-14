@@ -25,7 +25,7 @@ import java.io._
 import java.util.concurrent.TimeUnit
 
 import _root_.util._
-import com.simiacryptus.mindseye.data.ImageTiles.ImageTensorLoader
+import com.simiacryptus.mindseye.test.data.ImageTiles.ImageTensorLoader
 import com.simiacryptus.mindseye.eval.ArrayTrainable
 import com.simiacryptus.mindseye.lang.{NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.java._

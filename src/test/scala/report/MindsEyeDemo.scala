@@ -30,7 +30,7 @@ import util.{ReportNotebook, ScalaNotebookOutput}
 import java.{lang, util}
 import javax.imageio.ImageIO
 
-import com.simiacryptus.mindseye.data.MNIST
+import com.simiacryptus.mindseye.test.data.MNIST
 import com.simiacryptus.mindseye.eval.SampledArrayTrainable
 import com.simiacryptus.mindseye.lang.{Coordinate, NNExecutionContext, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer

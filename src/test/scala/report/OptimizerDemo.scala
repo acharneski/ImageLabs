@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
 import java.util.function.{IntToDoubleFunction, ToDoubleFunction}
 
 import _root_.util.{Java8Util, ReportNotebook, ScalaNotebookOutput}
-import com.simiacryptus.mindseye.data.MNIST
+import com.simiacryptus.mindseye.test.data.MNIST
 import com.simiacryptus.mindseye.eval.{ConstL12Normalizer, SampledArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang._
 import com.simiacryptus.mindseye.layers.java._

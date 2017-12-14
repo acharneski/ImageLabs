@@ -24,7 +24,7 @@ import java.lang
 import java.util.concurrent.TimeUnit
 import java.util.function.ToDoubleFunction
 
-import com.simiacryptus.mindseye.data.MNIST
+import com.simiacryptus.mindseye.test.data.MNIST
 import com.simiacryptus.mindseye.eval.SampledArrayTrainable
 import com.simiacryptus.mindseye.lang.{Coordinate, NNExecutionContext, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer

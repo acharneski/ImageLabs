@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit
 
 import _root_.util.NetworkViz._
 import _root_.util._
-import com.simiacryptus.mindseye.data.MNIST
+import com.simiacryptus.mindseye.test.data.MNIST
 import com.simiacryptus.mindseye.eval.SampledArrayTrainable
 import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
