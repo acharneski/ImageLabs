@@ -125,7 +125,7 @@ class MnistDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNoteb
     }), false)
 
     log.h2("Model")
-    log.p("Here we define the logic network that we are about to train: ")
+    log.p("Here we define the logic network that we are about to trainCjGD: ")
     defineHeader()
 
     log.p("<a href='/test.html'>Validation Report</a>")
@@ -135,7 +135,7 @@ class MnistDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNoteb
       })
     }), false)
 
-    log.p("We train using a the following strategy: ")
+    log.p("We trainCjGD using a the following strategy: ")
     buildTrainer(data).foreach(trainer ⇒ log.eval {
       trainer.run()
     })

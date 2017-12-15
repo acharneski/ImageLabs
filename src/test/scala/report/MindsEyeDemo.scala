@@ -381,7 +381,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
           scale(read, 0.5)
         }
 
-        log.p("Next we train this ideal image through our constructed filter to create a blurred image: ")
+        log.p("Next we trainCjGD this ideal image through our constructed filter to create a blurred image: ")
         val idealImageTensor: Tensor = Tensor.fromRGB(idealImage)
         val blurredImage: Tensor = log.eval {
           blurFilter.eval(new NNExecutionContext() {}, Array(Array(idealImageTensor))).getData.get(0)

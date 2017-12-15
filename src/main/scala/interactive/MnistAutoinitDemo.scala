@@ -217,7 +217,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
     }), false)
 
     log.h2("Model")
-    log.p("Here we define the logic network that we are about to train: ")
+    log.p("Here we define the logic network that we are about to trainCjGD: ")
     defineHeader()
 
     log.p("<a href='/test.html'>Validation Report</a>")
@@ -237,7 +237,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
     component1.freeze()
     monitoringRoot.clearConstants()
 
-    log.p("We train using a the following strategy: ")
+    log.p("We trainCjGD using a the following strategy: ")
     buildTrainer(data, model).run()
 
     log.p("A summary of the training timeline: ")
