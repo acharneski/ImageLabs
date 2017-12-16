@@ -122,13 +122,13 @@ class Cifar10Demo {
       var model: PipelineNetwork = new PipelineNetwork
 
       //      model.fn(new MonitoringWrapperLayer(new ImgConvolutionSynapseLayer(5,5,4)
-      //        .setWeights(Java8Util.cvt(_⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"conv1"))
+      //        .set(Java8Util.cvt(_⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"conv1"))
 
       model.add(new MonitoringWrapperLayer(new InceptionLayer(Array(
         Array(Array(5,5,3)),
         Array(Array(3,3,9))
       ))).addTo(monitoringRoot,"inception1"))
-      //  .setWeights(Java8Util.cvt(_⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"conv1"))
+      //  .set(Java8Util.cvt(_⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"conv1"))
 
 
       model.add(new MaxSubsampleLayer(2,2,1))
