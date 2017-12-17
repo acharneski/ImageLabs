@@ -25,7 +25,6 @@ import java.util.concurrent.TimeUnit
 import javax.imageio.ImageIO
 
 import _root_.util.{ReportNotebook, ScalaNotebookOutput}
-import com.simiacryptus.mindseye.test.data._
 import com.simiacryptus.mindseye.eval.SampledArrayTrainable
 import com.simiacryptus.mindseye.lang._
 import com.simiacryptus.mindseye.layers.java.{EntropyLossLayer, FullyConnectedLayer, SoftmaxActivationLayer}
@@ -33,6 +32,7 @@ import com.simiacryptus.mindseye.network.util.AutoencoderNetwork
 import com.simiacryptus.mindseye.network.{util => _, _}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.orient.LBFGS
+import com.simiacryptus.mindseye.test.data._
 import com.simiacryptus.util.TableOutput
 import com.simiacryptus.util.io.{IOUtil, KryoUtil}
 import org.scalatest.{MustMatchers, WordSpec}
@@ -264,7 +264,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook {
     log.draw(gfx ⇒ {
       (0 until width).foreach(x ⇒ {
         (0 until height).foreach(y ⇒ {
-          encoded.fill(cvt((i: Int) ⇒ 0.0))
+          encoded.set(cvt((i: Int) ⇒ 0.0))
           encoded.set(Array(x, y, band), probeIntensity)
           val tensor: Tensor = decoder.eval(new NNExecutionContext() {}, encoded).getData.get(0)
           val min: Double = tensor.getData.min
