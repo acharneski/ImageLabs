@@ -28,7 +28,6 @@ import java.util.function.{DoubleSupplier, IntToDoubleFunction}
 
 import _root_.util.Java8Util.cvt
 import _root_.util._
-import com.simiacryptus.mindseye.test.data.ImageTiles.ImageTensorLoader
 import com.simiacryptus.mindseye.eval._
 import com.simiacryptus.mindseye.lang.{Coordinate, NNExecutionContext, NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
@@ -37,6 +36,7 @@ import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, Su
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
+import com.simiacryptus.mindseye.test.data.ImageTiles.ImageTensorLoader
 import com.simiacryptus.util.io.HtmlNotebookOutput
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, TableOutput, Util}
 import util.NNLayerUtil._
@@ -87,7 +87,7 @@ case class DeepNetworkDownsample(weight1 : Double) {
   def fitness(monitor: TrainingMonitor, monitoringRoot : MonitoredObject, data: Array[Array[Tensor]], n: Int = 2) : Double = {
     val values = (1 to n).map(i ⇒ {
       val network = getNetwork(monitor, monitoringRoot, fitness = true)
-      val measure = new ArrayTrainable(data, network).measure(false, monitor)
+      val measure = new ArrayTrainable(data, network).measure(monitor)
       measure.sum
     }).toList
     val avg = values.sum / n

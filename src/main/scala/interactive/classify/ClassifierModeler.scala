@@ -32,8 +32,6 @@ import _root_.util._
 import com.simiacryptus.mindseye.eval.{ArrayTrainable, SampledArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.cudnn
-import com.simiacryptus.mindseye.layers.cudnn.{BinaryOperationLayer, f32}
-import com.simiacryptus.mindseye.layers.cudnn.f32._
 import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.{DAGNode, PipelineNetwork}
 import com.simiacryptus.mindseye.opt._
@@ -156,7 +154,7 @@ case class TestClassifier(
   def fitness(monitor: TrainingMonitor, monitoringRoot : MonitoredObject, data: Array[Array[Tensor]], n: Int = 3) : Double = {
     val values = (1 to n).map(i ⇒ {
       val network = getNetwork(monitor, monitoringRoot, fitness = true)
-      val measure = new ArrayTrainable(data, network).measure(false, monitor)
+      val measure = new ArrayTrainable(data, network).measure(monitor)
       measure.sum
     }).toList
     val avg = values.sum / n

@@ -30,8 +30,7 @@ import java.util.stream.Collectors
 import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.google.gson.{GsonBuilder, JsonObject}
-import com.simiacryptus.mindseye.test.data.ImageTiles.ImageTensorLoader
-import com.simiacryptus.mindseye.eval.{ArrayTrainable, LinkedExampleArrayTrainable, Trainable}
+import com.simiacryptus.mindseye.eval.{ArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, NNResult, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 import com.simiacryptus.mindseye.layers.java._
@@ -39,6 +38,7 @@ import com.simiacryptus.mindseye.network.{DAGNode, PipelineNetwork, SimpleLossNe
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
+import com.simiacryptus.mindseye.test.data.ImageTiles.ImageTensorLoader
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
 import com.simiacryptus.util.test.LabeledObject
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, TableOutput, Util}
@@ -124,7 +124,7 @@ case class DeepNetworkDescriminator(
   def fitness(monitor: TrainingMonitor, monitoringRoot : MonitoredObject, data: Array[Array[Tensor]], n: Int = 3) : Double = {
     val values = (1 to n).map(i ⇒ {
       val network = getNetwork(monitor, monitoringRoot, fitness = true)
-      val measure = new ArrayTrainable(data, network).measure(false, monitor)
+      val measure = new ArrayTrainable(data, network).measure(monitor)
       measure.sum
     }).toList
     val avg = values.sum / n
