@@ -32,16 +32,14 @@ import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.simiacryptus.mindseye.eval._
 import com.simiacryptus.mindseye.lang._
-import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
-import com.simiacryptus.mindseye.layers.cudnn.f32._
-import com.simiacryptus.mindseye.layers.cudnn.{CudaExecutionContext, f32}
+import com.simiacryptus.mindseye.layers.cudnn.CudaExecutionContext
 import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.{DAGNetwork, DAGNode, PipelineNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
-import com.simiacryptus.util.{StreamNanoHTTPD, TableOutput}
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
+import com.simiacryptus.util.{StreamNanoHTTPD, TableOutput}
 import interactive.classify.SparkIncGoogLeNetModeler.{artificialVariants, fuzz, sc, tileSize}
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.rdd.RDD
@@ -50,15 +48,14 @@ import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.collection.JavaConverters._
 import scala.util.Random
-import Java8Util._
 
 object SparkIncGoogLeNetModeler extends Report {
   System.setProperty("hadoop.home.dir", "D:\\SimiaCryptus\\hadoop")
   val dataFolder = "file:///H:/data"
 
   lazy val sparkConf: SparkConf = new SparkConf().setAppName(getClass.getName)
-    //.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-    //.set("spark.kryoserializer.buffer.max", "64")
+  //.setByCoord("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+  //.setByCoord("spark.kryoserializer.buffer.max", "64")
   lazy val sc = new SparkContext(sparkConf)
   val modelName = System.getProperty("modelName", "googlenet_1")
   val tileSize: Int = 224

@@ -23,7 +23,6 @@ import java.util.concurrent.TimeUnit
 
 import _root_.util.NetworkViz._
 import _root_.util._
-import com.simiacryptus.mindseye.test.data.MNIST
 import com.simiacryptus.mindseye.eval.SampledArrayTrainable
 import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
@@ -32,8 +31,9 @@ import com.simiacryptus.mindseye.network.{DAGNetwork, PipelineNetwork, SimpleLos
 import com.simiacryptus.mindseye.opt.IterativeTrainer
 import com.simiacryptus.mindseye.opt.orient.TrustRegionStrategy
 import com.simiacryptus.mindseye.opt.region.TrustRegion
-import com.simiacryptus.util.{StreamNanoHTTPD, TableOutput}
+import com.simiacryptus.mindseye.test.data.MNIST
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil, MarkdownNotebookOutput}
+import com.simiacryptus.util.{StreamNanoHTTPD, TableOutput}
 import guru.nidi.graphviz.engine.{Format, Graphviz}
 
 import scala.collection.JavaConverters._
@@ -302,7 +302,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
         actual → (categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0) * 100.0 / categorizationMatrix.getOrElse(actual, Map.empty).values.sum)
       }).toMap
     }
-    log.p("The accuracy, summarized over the entire validation set: ")
+    log.p("The accuracy, summarized over the entire validation setByCoord: ")
     log.eval {
       (0 to 9).map(actual ⇒ {
         categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0)

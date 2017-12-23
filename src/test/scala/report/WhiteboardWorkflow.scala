@@ -284,7 +284,7 @@ class WhiteboardWorkflow extends WordSpec with MustMatchers with ReportNotebook 
       )
     }
 
-    log.p("To help interpret the structure of this data set, we newTrainer a density tree:");
+    log.p("To help interpret the structure of this data setByCoord, we newTrainer a density tree:");
     val densityModel = log.code(() ⇒ {
       val tree = new DensityTree("hueMean", "hueStdDev", "lumMean", "lumStdDev", "chromaMean", "width", "length")
       tree.setSplitSizeThreshold(2)

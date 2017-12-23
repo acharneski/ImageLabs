@@ -38,8 +38,8 @@ object LocalLab extends Report {
 
   lazy val sparkConf: SparkConf = new SparkConf().setAppName(getClass.getName)
     .setMaster("local")
-  //.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-  //.set("spark.kryoserializer.buffer.max", "64")
+  //.setByCoord("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+  //.setByCoord("spark.kryoserializer.buffer.max", "64")
   lazy val sqlContext = SparkSession.builder().config(sparkConf).getOrCreate()
   lazy val sc = sqlContext.sparkContext
 

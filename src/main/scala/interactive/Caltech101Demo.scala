@@ -26,13 +26,13 @@ import java.lang
 import java.util.concurrent.{Semaphore, TimeUnit}
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.simiacryptus.mindseye.test.data.Caltech101
 import com.simiacryptus.mindseye.eval.SampledArrayTrainable
 import com.simiacryptus.mindseye.lang.{NNExecutionContext, Tensor}
 import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.util.InceptionLayer
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt.{Step, TrainingMonitor}
+import com.simiacryptus.mindseye.test.data.Caltech101
 import com.simiacryptus.util.io.{HtmlNotebookOutput, TeeOutputStream}
 import com.simiacryptus.util.lang.SupplierWeakCache
 import com.simiacryptus.util.test.LabeledObject
@@ -148,7 +148,7 @@ class Caltech101Demo {
       ))).addTo(monitoringRoot,"inception2"))
       model.add(new MaxSubsampleLayer(2,2,1))
       model.add(new MonitoringWrapperLayer(new FullyConnectedLayer(Array[Int](64, 64, 5), outputSize)
-        .setWeights(Java8Util.cvt(()⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"synapse1"))
+        .set(Java8Util.cvt(() ⇒ Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot, "synapse1"))
       model.add(new BiasLayer(outputSize: _*))
       model.add(new SoftmaxActivationLayer)
       model
@@ -227,7 +227,7 @@ class Caltech101Demo {
         actual → (categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0) * 100.0 / categorizationMatrix.getOrElse(actual, Map.empty).values.sum)
       }).toMap
     }
-    log.p("The accuracy, summarized over the entire validation set: ")
+    log.p("The accuracy, summarized over the entire validation setByCoord: ")
     log.eval {
       (0 until categories.size).map(actual ⇒ {
         categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0)

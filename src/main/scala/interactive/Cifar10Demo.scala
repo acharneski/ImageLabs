@@ -24,13 +24,13 @@ import java.lang
 import java.util.concurrent.{Semaphore, TimeUnit}
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.simiacryptus.mindseye.test.data.CIFAR10
 import com.simiacryptus.mindseye.eval.SampledArrayTrainable
 import com.simiacryptus.mindseye.lang.{NNExecutionContext, Tensor}
 import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.util.InceptionLayer
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt.{Step, TrainingMonitor}
+import com.simiacryptus.mindseye.test.data.CIFAR10
 import com.simiacryptus.util.io.{HtmlNotebookOutput, TeeOutputStream}
 import com.simiacryptus.util.test.LabeledObject
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, TableOutput, Util}
@@ -122,18 +122,18 @@ class Cifar10Demo {
       var model: PipelineNetwork = new PipelineNetwork
 
       //      model.fn(new MonitoringWrapperLayer(new ImgConvolutionSynapseLayer(5,5,4)
-      //        .set(Java8Util.cvt(_⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"conv1"))
+      //        .setByCoord(Java8Util.cvt(_⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"conv1"))
 
       model.add(new MonitoringWrapperLayer(new InceptionLayer(Array(
         Array(Array(5,5,3)),
         Array(Array(3,3,9))
       ))).addTo(monitoringRoot,"inception1"))
-      //  .set(Java8Util.cvt(_⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"conv1"))
+      //  .setByCoord(Java8Util.cvt(_⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"conv1"))
 
 
       model.add(new MaxSubsampleLayer(2,2,1))
       model.add(new MonitoringWrapperLayer(new FullyConnectedLayer(Array[Int](16, 16, 4), outputSize)
-        .setWeights(Java8Util.cvt(()⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"synapse1"))
+        .set(Java8Util.cvt(() ⇒ Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot, "synapse1"))
       model.add(new BiasLayer(outputSize: _*))
       model.add(new SoftmaxActivationLayer)
       model
@@ -212,7 +212,7 @@ class Cifar10Demo {
         actual → (categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0) * 100.0 / categorizationMatrix.getOrElse(actual, Map.empty).values.sum)
       }).toMap
     }
-    log.p("The accuracy, summarized over the entire validation set: ")
+    log.p("The accuracy, summarized over the entire validation setByCoord: ")
     log.eval {
       (0 to 9).map(actual ⇒ {
         categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0)

@@ -24,7 +24,6 @@ import java.lang
 import java.util.concurrent.TimeUnit
 import java.util.function.ToDoubleFunction
 
-import com.simiacryptus.mindseye.test.data.MNIST
 import com.simiacryptus.mindseye.eval.SampledArrayTrainable
 import com.simiacryptus.mindseye.lang.{Coordinate, NNExecutionContext, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
@@ -32,8 +31,9 @@ import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.orient.LBFGS
-import com.simiacryptus.util.{TableOutput, Util}
+import com.simiacryptus.mindseye.test.data.MNIST
 import com.simiacryptus.util.io.IOUtil
+import com.simiacryptus.util.{TableOutput, Util}
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}
 import util.{ReportNotebook, ScalaNotebookOutput}
@@ -53,7 +53,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
         test(log, log.eval {
           trainingTimeMinutes = 2
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new FullyConnectedLayer(inputSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new FullyConnectedLayer(inputSize, outputSize).setByCoord(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.0
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -69,12 +69,12 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
           trainingTimeMinutes = 10
           val middleSize = Array[Int](28, 28, 1)
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new FullyConnectedLayer(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new FullyConnectedLayer(inputSize, middleSize).setByCoord(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new BiasLayer(middleSize: _*))
           model.add(new AbsActivationLayer)
-          model.add(new FullyConnectedLayer(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new FullyConnectedLayer(middleSize, outputSize).setByCoord(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -90,12 +90,12 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
           trainingTimeMinutes = 10
           val middleSize = Array[Int](28, 28, 1)
           var model: PipelineNetwork = new PipelineNetwork
-          model.add(new FullyConnectedLayer(inputSize, middleSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new FullyConnectedLayer(inputSize, middleSize).setByCoord(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new BiasLayer(middleSize: _*))
           model.add(new AbsActivationLayer)
-          model.add(new FullyConnectedLayer(middleSize, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new FullyConnectedLayer(middleSize, outputSize).setByCoord(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new BiasLayer(outputSize: _*))
@@ -124,7 +124,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
 
           def headDims = model.eval(new NNExecutionContext() {}, new Tensor(inputSize: _*)).getData.get(0).getDimensions
 
-          model.add(new FullyConnectedLayer(headDims, outputSize).setWeights(new ToDoubleFunction[Coordinate] {
+          model.add(new FullyConnectedLayer(headDims, outputSize).setByCoord(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new BiasLayer(headDims: _*))
@@ -244,7 +244,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
         actual → (categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0) * 100.0 / categorizationMatrix.getOrElse(actual, Map.empty).values.sum)
       }).toMap
     }
-    log.p("The accuracy, summarized over the entire validation set: ")
+    log.p("The accuracy, summarized over the entire validation setByCoord: ")
     log.eval {
       (0 to 9).map(actual ⇒ {
         categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0)

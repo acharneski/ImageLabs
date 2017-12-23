@@ -118,7 +118,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook {
           Array(labeledObj.data, toOutNDArray(toOut(labeledObj.label), 10))
         }).toList
         val categorizationAdapter = new FullyConnectedLayer(Array[Int](5, 5, 1), Array[Int](10))
-        categorizationAdapter.setWeights(cvt((c:Coordinate)⇒Random.nextGaussian() * 0.001))
+        categorizationAdapter.setByCoord(cvt((c: Coordinate) ⇒ Random.nextGaussian() * 0.001))
         var categorizationNetwork = log.eval {
           val kryo = KryoUtil.kryo()
           val categorizationNetwork = new PipelineNetwork()
@@ -246,7 +246,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook {
           actual → (categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0) * 100.0 / categorizationMatrix.getOrElse(actual, Map.empty).values.sum)
         }).toMap
       }
-      log.p("The accuracy, summarized over the entire validation set: ")
+      log.p("The accuracy, summarized over the entire validation setByCoord: ")
       log.eval {
         (0 to 9).map(actual ⇒ {
           categorizationMatrix.getOrElse(actual, Map.empty).getOrElse(actual, 0)
