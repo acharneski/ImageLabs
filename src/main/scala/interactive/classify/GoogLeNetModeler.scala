@@ -31,11 +31,9 @@ import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.simiacryptus.mindseye.eval.{ArrayTrainable, SampledArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang._
-import com.simiacryptus.mindseye.layers.cudnn
-import com.simiacryptus.mindseye.layers.cudnn.{ProductLayer, f32}
-import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
-import com.simiacryptus.mindseye.layers.cudnn.f32._
-import com.simiacryptus.mindseye.layers.java.{ImgBandBiasLayer => _, _}
+import com.simiacryptus.mindseye.layers.cudnn.PoolingLayer.PoolingMode
+import com.simiacryptus.mindseye.layers.cudnn._
+import com.simiacryptus.mindseye.layers.java.{ImgBandBiasLayer => _, ImgConcatLayer => _, ProductLayer => _, _}
 import com.simiacryptus.mindseye.network.{DAGNetwork, DAGNode, PipelineNetwork, SimpleLossNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
@@ -102,7 +100,7 @@ import NNLayerUtil._
     val network = new PipelineNetwork(2)
 
     def newInceptionLayer(layerName : String, head: DAGNode = network.getHead, inputBands: Int, bands1x1: Int, bands3x1: Int, bands1x3: Int, bands5x1: Int, bands1x5: Int, bandsPooling: Int): DAGNode = {
-      network.add(new f32.ImgConcatLayer(),
+      network.add(new ImgConcatLayer(),
         network.addAll(head,
           new ConvolutionLayer(1, 1, inputBands, bands1x1).setWeightsLog(layer11 + conv1a).setName("conv_1x1_" + layerName).addTo(monitoringRoot),
           new ImgBandBiasLayer(bands1x1).setName("bias_1x1_" + layerName).addTo(monitoringRoot),
@@ -154,9 +152,9 @@ import NNLayerUtil._
     val inception_5b = newInceptionLayer(layerName = "5b", inputBands = 832, bands1x1 = 384, bands3x1 = 192, bands1x3 = 384, bands5x1 = 48, bands1x5 = 128, bandsPooling = 128)
     val rawCategorization = network.addAll(
       new PoolingLayer().setWindowXY(7, 7).setStrideXY(1, 1).setPaddingXY(0, 0).setMode(PoolingMode.Avg).setName("pool_6").addTo(monitoringRoot),
-      new f32.DropoutNoiseLayer().setValue(0.4).setName("dropout_6").addTo(monitoringRoot),
-      new SchemaOutputLayer(1024, layer13).setName("syn_6").addTo(monitoringRoot),
-      new SchemaBiasLayer().setName("bias_6").addTo(monitoringRoot))
+      new DropoutNoiseLayer().setValue(0.4).setName("dropout_6").addTo(monitoringRoot),
+      new FullyConnectedLayer(Array(1024), Array(1024)).setName("syn_6").addTo(monitoringRoot),
+      new BiasLayer(1024).setName("bias_6").addTo(monitoringRoot))
 
     val entropy = network.add(new SumInputsLayer(),
       network.add(new EntropyLossLayer(),
@@ -164,9 +162,9 @@ import NNLayerUtil._
         network.getInput(1)),
       network.add(new EntropyLossLayer(),
         network.add(new SoftmaxActivationLayer(),
-        network.add(new SchemaBiasLayer().setName("bias_out3_4a").addTo(monitoringRoot),
-          network.add(new SchemaOutputLayer(1024, trainingShunt).setName("syn_out3_4a").addTo(monitoringRoot),
-            network.add(new f32.DropoutNoiseLayer().setValue(0.7).setName("dropout_4a").addTo(monitoringRoot),
+          network.add(new BiasLayer(1024).setName("bias_out3_4a").addTo(monitoringRoot),
+            network.add(new FullyConnectedLayer(Array(1024), Array(1024)).setName("syn_out3_4a").addTo(monitoringRoot),
+              network.add(new DropoutNoiseLayer().setValue(0.7).setName("dropout_4a").addTo(monitoringRoot),
               network.add(new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_out3_4a").addTo(monitoringRoot),
                 network.add(new ImgBandBiasLayer(1024).setName("bias_out2_4a").addTo(monitoringRoot),
                   network.add(new ConvolutionLayer(3, 3, 128, 1024).setWeightsLog(trainingShunt).setName("syn_out2_4a").addTo(monitoringRoot),
@@ -186,9 +184,9 @@ import NNLayerUtil._
       ), network.getInput(1)),
       network.add(new EntropyLossLayer(),
         network.add(new SoftmaxActivationLayer(),
-        network.add(new SchemaBiasLayer().setName("bias_out3_4d").addTo(monitoringRoot),
-          network.add(new SchemaOutputLayer(1024, trainingShunt).setName("syn_out3_4d").addTo(monitoringRoot),
-            network.add(new f32.DropoutNoiseLayer().setValue(0.7).setName("dropout_4d").addTo(monitoringRoot),
+          network.add(new BiasLayer(1024).setName("bias_out3_4d").addTo(monitoringRoot),
+            network.add(new FullyConnectedLayer(Array(1024), Array(1024)).setName("syn_out3_4d").addTo(monitoringRoot),
+              network.add(new DropoutNoiseLayer().setValue(0.7).setName("dropout_4d").addTo(monitoringRoot),
               network.add(new ActivationLayer(ActivationLayer.Mode.RELU).freeze().setName("relu_out3_4d").addTo(monitoringRoot),
                 network.add(new ImgBandBiasLayer(1024).setName("bias_out2_4d").addTo(monitoringRoot),
                   network.add(new ConvolutionLayer(3, 3, 128, 1024).setWeightsLog(trainingShunt).setName("syn_out2_4d").addTo(monitoringRoot),
@@ -323,9 +321,9 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
     })
     phase(modelName, (model: NNLayer) ⇒ {
       out.h1("Integration Training")
-      model.asInstanceOf[DAGNetwork].visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
-        layer.asInstanceOf[SchemaComponent].setSchema(categoryArray:_*)
-      } : Unit)
+      //      model.asInstanceOf[DAGNetwork].visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+      //        layer.asInstanceOf[SchemaComponent].setSchema(categoryArray:_*)
+      //      } : Unit)
       val trainer2 = out.eval {
         assert(null != data)
         var inner: Trainable = new SampledArrayTrainable(selectedCategories.values.flatten.toList.asJava, model, sampleSize)
@@ -336,14 +334,14 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
         trainer.setOrientation(new LBFGS() {
           override def reset(): Unit = {
             model.asInstanceOf[DAGNetwork].visitLayers(Java8Util.cvt(layer => layer match {
-              case layer: f32.DropoutNoiseLayer => layer.shuffle()
+              case layer: DropoutNoiseLayer => layer.shuffle()
               case _ =>
             }))
             super.reset()
           }
         }.setMinHistory(4).setMaxHistory(20))
         trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ (s match {
-          case s if s.contains("LBFGS") ⇒ new StaticLearningRate().setRate(1.0)
+          case s if s.contains("LBFGS") ⇒ new StaticLearningRate(1.0)
           case _ ⇒ new ArmijoWolfeSearch().setAlpha(1e-5)
         })))
         trainer.setTerminateThreshold(0.0)
@@ -371,9 +369,9 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
     val sourceClass = toOutNDArray(categoryArray.length, sourceClassId)
     val targetClass = toOutNDArray(categoryArray.length, targetClassId)
     val adversarialOutput = new ArrayBuffer[Array[Tensor]]()
-    model.asInstanceOf[DAGNetwork].visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
-      layer.asInstanceOf[SchemaComponent].setSchema(categoryArray:_*)
-    } : Unit)
+    //    model.asInstanceOf[DAGNetwork].visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+    //      layer.asInstanceOf[SchemaComponent].setSchema(categoryArray:_*)
+    //    } : Unit)
     val rows = data(sourceCategory)
       .filter(_!=null)
       .take(imageCount)

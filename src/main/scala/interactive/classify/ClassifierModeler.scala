@@ -32,6 +32,7 @@ import _root_.util._
 import com.simiacryptus.mindseye.eval.{ArrayTrainable, SampledArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.cudnn
+import com.simiacryptus.mindseye.layers.cudnn.{ActivationLayer, ConvolutionLayer, PoolingLayer}
 import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.{DAGNode, PipelineNetwork}
 import com.simiacryptus.mindseye.opt._
@@ -102,12 +103,13 @@ case class TestClassifier(
                    activationLayer: NNLayer = new ActivationLayer(ActivationLayer.Mode.RELU),
                    auxWeight : Double = Double.NaN): DAGNode = {
       def weightSeed : DoubleSupplier = Java8Util.cvt(() ⇒ rand * weights)
-      network.add(new f32.ImgBandBiasLayer(from).setWeights(zeroSeed).setName("bias_" + layerNumber).addTo(monitoringRoot))
+
+      network.add(new ImgBandBiasLayer(from).setWeights(zeroSeed).setName("bias_" + layerNumber).addTo(monitoringRoot))
       if (null != activationLayer) {
         network.add(activationLayer.setName("activation_" + layerNumber).freeze.addTo(monitoringRoot))
       }
-      val node = network.add(new ConvolutionLayer(layerRadius, layerRadius, from * to)
-        .setWeights(weightSeed).setName("conv_" + layerNumber).addTo(monitoringRoot)
+      val node = network.add(new ConvolutionLayer(layerRadius, layerRadius, from, to)
+        .set(weightSeed).setName("conv_" + layerNumber).addTo(monitoringRoot)
       )
       //network.fn(new MonitoringSynapse().addTo(monitoringRoot).setName("output_" + layerNumber))
       normalizedPoints += node
@@ -117,10 +119,10 @@ case class TestClassifier(
 
     buildLayer(3, 8, "0", layerRadius = 5, weights = Math.pow(10, this.conv1), activationLayer = null, auxWeight = auxLearn1)
     network.add(new PoolingLayer().setName("avg_0").addTo(monitoringRoot))
-    normalizedPoints += network.add(new ConvolutionLayer(1, 1, 8 * 4).setWeights(()=>Math.pow(10, this.reduction1)*rand).setName("reduce_1").addTo(monitoringRoot));
+    normalizedPoints += network.add(new ConvolutionLayer(1, 1, 8, 4).set(() => Math.pow(10, this.reduction1) * rand).setName("reduce_1").addTo(monitoringRoot));
     buildLayer(4, 30, "1", layerRadius = 5, weights = Math.pow(10, this.conv2), auxWeight = auxLearn2)
     network.add(new PoolingLayer().setName("avg_1").addTo(monitoringRoot))
-    normalizedPoints += network.add(new ConvolutionLayer(1, 1, 30 * 6).setWeights(()=>Math.pow(10, this.reduction2)*rand).setName("reduce_2").addTo(monitoringRoot));
+    normalizedPoints += network.add(new ConvolutionLayer(1, 1, 30, 6).set(() => Math.pow(10, this.reduction2) * rand).setName("reduce_2").addTo(monitoringRoot));
     buildLayer(6, 24, "2", layerRadius = 4, weights = Math.pow(10, this.conv3), auxWeight = auxLearn3)
     network.add(new PoolingLayer().setName("avg_3").addTo(monitoringRoot))
     buildLayer(24, numberOfCategories, "3", layerRadius = 1, weights = Math.pow(10, this.conv4))
@@ -128,7 +130,7 @@ case class TestClassifier(
     val prediction = network.add(new SoftmaxActivationLayer)
 
     def auxEntropyLayer(source: DAGNode, bands: Int, weight: Double, layerNumber: String) = {
-      val convolution = network.add(new ConvolutionLayer(1, 1, bands * numberOfCategories).setWeights(() ⇒ Random.nextDouble() * weight).setName("learningStrut_" + layerNumber), source)
+      val convolution = network.add(new ConvolutionLayer(1, 1, bands, numberOfCategories).set(() ⇒ Random.nextDouble() * weight).setName("learningStrut_" + layerNumber), source)
       normalizedPoints += convolution
       network.add(new EntropyLossLayer(), network.add(new SoftmaxActivationLayer, network.add(new MaxImageBandLayer(), convolution)), network.getInput(1))
     }
@@ -268,7 +270,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
       val lbfgs = new LBFGS().setMaxHistory(35).setMinHistory(4)
       trainer.setOrientation(lbfgs)
       trainer.setLineSearchFactory(Java8Util.cvt((s:String)⇒(s match {
-        case s if s.contains("LBFGS") ⇒ new StaticLearningRate().setRate(1.0)
+        case s if s.contains("LBFGS") ⇒ new StaticLearningRate(1.0)
         case _ ⇒ new ArmijoWolfeSearch().setAlpha(1e-5)
       })))
       trainer.setTerminateThreshold(0.0)
