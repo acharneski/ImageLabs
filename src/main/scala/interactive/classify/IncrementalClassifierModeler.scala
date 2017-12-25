@@ -30,18 +30,15 @@ import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.simiacryptus.mindseye.eval.{ArrayTrainable, SampledArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, NNResult, Tensor}
-import com.simiacryptus.mindseye.layers.cudnn
-import com.simiacryptus.mindseye.layers.cudnn.{ProductLayer, f32}
-import com.simiacryptus.mindseye.layers.cudnn.f32.PoolingLayer.PoolingMode
-import com.simiacryptus.mindseye.layers.cudnn.f32._
+import com.simiacryptus.mindseye.layers.cudnn.ProductLayer
 import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
-import com.simiacryptus.util.{StreamNanoHTTPD, TableOutput}
 import com.simiacryptus.util.function.WeakCachedSupplier
 import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
+import com.simiacryptus.util.{StreamNanoHTTPD, TableOutput}
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable
@@ -277,7 +274,7 @@ class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out:
       TableOutput.create(rows: _*)
     }
 //    out.h1("GAN Images Training")
-//    val trainer2 = out.eval {
+    //    val trainer2 = out.trainAll {
 //      assert(null != data)
 //      var inner: Trainable = new ArrayTrainable(adversarialOutput.toArray,
 //        new SimpleLossNetwork(model, new EntropyLossLayer()))
