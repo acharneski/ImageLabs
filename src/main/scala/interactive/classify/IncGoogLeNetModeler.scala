@@ -630,7 +630,7 @@
 //
 //  private def ganB(model: NNLayer, adversarialData: Array[Array[Tensor]]): Tensor = {
 //    val adaptationLayer = new ConvolutionLayer(3, 3, 3, 3)
-//    for (i <- 0 until 3) adaptationLayer.filter.set(Array(1, 1, 4 * i), 1.0)
+//    for (i <- 0 until 3) adaptationLayer.filter.setBytes(Array(1, 1, 4 * i), 1.0)
 //    val trainingNetwork = new PipelineNetwork(2)
 //    trainingNetwork.add(adaptationLayer)
 //    val pipelineNetwork = KryoUtil.kryo().copy(model).freeze().asInstanceOf[PipelineNetwork]
@@ -656,7 +656,7 @@
 //
 //  private def ganD(model: NNLayer, adversarialData: Array[Array[Tensor]]): Tensor = {
 //    val adaptationLayer = new ConvolutionLayer(3, 3, 3, 3)
-//    for (i <- 0 until 3) adaptationLayer.filter.set(Array(1, 1, 4 * i), 1.0)
+//    for (i <- 0 until 3) adaptationLayer.filter.setBytes(Array(1, 1, 4 * i), 1.0)
 //    val trainingNetwork = new PipelineNetwork(2)
 //    trainingNetwork.add(adaptationLayer)
 //    val pipelineNetwork = KryoUtil.kryo().copy(model).freeze().asInstanceOf[PipelineNetwork]
@@ -852,8 +852,8 @@
 //
 //  def toOutNDArray(max: Int, out: Int*): Tensor = {
 //    val ndArray = new Tensor(max)
-//    for (i <- 0 until max) ndArray.set(i, fuzz)
-//    out.foreach(out=>ndArray.set(out, 1 - (fuzz * (max - 1))))
+//    for (i <- 0 until max) ndArray.setBytes(i, fuzz)
+//    out.foreach(out=>ndArray.setBytes(out, 1 - (fuzz * (max - 1))))
 //    ndArray
 //  }
 //

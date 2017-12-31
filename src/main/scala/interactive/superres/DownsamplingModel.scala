@@ -55,7 +55,7 @@
 //import com.simiacryptus.mindseye.opt._
 //import com.simiacryptus.mindseye.opt.line._
 //import com.simiacryptus.mindseye.opt.orient._
-//import com.simiacryptus.mindseye.test.data.ImageTiles.ImageTensorLoader
+//import com.simiacryptus.mindseye.run.data.ImageTiles.ImageTensorLoader
 //import com.simiacryptus.util.io.HtmlNotebookOutput
 //import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, TableOutput, Util}
 //import util.NNLayerUtil._
@@ -279,8 +279,8 @@
 //  }
 //
 //  def defineTestHandler() = {
-//    out.p("<a href='test.html'>Test Reconstruction</a>")
-//    server.addSyncHandler("test.html", "text/html", cvt(o ⇒ {
+//    out.p("<a href='run.html'>Test Reconstruction</a>")
+//    server.addSyncHandler("run.html", "text/html", cvt(o ⇒ {
 //      Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(out ⇒ {
 //        try {
 //          out.eval {

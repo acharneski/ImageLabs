@@ -57,7 +57,7 @@ object MnistAutoinitDemoConv extends Report {
       override lazy val component1 = log.eval {
         var model: PipelineNetwork = new PipelineNetwork
         model.add(new MonitoringWrapperLayer(new ConvolutionLayer(3,3,5).setWeights(Java8Util.cvt(()⇒0.01*Math.random()))).addTo(monitoringRoot, "synapse1"))
-        model.add(new MonitoringWrapperLayer(new MaxSubsampleLayer(4,4,1)).addTo(monitoringRoot, "max1"))
+        model.add(new MonitoringWrapperLayer(new MaxPoolingLayer(4, 4, 1)).addTo(monitoringRoot, "max1"))
         model.add(new MonitoringWrapperLayer(new ReLuActivationLayer).addTo(monitoringRoot, "relu1"))
         model.add(new MonitoringWrapperLayer(new BiasLayer(7,7,5)).addTo(monitoringRoot, "bias1"))
         model
@@ -194,7 +194,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
 
   def run {
 
-    log.p("In this demo we newTrainer a simple neural network against the MNIST handwritten digit dataset")
+    log.p("In this run we newTrainer a simple neural network against the MNIST handwritten digit dataset")
 
     log.h2("Data")
     log.p("First, we cache the training dataset: ")
@@ -220,8 +220,8 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
     log.p("Here we define the logic network that we are about to trainCjGD: ")
     defineHeader()
 
-    log.p("<a href='/test.html'>Validation Report</a>")
-    server.addSyncHandler("test.html", "text/html", Java8Util.cvt(out ⇒ {
+    log.p("<a href='/run.html'>Validation Report</a>")
+    server.addSyncHandler("run.html", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         validation(log, KryoUtil.kryo().copy(model))
       })

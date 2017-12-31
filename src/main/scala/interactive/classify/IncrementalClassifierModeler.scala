@@ -360,8 +360,8 @@
 //
 //  def toOutNDArray(out: Int, max: Int): Tensor = {
 //    val ndArray = new Tensor(max)
-//    for (i <- 0 until max) ndArray.set(i, fuzz)
-//    ndArray.set(out, 1-(fuzz*(max-1)))
+//    for (i <- 0 until max) ndArray.setBytes(i, fuzz)
+//    ndArray.setBytes(out, 1-(fuzz*(max-1)))
 //    ndArray
 //  }
 //

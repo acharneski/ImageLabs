@@ -115,12 +115,12 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new AbsActivationLayer)
-          model.add(new MaxSubsampleLayer(2, 2, 1))
+          model.add(new MaxPoolingLayer(2, 2, 1))
           model.add(new ConvolutionLayer(2, 2, 2).setWeights(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
           }))
           model.add(new AbsActivationLayer)
-          model.add(new MaxSubsampleLayer(2, 2, 1))
+          model.add(new MaxPoolingLayer(2, 2, 1))
 
           def headDims = model.eval(new NNExecutionContext() {}, new Tensor(inputSize: _*)).getData.get(0).getDimensions
 

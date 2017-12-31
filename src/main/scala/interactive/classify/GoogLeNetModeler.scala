@@ -239,7 +239,7 @@ import NNLayerUtil._
       val network = getNetwork(monitor, monitoringRoot, fitness = true)
       require(!data.isEmpty)
       val fn = Java8Util.cvt((x: Tensor) => x.getData()(0))
-      network.eval(new NNExecutionContext() {}, NNResult.batchResultArray(data): _*)
+      network.eval(new NNExecutionContext() {}, NNResult.batchResultArray(data: _*): _*)
         .getData.stream().mapToDouble(fn).sum / data.length
     }).toList
     val avg = values.sum / n

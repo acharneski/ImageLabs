@@ -57,9 +57,9 @@
 //import com.simiacryptus.mindseye.opt._
 //import com.simiacryptus.mindseye.opt.line._
 //import com.simiacryptus.mindseye.opt.orient._
-//import com.simiacryptus.mindseye.test.data.ImageTiles.ImageTensorLoader
+//import com.simiacryptus.mindseye.run.data.ImageTiles.ImageTensorLoader
 //import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
-//import com.simiacryptus.util.test.LabeledObject
+//import com.simiacryptus.util.run.LabeledObject
 //import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, TableOutput, Util}
 //import org.apache.commons.io.IOUtils
 //import util.NNLayerUtil._
@@ -106,13 +106,13 @@
 //
 //    // 64 x 64 x 3
 //    val l1 = buildLayer(3, 5, "0", weights = Math.pow(10, parameters.weight1), activationLayer = null)
-//    network.add(new AvgSubsampleLayer(2, 2, 1).setName("avg0").addTo(monitoringRoot))
+//    network.add(new AvgPoolingLayer(2, 2, 1).setName("avg0").addTo(monitoringRoot))
 //    // 30
 //    val l2 = buildLayer(5, 10, "1", layerRadius = 5, weights = Math.pow(10, parameters.weight2), activationLayer = new HyperbolicActivationLayer().setScale(5).freeze())
-//    network.add(new AvgSubsampleLayer(2, 2, 1).setName("avg1").addTo(monitoringRoot))
+//    network.add(new AvgPoolingLayer(2, 2, 1).setName("avg1").addTo(monitoringRoot))
 //    // 14
 //    val l3 = buildLayer(10, 20, "2", layerRadius = 4, weights = Math.pow(10, parameters.weight3), activationLayer = new HyperbolicActivationLayer().setScale(5).freeze())
-//    network.add(new AvgSubsampleLayer(2, 2, 1).setName("avg3").addTo(monitoringRoot))
+//    network.add(new AvgPoolingLayer(2, 2, 1).setName("avg3").addTo(monitoringRoot))
 //    // 5
 //    val l4 = buildLayer(20, 3, "3", layerRadius = 3, weights = Math.pow(10, parameters.weight4), activationLayer = new HyperbolicActivationLayer().setScale(5).freeze())
 //
@@ -126,10 +126,10 @@
 //      val output = network.getHead
 //      def normalizeStdDev(layer:DAGNode, target:Double) = network.add(new AbsActivationLayer(), network.add(new SumInputsLayer(),
 //                network.add(new AvgReducerLayer(), network.add(new StdDevMetaLayer(), layer)),
-//                network.add(new ConstNNLayer(new Tensor(1).set(0,-target)))
+//                network.add(new ConstNNLayer(new Tensor(1).setBytes(0,-target)))
 //              ))
 //      network.add(new ProductInputsLayer(), network.add(new EntropyLossLayer(), output, network.getInput(1)), network.add(new SumInputsLayer(),
-//                network.add(new ConstNNLayer(new Tensor(1).set(0,0.1))),
+//                network.add(new ConstNNLayer(new Tensor(1).setBytes(0,0.1))),
 //                normalizeStdDev(l1,1),
 //                normalizeStdDev(l2,1),
 //                normalizeStdDev(l3,1),
@@ -262,7 +262,7 @@
 //      val original = x(0)(0)
 //      val downsampled = Tensor.fromRGB(UpsamplingOptimizer.resize(original.toRgbImage, tileSize / 4))
 //      val reconstruct = UpsamplingOptimizer.reconstructImage(forwardNetwork, startModel, downsampled, monitor)
-//      x ++ Array(Array(reconstruct, new Tensor(3).set(2,1)))
+//      x ++ Array(Array(reconstruct, new Tensor(3).setBytes(2,1)))
 //    })
 //    out.eval {
 //      TableOutput.create(adversarialData.map((data: Array[Array[Tensor]]) ⇒ {
@@ -363,7 +363,7 @@
 //    }
 //    def toOutNDArray(out: Int, max: Int): Tensor = {
 //      val ndArray = new Tensor(max)
-//      ndArray.set(out, 1)
+//      ndArray.setBytes(out, 1)
 //      ndArray
 //    }
 //

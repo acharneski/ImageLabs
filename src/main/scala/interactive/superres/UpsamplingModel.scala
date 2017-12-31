@@ -55,7 +55,7 @@
 //import com.simiacryptus.mindseye.opt._
 //import com.simiacryptus.mindseye.opt.line._
 //import com.simiacryptus.mindseye.opt.orient._
-//import com.simiacryptus.mindseye.test.data.ImageTiles.ImageTensorLoader
+//import com.simiacryptus.mindseye.run.data.ImageTiles.ImageTensorLoader
 //import com.simiacryptus.util.io.HtmlNotebookOutput
 //import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, TableOutput, Util}
 //import util.NNLayerUtil._
@@ -109,10 +109,10 @@
 //      val output = network.getHead
 //      def normalizeStdDev(layer:DAGNode, target:Double) = network.add(new AbsActivationLayer(), network.add(new SumInputsLayer(),
 //                network.add(new AvgReducerLayer(), network.add(new StdDevMetaLayer(), layer)),
-//                network.add(new ConstNNLayer(new Tensor(1).set(0,-target)))
+//                network.add(new ConstNNLayer(new Tensor(1).setBytes(0,-target)))
 //              ))
 //      network.add(new ProductInputsLayer(), network.add(new MeanSqLossLayer(), output, network.getInput(1)), network.add(new SumInputsLayer(),
-//                network.add(new ConstNNLayer(new Tensor(1).set(0,1))),
+//                network.add(new ConstNNLayer(new Tensor(1).setBytes(0,1))),
 //                normalizeStdDev(l1,16),
 //                normalizeStdDev(l2,16),
 //                normalizeStdDev(l3,16)
@@ -303,8 +303,8 @@
 //  }
 //
 //  def defineTestHandler() = {
-//    out.p("<a href='test.html'>Test Reconstruction</a>")
-//    server.addSyncHandler("test.html", "text/html", cvt(o ⇒ {
+//    out.p("<a href='run.html'>Test Reconstruction</a>")
+//    server.addSyncHandler("run.html", "text/html", cvt(o ⇒ {
 //      Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(out ⇒ {
 //        try {
 //          out.eval {

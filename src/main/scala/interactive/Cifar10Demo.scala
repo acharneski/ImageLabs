@@ -131,7 +131,7 @@ class Cifar10Demo {
       //  .setByCoord(Java8Util.cvt(_⇒Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot,"conv1"))
 
 
-      model.add(new MaxSubsampleLayer(2,2,1))
+      model.add(new MaxPoolingLayer(2, 2, 1))
       model.add(new MonitoringWrapperLayer(new FullyConnectedLayer(Array[Int](16, 16, 4), outputSize)
         .set(Java8Util.cvt(() ⇒ Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot, "synapse1"))
       model.add(new BiasLayer(outputSize: _*))
