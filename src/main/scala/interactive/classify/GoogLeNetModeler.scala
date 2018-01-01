@@ -33,7 +33,7 @@ import com.simiacryptus.mindseye.eval.{ArrayTrainable, SampledArrayTrainable, Tr
 import com.simiacryptus.mindseye.lang._
 import com.simiacryptus.mindseye.layers.cudnn.PoolingLayer.PoolingMode
 import com.simiacryptus.mindseye.layers.cudnn._
-import com.simiacryptus.mindseye.layers.java.{ImgBandBiasLayer => _, ImgConcatLayer => _, ProductLayer => _, _}
+import com.simiacryptus.mindseye.layers.java.{FullyConnectedLayer => _, ImgBandBiasLayer => _, ImgConcatLayer => _, ProductLayer => _, SoftmaxActivationLayer => _, _}
 import com.simiacryptus.mindseye.network.{DAGNetwork, DAGNode, PipelineNetwork, SimpleLossNetwork}
 import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
@@ -239,7 +239,7 @@ import NNLayerUtil._
       val network = getNetwork(monitor, monitoringRoot, fitness = true)
       require(!data.isEmpty)
       val fn = Java8Util.cvt((x: Tensor) => x.getData()(0))
-      network.eval(new NNExecutionContext() {}, NNResult.batchResultArray(data: _*): _*)
+      network.eval(new NNExecutionContext() {}, NNConstant.batchResultArray(data: _*): _*)
         .getData.stream().mapToDouble(fn).sum / data.length
     }).toList
     val avg = values.sum / n
