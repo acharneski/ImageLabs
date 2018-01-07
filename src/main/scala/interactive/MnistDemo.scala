@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 by Andrew Charneski.
+ * Copyright (c) 2018 by Andrew Charneski.
  *
  * The author licenses this file to you under the
  * Apache License, Version 2.0 (the "License");
@@ -59,6 +59,8 @@ object MnistDemo_L1Normalizations extends Report {
             case _ ⇒ 0.0
           }
           override protected def getL2(layer: NNLayer): Double = 0.0
+
+          override def getLayer = trainingNetwork
         }
         val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(normalized)
         trainer.setMonitor(monitor)
