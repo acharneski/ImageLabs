@@ -239,7 +239,7 @@ import NNLayerUtil._
       val network = getNetwork(monitor, monitoringRoot, fitness = true)
       require(!data.isEmpty)
       val fn = Java8Util.cvt((x: Tensor) => x.getData()(0))
-      network.eval(new NNExecutionContext() {}, NNConstant.batchResultArray(data: _*): _*)
+      network.eval(NNConstant.batchResultArray(data: _*): _*)
         .getData.stream().mapToDouble(fn).sum / data.length
     }).toList
     val avg = values.sum / n
@@ -400,7 +400,7 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
       System.out.print(s"Finished processing ${adversarialData.length} images")
       val evalNetwork = new PipelineNetwork()
       evalNetwork.add(biasLayer)
-      val adversarialImage = evalNetwork.eval(new NNExecutionContext {}, adversarialData.head.head).getData.get(0)
+      val adversarialImage = evalNetwork.eval(adversarialData.head.head).getData.get(0)
       adversarialOutput += Array(adversarialImage, sourceClass)
       Map[String, AnyRef](
         "Original Image" → out.image(adversarialData.head.head.toRgbImage, ""),
@@ -434,7 +434,7 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
         TableOutput.create(takeData(5, 10).map(_.get()).map(testObj ⇒ Map[String, AnyRef](
           "Image" → out.image(testObj(0).toRgbImage(), ""),
           "Categorization" → categories.toList.sortBy(_._2).map(_._1)
-            .zip(model.eval(new NNExecutionContext() {}, testObj(0)).getData.get(0).getData.map(_ * 100.0))
+            .zip(model.eval(testObj(0)).getData.get(0).getData.map(_ * 100.0))
         ).asJava): _*)
       }
     } catch {

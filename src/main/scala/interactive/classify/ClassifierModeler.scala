@@ -30,7 +30,7 @@ import javax.imageio.ImageIO
 import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.simiacryptus.mindseye.eval.{ArrayTrainable, SampledArrayTrainable, Trainable}
-import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, Tensor}
+import com.simiacryptus.mindseye.lang.{NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.cudnn
 import com.simiacryptus.mindseye.layers.cudnn.{ActivationLayer, ConvolutionLayer, PoolingLayer}
 import com.simiacryptus.mindseye.layers.java._
@@ -294,7 +294,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
         TableOutput.create(Random.shuffle(data.toList).take(100).map(testObj ⇒ Map[String, AnyRef](
           "Image" → out.image(testObj(0).toRgbImage(), ""),
           "Categorization" → categories.toList.sortBy(_._2).map(_._1)
-            .zip(model.eval(new NNExecutionContext() {}, testObj(0)).getData.get(0).getData.map(_ * 100.0))
+            .zip(model.eval(testObj(0)).getData.get(0).getData.map(_ * 100.0))
         ).asJava): _*)
       }
     } catch {

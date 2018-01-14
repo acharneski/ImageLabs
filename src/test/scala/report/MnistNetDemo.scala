@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit
 import java.util.function.ToDoubleFunction
 
 import com.simiacryptus.mindseye.eval.SampledArrayTrainable
-import com.simiacryptus.mindseye.lang.{Coordinate, NNExecutionContext, Tensor}
+import com.simiacryptus.mindseye.lang.{Coordinate, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
@@ -122,7 +122,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
           model.add(new AbsActivationLayer)
           model.add(new MaxPoolingLayer(2, 2, 1))
 
-          def headDims = model.eval(new NNExecutionContext() {}, new Tensor(inputSize: _*)).getData.get(0).getDimensions
+          def headDims = model.eval(new Tensor(inputSize: _*)).getData.get(0).getDimensions
 
           model.add(new FullyConnectedLayer(headDims, outputSize).setByCoord(new ToDoubleFunction[Coordinate] {
             override def applyAsDouble(value: Coordinate): Double = Util.R.get.nextGaussian * 0.001
@@ -194,7 +194,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
     log.p("Here we examine a sample of validation rows, randomly selected: ")
     log.eval {
       TableOutput.create(MNIST.validationDataStream().iterator().asScala.toStream.take(10).map(testObj ⇒ {
-        val result = model.eval(new NNExecutionContext() {}, testObj.data).getData.get(0)
+        val result = model.eval(testObj.data).getData.get(0)
         Map[String, AnyRef](
           "Input" → log.image(testObj.data.toGrayImage(), testObj.label),
           "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[Integer],
@@ -206,12 +206,12 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
     log.p("Validation rows that are mispredicted are also sampled: ")
     log.eval {
       TableOutput.create(MNIST.validationDataStream().iterator().asScala.toStream.filterNot(testObj ⇒ {
-        val result = model.eval(new NNExecutionContext() {}, testObj.data).getData.get(0)
+        val result = model.eval(testObj.data).getData.get(0)
         val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
         val actual = toOut(testObj.label)
         prediction == actual
       }).take(10).map(testObj ⇒ {
-        val result = model.eval(new NNExecutionContext() {}, testObj.data).getData.get(0)
+        val result = model.eval(testObj.data).getData.get(0)
         Map[String, AnyRef](
           "Input" → log.image(testObj.data.toGrayImage(), testObj.label),
           "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[Integer],
@@ -224,7 +224,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
     log.p("The (mis)categorization matrix displays a count matrix for every actual/predicted category: ")
     val categorizationMatrix: Map[Int, Map[Int, Int]] = log.eval {
       MNIST.validationDataStream().iterator().asScala.toStream.map(testObj ⇒ {
-        val result = model.eval(new NNExecutionContext() {}, testObj.data).getData.get(0)
+        val result = model.eval(testObj.data).getData.get(0)
         val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
         val actual: Int = toOut(testObj.label)
         actual → prediction

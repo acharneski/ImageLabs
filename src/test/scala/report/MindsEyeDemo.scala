@@ -31,7 +31,7 @@ import java.{lang, util}
 import javax.imageio.ImageIO
 
 import com.simiacryptus.mindseye.eval.SampledArrayTrainable
-import com.simiacryptus.mindseye.lang.{Coordinate, NNExecutionContext, Tensor}
+import com.simiacryptus.mindseye.lang.{Coordinate, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network._
@@ -54,7 +54,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
       report("mnist_simple", log ⇒ {
         val inputSize = Array[Int](28, 28, 1)
         val outputSize = Array[Int](10)
-        log.p("In this run we newTrainer a simple neural network against the MNIST handwritten digit dataset")
+        log.p("In this apply we newTrainer a simple neural network against the MNIST handwritten digit dataset")
 
         log.h2("Data")
         log.p("First, we cache the training dataset: ")
@@ -128,7 +128,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
         log.p("Here we examine a sample of validation rows, randomly selected: ")
         log.eval {
           TableOutput.create(MNIST.validationDataStream().iterator().asScala.toStream.take(10).map(testObj ⇒ {
-            val result = model.eval(new NNExecutionContext() {}, testObj.data).getData.get(0)
+            val result = model.eval(testObj.data).getData.get(0)
             Map[String, AnyRef](
               "Input" → log.image(testObj.data.toGrayImage(), testObj.label),
               "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[java.lang.Integer],
@@ -140,12 +140,12 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
         log.p("Validation rows that are mispredicted are also sampled: ")
         log.eval {
           TableOutput.create(MNIST.validationDataStream().iterator().asScala.toStream.filterNot(testObj ⇒ {
-            val result = model.eval(new NNExecutionContext() {}, testObj.data).getData.get(0)
+            val result = model.eval(testObj.data).getData.get(0)
             val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
             val actual = toOut(testObj.label)
             prediction == actual
           }).take(10).map(testObj ⇒ {
-            val result = model.eval(new NNExecutionContext() {}, testObj.data).getData.get(0)
+            val result = model.eval(testObj.data).getData.get(0)
             Map[String, AnyRef](
               "Input" → log.image(testObj.data.toGrayImage(), testObj.label),
               "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[java.lang.Integer],
@@ -158,7 +158,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
         log.p("The (mis)categorization matrix displays a count matrix for every actual/predicted category: ")
         val categorizationMatrix: Map[Int, Map[Int, Int]] = log.eval {
           MNIST.validationDataStream().iterator().asScala.toStream.map(testObj ⇒ {
-            val result = model.eval(new NNExecutionContext() {}, testObj.data).getData.get(0)
+            val result = model.eval(testObj.data).getData.get(0)
             val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
             val actual: Int = toOut(testObj.label)
             actual → prediction
@@ -229,7 +229,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
             }))
             validationData.foreach(testObj ⇒ {
               val row = new util.LinkedHashMap[String, AnyRef]()
-              val result = model.eval(new NNExecutionContext() {}, testObj(0)).getData.get(0)
+              val result = model.eval(testObj(0)).getData.get(0)
               (0 until MAX).maxBy(i ⇒ result.get(i)) match {
                 case 0 ⇒ gfx.setColor(Color.PINK)
                 case 1 ⇒ gfx.setColor(Color.BLUE)
@@ -245,7 +245,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
           }, width = 600, height = 600)
           val categorizationMatrix: Map[Int, Map[Int, Int]] = {
             validationData.map(testObj ⇒ {
-              val result = model.eval(new NNExecutionContext() {}, testObj(0)).getData.get(0)
+              val result = model.eval(testObj(0)).getData.get(0)
               val prediction: Int = (0 until MAX).maxBy(i ⇒ result.get(i))
               val actual: Int = (0 until MAX).maxBy(i ⇒ testObj(1).get(i))
               actual → prediction
@@ -384,7 +384,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
         log.p("Next we trainCjGD this ideal image through our constructed filter to create a blurred image: ")
         val idealImageTensor: Tensor = Tensor.fromRGB(idealImage)
         val blurredImage: Tensor = log.eval {
-          blurFilter.eval(new NNExecutionContext() {}, Array(Array(idealImageTensor))).getData.get(0)
+          blurFilter.eval(Array(Array(idealImageTensor))).getData.get(0)
         }
         log.eval {
           blurredImage.toRgbImage()
@@ -444,7 +444,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
 
         log.p("Now we query the reconstruction model for the source image: ")
         log.eval {
-          dagNetwork.getChildNode(bias.getId).getLayer[BiasLayer].eval(new NNExecutionContext() {}, zeroInput).getData.get(0).toRgbImage()
+          dagNetwork.getChildNode(bias.getId).getLayer[BiasLayer].eval(zeroInput).getData.get(0).toRgbImage()
         }
 
       })

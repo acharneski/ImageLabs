@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
 import _root_.util.NetworkViz._
 import _root_.util._
 import com.simiacryptus.mindseye.eval.{L12Normalizer, SampledArrayTrainable}
-import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, Tensor}
+import com.simiacryptus.mindseye.lang.{NNLayer, Tensor}
 import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.{DAGNetwork, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt.IterativeTrainer
@@ -104,7 +104,7 @@ class MnistDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNoteb
 
   def run {
 
-    log.p("In this run we newTrainer a simple neural network against the MNIST handwritten digit dataset")
+    log.p("In this apply we newTrainer a simple neural network against the MNIST handwritten digit dataset")
 
     log.h2("Data")
     log.p("First, we cache the training dataset: ")
@@ -130,8 +130,8 @@ class MnistDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNoteb
     log.p("Here we define the logic network that we are about to trainCjGD: ")
     defineHeader()
 
-    log.p("<a href='/run.html'>Validation Report</a>")
-    server.addSyncHandler("run.html", "text/html", Java8Util.cvt(out ⇒ {
+    log.p("<a href='/apply.html'>Validation Report</a>")
+    server.addSyncHandler("apply.html", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         validation(log, KryoUtil.kryo().copy(model))
       })
@@ -159,7 +159,7 @@ class MnistDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNoteb
     log.p("Here we examine a sample of validation rows, randomly selected: ")
     log.eval {
       TableOutput.create(MNIST.validationDataStream().iterator().asScala.toStream.take(10).map(testObj ⇒ {
-        val result = model.eval(new NNExecutionContext() {}, testObj.data).getData.get(0)
+        val result = model.eval(testObj.data).getData.get(0)
         Map[String, AnyRef](
           "Input" → log.image(testObj.data.toGrayImage(), testObj.label),
           "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[Integer],
@@ -171,12 +171,12 @@ class MnistDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNoteb
     log.p("Validation rows that are mispredicted are also sampled: ")
     log.eval {
       TableOutput.create(MNIST.validationDataStream().iterator().asScala.toStream.filterNot(testObj ⇒ {
-        val result = model.eval(new NNExecutionContext() {}, testObj.data).getData.get(0)
+        val result = model.eval(testObj.data).getData.get(0)
         val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
         val actual = toOut(testObj.label)
         prediction == actual
       }).take(10).map(testObj ⇒ {
-        val result = model.eval(new NNExecutionContext() {}, testObj.data).getData.get(0)
+        val result = model.eval(testObj.data).getData.get(0)
         Map[String, AnyRef](
           "Input" → log.image(testObj.data.toGrayImage(), testObj.label),
           "Predicted Label" → (0 to 9).maxBy(i ⇒ result.get(i)).asInstanceOf[Integer],
@@ -189,7 +189,7 @@ class MnistDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNoteb
     log.p("The (mis)categorization matrix displays a count matrix for every actual/predicted category: ")
     val categorizationMatrix: Map[Int, Map[Int, Int]] = log.eval {
       MNIST.validationDataStream().iterator().asScala.toStream.map(testObj ⇒ {
-        val result = model.eval(new NNExecutionContext() {}, testObj.data).getData.get(0)
+        val result = model.eval(testObj.data).getData.get(0)
         val prediction: Int = (0 to 9).maxBy(i ⇒ result.get(i))
         val actual: Int = toOut(testObj.label)
         actual → prediction
