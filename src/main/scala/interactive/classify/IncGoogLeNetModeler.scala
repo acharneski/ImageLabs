@@ -405,8 +405,8 @@
 //    model = trainingNetwork
 //    addMonitoring(model.asInstanceOf[DAGNetwork])
 //    out.eval {
-//      var inner: Trainable = new SampledArrayTrainable(trainingArray, trainingNetwork, sampleSize)
-//      val trainer = new IterativeTrainer(inner)
+//      var heapCopy: Trainable = new SampledArrayTrainable(trainingArray, trainingNetwork, sampleSize)
+//      val trainer = new IterativeTrainer(heapCopy)
 //      trainer.setMonitor(monitor)
 //      trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
 //      trainer.setIterationsPerSample(20)
@@ -499,8 +499,8 @@
 //      } : Unit)
 //      out.eval {
 //        assert(null != data)
-//        var inner: Trainable = new SampledArrayTrainable(selectedCategories.values.flatten.toList.asJava, model, sampleSize)
-//        val trainer = new IterativeTrainer(inner)
+//        var heapCopy: Trainable = new SampledArrayTrainable(selectedCategories.values.flatten.toList.asJava, model, sampleSize)
+//        val trainer = new IterativeTrainer(heapCopy)
 //        trainer.setMonitor(monitor)
 //        trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
 //        trainer.setIterationsPerSample(iterationsPerSample)
@@ -591,8 +591,8 @@
 //    trainingNetwork.add(pipelineNetwork)
 //    trainingNetwork.add(new EntropyLossLayer(), trainingNetwork.getHead, trainingNetwork.getInput(1))
 //    this.model = trainingNetwork
-//    var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
-//    val trainer = new IterativeTrainer(inner)
+//    var heapCopy: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
+//    val trainer = new IterativeTrainer(heapCopy)
 //    trainer.setMonitor(monitor)
 //    trainer.setTimeout(1, TimeUnit.MINUTES)
 //    trainer.setOrientation(new GradientDescent)
@@ -614,8 +614,8 @@
 //    trainingNetwork.add(pipelineNetwork)
 //    trainingNetwork.add(new EntropyLossLayer(), trainingNetwork.getHead, trainingNetwork.getInput(1))
 //    this.model = trainingNetwork
-//    var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
-//    val trainer = new IterativeTrainer(inner)
+//    var heapCopy: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
+//    val trainer = new IterativeTrainer(heapCopy)
 //    trainer.setMonitor(monitor)
 //    trainer.setTimeout(1, TimeUnit.MINUTES)
 //    trainer.setOrientation(new GradientDescent)
@@ -639,8 +639,8 @@
 //
 //    trainingNetwork.add(new EntropyLossLayer(), trainingNetwork.getHead, trainingNetwork.getInput(1))
 //    this.model = trainingNetwork
-//    var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
-//    val trainer = new IterativeTrainer(inner)
+//    var heapCopy: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
+//    val trainer = new IterativeTrainer(heapCopy)
 //    trainer.setMonitor(monitor)
 //    trainer.setTimeout(1, TimeUnit.MINUTES)
 //    trainer.setOrientation(new GradientDescent)
@@ -684,8 +684,8 @@
 //      )
 //    )
 //    this.model = trainingNetwork
-//    var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
-//    val trainer = new IterativeTrainer(inner)
+//    var heapCopy: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
+//    val trainer = new IterativeTrainer(heapCopy)
 //    trainer.setMonitor(monitor)
 //    trainer.setTimeout(1, TimeUnit.MINUTES)
 //    trainer.setOrientation(new GradientDescent)

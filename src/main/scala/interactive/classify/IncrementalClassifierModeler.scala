@@ -206,8 +206,8 @@
 //
 //    out.h1("Training New Layer")
 //    val trainer1 = out.eval {
-//      var inner: Trainable = new SampledArrayTrainable(trainingArray, trainingNetwork, sampleSize)
-//      val trainer = new IterativeTrainer(inner)
+//      var heapCopy: Trainable = new SampledArrayTrainable(trainingArray, trainingNetwork, sampleSize)
+//      val trainer = new IterativeTrainer(heapCopy)
 //      trainer.setMonitor(monitor)
 //      trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
 //      trainer.setIterationsPerSample(50)
@@ -233,9 +233,9 @@
 //    out.h1("Integration Training")
 //    val trainer2 = out.eval {
 //      assert(null != data)
-//      var inner: Trainable = new SampledArrayTrainable(data.values.flatten.toList.asJava,
+//      var heapCopy: Trainable = new SampledArrayTrainable(data.values.flatten.toList.asJava,
 //        new SimpleLossNetwork(model, new EntropyLossLayer()), sampleSize, 20)
-//      val trainer = new IterativeTrainer(inner)
+//      val trainer = new IterativeTrainer(heapCopy)
 //      trainer.setMonitor(monitor)
 //      trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
 //      trainer.setIterationsPerSample(iterationsPerSample)
@@ -267,9 +267,9 @@
 //
 //      val trainer1 = out.eval {
 //        assert(null != data)
-//        var inner: Trainable = new ArrayTrainable(Array(adversarialData),
+//        var heapCopy: Trainable = new ArrayTrainable(Array(adversarialData),
 //          new SimpleLossNetwork(trainingNetwork, new EntropyLossLayer()))
-//        val trainer = new IterativeTrainer(inner)
+//        val trainer = new IterativeTrainer(heapCopy)
 //        trainer.setMonitor(monitor)
 //        trainer.setTimeout(1, TimeUnit.MINUTES)
 //        trainer.setOrientation(new GradientDescent)
@@ -295,9 +295,9 @@
 ////    out.h1("GAN Images Training")
 //    //    val trainer2 = out.trainAll {
 ////      assert(null != data)
-////      var inner: Trainable = new ArrayTrainable(adversarialOutput.toArray,
+////      var heapCopy: Trainable = new ArrayTrainable(adversarialOutput.toArray,
 ////        new SimpleLossNetwork(model, new EntropyLossLayer()))
-////      val trainer = new IterativeTrainer(inner)
+////      val trainer = new IterativeTrainer(heapCopy)
 ////      trainer.setMonitor(monitor)
 ////      trainer.setTimeout(10, TimeUnit.MINUTES)
 ////      trainer.setIterationsPerSample(1000)

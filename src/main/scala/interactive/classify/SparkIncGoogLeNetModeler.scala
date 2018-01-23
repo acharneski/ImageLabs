@@ -568,8 +568,8 @@
 //    model = trainingNetwork
 //    addMonitoring(model.asInstanceOf[DAGNetwork])
 //    out.eval {
-//      var inner: Trainable = new LocalSparkTrainable(rdd, trainingNetwork, sampleSize).setPartitions(1).setStorageLevel(StorageLevel.MEMORY_AND_DISK).cached()
-//      val trainer = new IterativeTrainer(inner)
+//      var heapCopy: Trainable = new LocalSparkTrainable(rdd, trainingNetwork, sampleSize).setPartitions(1).setStorageLevel(StorageLevel.MEMORY_AND_DISK).cached()
+//      val trainer = new IterativeTrainer(heapCopy)
 //      trainer.setMonitor(monitor)
 //      trainer.setTimeout(trainingMin1, TimeUnit.MINUTES)
 //      trainer.setIterationsPerSample(20)
@@ -592,8 +592,8 @@
 //
 //    out.h1(s"Training New Layer with $sampleSize2 images")
 //    out.eval {
-//      var inner: Trainable = new LocalSparkTrainable(rdd, trainingNetwork, sampleSize2).setPartitions(relativeScale).setStorageLevel(StorageLevel.MEMORY_AND_DISK).cached()
-//      val trainer = new IterativeTrainer(inner)
+//      var heapCopy: Trainable = new LocalSparkTrainable(rdd, trainingNetwork, sampleSize2).setPartitions(relativeScale).setStorageLevel(StorageLevel.MEMORY_AND_DISK).cached()
+//      val trainer = new IterativeTrainer(heapCopy)
 //      trainer.setMonitor(monitor)
 //      trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
 //      trainer.setIterationsPerSample(20)
@@ -679,8 +679,8 @@
 //      } : Unit)
 //      out.eval {
 //        val rdd = selectedCategories.values.reduce(_.union(_)).persist(StorageLevel.NONE)
-//        var inner: Trainable = new LocalSparkTrainable(rdd, model, sampleSize).setPartitions(Math.max(1,50/sampleSize)).setStorageLevel(StorageLevel.MEMORY_AND_DISK).cached()
-//        val trainer = new IterativeTrainer(inner)
+//        var heapCopy: Trainable = new LocalSparkTrainable(rdd, model, sampleSize).setPartitions(Math.max(1,50/sampleSize)).setStorageLevel(StorageLevel.MEMORY_AND_DISK).cached()
+//        val trainer = new IterativeTrainer(heapCopy)
 //        trainer.setMonitor(monitor)
 //        trainer.setTimeout(trainingMin, TimeUnit.MINUTES)
 //        trainer.setIterationsPerSample(iterationsPerSample)
@@ -763,8 +763,8 @@
 //    trainingNetwork.add(pipelineNetwork)
 //    trainingNetwork.add(new EntropyLossLayer(), trainingNetwork.getHead, trainingNetwork.getInput(1))
 //    this.model = trainingNetwork
-//    var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
-//    val trainer = new IterativeTrainer(inner)
+//    var heapCopy: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
+//    val trainer = new IterativeTrainer(heapCopy)
 //    trainer.setMonitor(monitor)
 //    trainer.setTimeout(1, TimeUnit.MINUTES)
 //    trainer.setOrientation(new GradientDescent)
@@ -786,8 +786,8 @@
 //    trainingNetwork.add(pipelineNetwork)
 //    trainingNetwork.add(new EntropyLossLayer(), trainingNetwork.getHead, trainingNetwork.getInput(1))
 //    this.model = trainingNetwork
-//    var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
-//    val trainer = new IterativeTrainer(inner)
+//    var heapCopy: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
+//    val trainer = new IterativeTrainer(heapCopy)
 //    trainer.setMonitor(monitor)
 //    trainer.setTimeout(1, TimeUnit.MINUTES)
 //    trainer.setOrientation(new GradientDescent)
@@ -811,8 +811,8 @@
 //
 //    trainingNetwork.add(new EntropyLossLayer(), trainingNetwork.getHead, trainingNetwork.getInput(1))
 //    this.model = trainingNetwork
-//    var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
-//    val trainer = new IterativeTrainer(inner)
+//    var heapCopy: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
+//    val trainer = new IterativeTrainer(heapCopy)
 //    trainer.setMonitor(monitor)
 //    trainer.setTimeout(1, TimeUnit.MINUTES)
 //    trainer.setOrientation(new GradientDescent)
@@ -856,8 +856,8 @@
 //      )
 //    )
 //    this.model = trainingNetwork
-//    var inner: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
-//    val trainer = new IterativeTrainer(inner)
+//    var heapCopy: Trainable = new ArrayTrainable(adversarialData, trainingNetwork)
+//    val trainer = new IterativeTrainer(heapCopy)
 //    trainer.setMonitor(monitor)
 //    trainer.setTimeout(1, TimeUnit.MINUTES)
 //    trainer.setOrientation(new GradientDescent)

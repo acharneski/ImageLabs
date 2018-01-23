@@ -202,9 +202,9 @@
 //      val trainer = out.eval {
 //        val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
 //        val dataArray = data.toArray
-//        var inner: Trainable = new SampledArrayTrainable(dataArray, trainingNetwork, (50 * scaleFactor).toInt)
-//        //inner = new ConstL12Normalizer(inner).setFactor_L1(0.001)
-//        val trainer = new IterativeTrainer(inner)
+//        var heapCopy: Trainable = new SampledArrayTrainable(dataArray, trainingNetwork, (50 * scaleFactor).toInt)
+//        //heapCopy = new ConstL12Normalizer(heapCopy).setFactor_L1(0.001)
+//        val trainer = new IterativeTrainer(heapCopy)
 //        trainer.setMonitor(monitor)
 //        trainer.setTimeout(15, TimeUnit.MINUTES)
 //        trainer.setIterationsPerSample(1)
@@ -224,8 +224,8 @@
 //    val dataArray = data.toArray
 //    out.h1("Diagnostics - Layer Rates")
 //    val result = out.eval {
-//      var inner: Trainable = new SampledArrayTrainable(dataArray, trainingNetwork, sampleSize)
-//      val trainer = new LayerRateDiagnosticTrainer(inner).setStrict(true).setMaxIterations(1)
+//      var heapCopy: Trainable = new SampledArrayTrainable(dataArray, trainingNetwork, sampleSize)
+//      val trainer = new LayerRateDiagnosticTrainer(heapCopy).setStrict(true).setMaxIterations(1)
 //      trainer.setMonitor(monitor)
 //      trainer.run()
 //      trainer.getLayerRates().asScala.toMap
@@ -239,9 +239,9 @@
 //    val trainer = out.eval {
 //      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
 //      val dataArray = data.toArray
-//      var inner: Trainable = new SampledArrayTrainable(dataArray, trainingNetwork, sampleSize)
-//      //inner = new ConstL12Normalizer(inner).setFactor_L1(0.001)
-//      val trainer = new IterativeTrainer(inner)
+//      var heapCopy: Trainable = new SampledArrayTrainable(dataArray, trainingNetwork, sampleSize)
+//      //heapCopy = new ConstL12Normalizer(heapCopy).setFactor_L1(0.001)
+//      val trainer = new IterativeTrainer(heapCopy)
 //      trainer.setMonitor(monitor)
 //      trainer.setTimeout(timeoutMin, TimeUnit.MINUTES)
 //      trainer.setIterationsPerSample(reshufflePeriod)
@@ -269,8 +269,8 @@
 //    out.h1(s"LBFGS(sampleSize=$sampleSize,timeoutMin=$timeoutMin)")
 //    val trainer = out.eval {
 //      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
-//      val inner = new SampledArrayTrainable(data.toArray, trainingNetwork, sampleSize)
-//      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(inner)
+//      val heapCopy = new SampledArrayTrainable(data.toArray, trainingNetwork, sampleSize)
+//      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(heapCopy)
 //      trainer.setMonitor(monitor)
 //      trainer.setTimeout(timeoutMin, TimeUnit.MINUTES)
 //      trainer.setIterationsPerSample(iterationSize)
