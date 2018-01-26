@@ -68,7 +68,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook {
         preview(log, 10, 10)
 
         val autoencoder = log.eval {
-          new AutoencoderNetwork.RecursiveBuilder(new TensorArray(data:_*)) {
+          new AutoencoderNetwork.RecursiveBuilder(TensorArray.create(data: _*)) {
             override protected def configure(builder: AutoencoderNetwork.Builder): AutoencoderNetwork.Builder = {
               super.configure(builder
                 .setNoise(0.1)
@@ -167,7 +167,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook {
         preview(log, 100, 60)
 
         val autoencoder = log.eval {
-          new AutoencoderNetwork.RecursiveBuilder(new TensorArray(data:_*)) {
+          new AutoencoderNetwork.RecursiveBuilder(TensorArray.create(data: _*)) {
             override protected def configure(builder: AutoencoderNetwork.Builder): AutoencoderNetwork.Builder = {
               super.configure(builder
                 .setNoise(0.01)
