@@ -187,7 +187,7 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
 
     out.out("Our first example is to use our data solve analogy problems:")
     analogy(rdd, "boy", "girl")("man")(50)
-    analogy(rdd, "wait", "waiting")("apply")(50)
+    analogy(rdd, "wait", "waiting")("run")(50)
     analogy(rdd, "red", "green")("white")(50)
     analogy(rdd, "England", "London")("USA")(50)
 

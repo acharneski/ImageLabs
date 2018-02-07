@@ -57,9 +57,9 @@
 //import com.simiacryptus.mindseye.opt._
 //import com.simiacryptus.mindseye.opt.line._
 //import com.simiacryptus.mindseye.opt.orient._
-//import com.simiacryptus.mindseye.run.data.ImageTiles.ImageTensorLoader
+//import com.simiacryptus.mindseye.eval.data.ImageTiles.ImageTensorLoader
 //import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
-//import com.simiacryptus.util.run.LabeledObject
+//import com.simiacryptus.util.eval.LabeledObject
 //import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, TableOutput, Util}
 //import org.apache.commons.io.IOUtils
 //import util.NNLayerUtil._
@@ -160,7 +160,7 @@
 //  val scaleFactor: Double = (64 * 64.0) / (tileSize * tileSize)
 //  val sampleTiles = 1000
 //
-//  def run(awaitExit:Boolean=true): Unit = {
+//  def eval(awaitExit:Boolean=true): Unit = {
 //    defineHeader()
 //    declareTestHandler()
 //    out.out("<hr/>")
@@ -205,7 +205,7 @@
 //        trainer.setTerminateThreshold(1.0)
 //        trainer
 //      }
-//      trainer.run()
+//      trainer.eval()
 //    }: Unit, modelName)
 //  }
 //
@@ -217,7 +217,7 @@
 //      var heapCopy: Trainable = new LinkedExampleArrayTrainable(data, trainingNetwork, sampleSize)
 //      val trainer = new LayerRateDiagnosticTrainer(heapCopy).setStrict(true).setMaxIterations(1)
 //      trainer.setMonitor(monitor)
-//      trainer.run()
+//      trainer.eval()
 //      trainer.getLayerRates().asScala.toMap
 //    }
 //  }, modelName)
@@ -247,7 +247,7 @@
 //      trainer.setMaxIterations(maxIterations)
 //      trainer
 //    }
-//    trainer.run()
+//    trainer.eval()
 //  }, modelName)
 //
 //  lazy val forwardNetwork = loadModel("downsample_1")
@@ -300,7 +300,7 @@
 //      trainer.setMaxIterations(maxIterations)
 //      trainer
 //    }
-//    trainer.run()
+//    trainer.eval()
 //  }, modelName)
 //
 //  def step_LBFGS(sampleSize: Int, timeoutMin: Int, iterationSize: Int): Unit = phase(modelName, (model: NNLayer) ⇒ {
@@ -322,7 +322,7 @@
 //      trainer.setTerminateThreshold(0.0)
 //      trainer
 //    }
-//    trainer.run()
+//    trainer.eval()
 //  }, modelName)
 //
 //  def declareTestHandler() = {
@@ -427,8 +427,8 @@
 //  def main(args: Array[String]): Unit = {
 //
 //    report((server, out) ⇒ args match {
-//      case Array(source) ⇒ new DiscriminatorModel(source, server, out).run()
-//      case _ ⇒ new DiscriminatorModel("E:\\testImages\\256_ObjectCategories", server, out).run()
+//      case Array(source) ⇒ new DiscriminatorModel(source, server, out).eval()
+//      case _ ⇒ new DiscriminatorModel("E:\\testImages\\256_ObjectCategories", server, out).eval()
 //    })
 //
 //  }

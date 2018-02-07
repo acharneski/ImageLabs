@@ -49,15 +49,15 @@
 //
 //    report((server, out) ⇒ args match {
 //      case Array(source) ⇒
-//        new DownsamplingModel(source, server, out).run(false)
-//        new DiscriminatorModel(source, server, out).run(false)
-//        new UpsamplingOptimizer(source, server, out).run(false)
-//        new UpsamplingModel(source, server, out).run(false)
+//        new DownsamplingModel(source, server, out).eval(false)
+//        new DiscriminatorModel(source, server, out).eval(false)
+//        new UpsamplingOptimizer(source, server, out).eval(false)
+//        new UpsamplingModel(source, server, out).eval(false)
 //      case _ ⇒
-//        new DownsamplingModel("E:\\testImages\\256_ObjectCategories", server, out).run(false)
-//        new DiscriminatorModel("E:\\testImages\\256_ObjectCategories", server, out).run(false)
-//        new UpsamplingOptimizer("E:\\testImages\\256_ObjectCategories", server, out).run(false)
-//        new UpsamplingModel("E:\\testImages\\256_ObjectCategories", server, out).run(false)
+//        new DownsamplingModel("E:\\testImages\\256_ObjectCategories", server, out).eval(false)
+//        new DiscriminatorModel("E:\\testImages\\256_ObjectCategories", server, out).eval(false)
+//        new UpsamplingOptimizer("E:\\testImages\\256_ObjectCategories", server, out).eval(false)
+//        new UpsamplingModel("E:\\testImages\\256_ObjectCategories", server, out).eval(false)
 //    })
 //
 //  }

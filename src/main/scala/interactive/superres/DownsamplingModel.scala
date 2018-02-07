@@ -55,7 +55,7 @@
 //import com.simiacryptus.mindseye.opt._
 //import com.simiacryptus.mindseye.opt.line._
 //import com.simiacryptus.mindseye.opt.orient._
-//import com.simiacryptus.mindseye.run.data.ImageTiles.ImageTensorLoader
+//import com.simiacryptus.mindseye.eval.data.ImageTiles.ImageTensorLoader
 //import com.simiacryptus.util.io.HtmlNotebookOutput
 //import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, TableOutput, Util}
 //import util.NNLayerUtil._
@@ -123,7 +123,7 @@
 //  val fitnessBorderPadding = 0
 //  val scaleFactor: Double = (64 * 64.0) / (tileSize * tileSize)
 //
-//  def run(awaitExit:Boolean=true): Unit = {
+//  def eval(awaitExit:Boolean=true): Unit = {
 //    defineHeader()
 //    defineTestHandler()
 //    out.out("<hr/>")
@@ -191,7 +191,7 @@
 //        trainer.setTerminateThreshold(100.0)
 //        trainer
 //      }
-//      trainer.run()
+//      trainer.eval()
 //    }: Unit, modelName)
 //  }
 //
@@ -204,7 +204,7 @@
 //      var heapCopy: Trainable = new SampledArrayTrainable(dataArray, trainingNetwork, sampleSize)
 //      val trainer = new LayerRateDiagnosticTrainer(heapCopy).setStrict(true).setMaxIterations(1)
 //      trainer.setMonitor(monitor)
-//      trainer.run()
+//      trainer.eval()
 //      trainer.getLayerRates().asScala.toMap
 //    }
 //    result
@@ -237,7 +237,7 @@
 //      trainer.setMaxIterations(maxIterations)
 //      trainer
 //    }
-//    trainer.run()
+//    trainer.eval()
 //  }, modelName)
 //
 //  def step_LBFGS(sampleSize: Int, timeoutMin: Int, iterationSize: Int): Unit = phase(modelName, (model: NNLayer) ⇒ {
@@ -259,7 +259,7 @@
 //      trainer.setTerminateThreshold(0.0)
 //      trainer
 //    }
-//    trainer.run()
+//    trainer.eval()
 //  }, modelName)
 //
 //  def lossNetwork = {
@@ -279,8 +279,8 @@
 //  }
 //
 //  def defineTestHandler() = {
-//    out.p("<a href='run.html'>Test Reconstruction</a>")
-//    server.addSyncHandler("run.html", "text/html", cvt(o ⇒ {
+//    out.p("<a href='eval.html'>Test Reconstruction</a>")
+//    server.addSyncHandler("eval.html", "text/html", cvt(o ⇒ {
 //      Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(out ⇒ {
 //        try {
 //          out.eval {
@@ -304,8 +304,8 @@
 //  def main(args: Array[String]): Unit = {
 //
 //    report((server, out) ⇒ args match {
-//      case Array(source) ⇒ new DownsamplingModel(source, server, out).run()
-//      case _ ⇒ new DownsamplingModel("E:\\testImages\\256_ObjectCategories", server, out).run()
+//      case Array(source) ⇒ new DownsamplingModel(source, server, out).eval()
+//      case _ ⇒ new DownsamplingModel("E:\\testImages\\256_ObjectCategories", server, out).eval()
 //    })
 //
 //  }

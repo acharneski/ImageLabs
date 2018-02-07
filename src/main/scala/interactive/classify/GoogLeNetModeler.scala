@@ -39,7 +39,7 @@ import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.line._
 import com.simiacryptus.mindseye.opt.orient._
 import com.simiacryptus.util.function.{SoftCachedSupplier, WeakCachedSupplier}
-import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
+import com.simiacryptus.util.io.HtmlNotebookOutput
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, TableOutput}
 import interactive.classify.GoogLeNetModeler.tileSize
 
@@ -380,7 +380,7 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
       val biasLayer = new BiasLayer(data.values.flatten.head.get().head.getDimensions(): _*)
       val trainingNetwork = new PipelineNetwork()
       trainingNetwork.add(biasLayer)
-      val pipelineNetwork = KryoUtil.kryo().copy(model).freeze().asInstanceOf[PipelineNetwork]
+      val pipelineNetwork = model.copy().freeze().asInstanceOf[PipelineNetwork]
       pipelineNetwork.setHead(pipelineNetwork.getByLabel("classify")).removeLastInput()
       trainingNetwork.add(pipelineNetwork)
       System.out.print(s"Starting to process ${adversarialData.length} images")

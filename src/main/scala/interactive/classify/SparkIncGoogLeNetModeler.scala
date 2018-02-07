@@ -84,8 +84,8 @@
 //  def main(args: Array[String]): Unit = {
 //
 //    report((server, out) ⇒ args match {
-//      case Array(source) ⇒ new SparkIncGoogLeNetModeler(source, server, out).run()
-//      case _ ⇒ new SparkIncGoogLeNetModeler("D:\\testImages\\256_ObjectCategories", server, out).run()
+//      case Array(source) ⇒ new SparkIncGoogLeNetModeler(source, server, out).eval()
+//      case _ ⇒ new SparkIncGoogLeNetModeler("D:\\testImages\\256_ObjectCategories", server, out).eval()
 //    })
 //
 //  }
@@ -257,7 +257,7 @@
 //  }
 //
 //
-//  def run(awaitExit: Boolean = true): Unit = {
+//  def eval(awaitExit: Boolean = true): Unit = {
 //    recordMetrics = false
 //    defineHeader()
 //    declareTestHandler()
@@ -519,7 +519,7 @@
 //                       featuresLabel:String = "features"): DAGNode =
 //  {
 //    val numberOfCategories = rdd.take(1).head(1).dim()
-//    val newFeatureDimensions: Array[Int] = CudaExecutionContext.gpuContexts.run((cuda:CudaExecutionContext)=>additionalLayer.eval(cuda, rdd.take(1).head.head).getData.get(0).getDimensions)
+//    val newFeatureDimensions: Array[Int] = CudaExecutionContext.gpuContexts.eval((cuda:CudaExecutionContext)=>additionalLayer.eval(cuda, rdd.take(1).head.head).getData.get(0).getDimensions)
 //    val trainingNetwork = new PipelineNetwork(2)
 //    val featuresNode = trainingNetwork.add(featuresLabel, additionalLayer, trainingNetwork.getInput(0))
 //    val dropoutNode = trainingNetwork.add(new f32.DropoutNoiseLayer().setValue(0.2), featuresNode)
@@ -588,7 +588,7 @@
 //      })))
 //      trainer.setTerminateThreshold(0.0)
 //      trainer
-//    } run
+//    } eval
 //
 //    out.h1(s"Training New Layer with $sampleSize2 images")
 //    out.eval {
@@ -612,7 +612,7 @@
 //      })))
 //      trainer.setTerminateThreshold(0.0)
 //      trainer
-//    } run
+//    } eval
 //
 //    removeMonitoring(model.asInstanceOf[DAGNetwork])
 //
@@ -699,7 +699,7 @@
 //        })))
 //        trainer.setTerminateThreshold(0.0)
 //        trainer
-//      } run
+//      } eval
 //    }: Unit, modelName)
 //    removeMonitoring(model.asInstanceOf[DAGNetwork])
 //    val thisModel = model
@@ -770,7 +770,7 @@
 //    trainer.setOrientation(new GradientDescent)
 //    trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ new ArmijoWolfeSearch().setMaxAlpha(1e8): LineSearchStrategy))
 //    trainer.setTerminateThreshold(0.01)
-//    trainer.run()
+//    trainer.eval()
 //    val evalNetwork = new PipelineNetwork()
 //    evalNetwork.add(adaptationLayer)
 //    val adversarialImage = evalNetwork.eval(new NNExecutionContext {}, adversarialData.head.head).getData.get(0)
@@ -793,7 +793,7 @@
 //    trainer.setOrientation(new GradientDescent)
 //    trainer.setLineSearchFactory(Java8Util.cvt((_: String) ⇒ new QuadraticSearch))
 //    trainer.setTerminateThreshold(0.01)
-//    trainer.run()
+//    trainer.eval()
 //    val evalNetwork = new PipelineNetwork()
 //    evalNetwork.add(adaptationLayer)
 //    val adversarialImage = evalNetwork.eval(new NNExecutionContext {}, adversarialData.head.head).getData.get(0)
@@ -819,10 +819,10 @@
 //    //trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ new ArmijoWolfeSearch().setMaxAlpha(1e8): LineSearchStrategy))
 //    trainer.setLineSearchFactory(Java8Util.cvt((_: String) ⇒ new QuadraticSearch))
 //    trainer.setTerminateThreshold(0.01)
-//    trainer.run()
+//    trainer.eval()
 //    val evalNetwork = new PipelineNetwork()
 //    evalNetwork.add(adaptationLayer)
-//    val adversarialImage = CudaExecutionContext.gpuContexts.run((cuda:CudaExecutionContext)=>evalNetwork.eval(cuda, adversarialData.head.head).getData.get(0))
+//    val adversarialImage = CudaExecutionContext.gpuContexts.eval((cuda:CudaExecutionContext)=>evalNetwork.eval(cuda, adversarialData.head.head).getData.get(0))
 //    adversarialImage
 //  }
 //
@@ -863,10 +863,10 @@
 //    trainer.setOrientation(new GradientDescent)
 //    trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ new ArmijoWolfeSearch().setMaxAlpha(1e8): LineSearchStrategy))
 //    trainer.setTerminateThreshold(0.01)
-//    trainer.run()
+//    trainer.eval()
 //    val evalNetwork = new PipelineNetwork()
 //    evalNetwork.add(adaptationLayer)
-//    val adversarialImage = CudaExecutionContext.gpuContexts.run((cuda:CudaExecutionContext)=>evalNetwork.eval(cuda, adversarialData.head.head).getData.get(0))
+//    val adversarialImage = CudaExecutionContext.gpuContexts.eval((cuda:CudaExecutionContext)=>evalNetwork.eval(cuda, adversarialData.head.head).getData.get(0))
 //    adversarialImage
 //  }
 //

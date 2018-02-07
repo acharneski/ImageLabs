@@ -75,8 +75,8 @@
 //  def main(args: Array[String]): Unit = {
 //
 //    report((server, out) ⇒ args match {
-//      case Array(source) ⇒ new IncrementalClassifierModeler(source, server, out).run()
-//      case _ ⇒ new IncrementalClassifierModeler("D:\\testImages\\256_ObjectCategories", server, out).run()
+//      case Array(source) ⇒ new IncrementalClassifierModeler(source, server, out).eval()
+//      case _ ⇒ new IncrementalClassifierModeler("D:\\testImages\\256_ObjectCategories", server, out).eval()
 //    })
 //
 //  }
@@ -87,7 +87,7 @@
 //
 //class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 //
-//  def run(awaitExit:Boolean=true): Unit = {
+//  def eval(awaitExit:Boolean=true): Unit = {
 //    defineHeader()
 //    declareTestHandler()
 //    out.out("<hr/>")
@@ -219,7 +219,7 @@
 //      trainer.setTerminateThreshold(0.0)
 //      trainer
 //    }
-//    trainer1.run()
+//    trainer1.eval()
 //
 //    sourceNetwork.add(new SoftmaxActivationLayer(),
 //      sourceNetwork.add(
@@ -247,7 +247,7 @@
 //      trainer.setTerminateThreshold(0.0)
 //      trainer
 //    }
-//    trainer2.run()
+//    trainer2.eval()
 //  }: Unit, modelName)
 //
 //  def step_GAN() = phase(modelName, (model: NNLayer) ⇒ {
@@ -278,7 +278,7 @@
 //        trainer.setTerminateThreshold(0.01)
 //        trainer
 //      }
-//      trainer1.run()
+//      trainer1.eval()
 //
 //      val evalNetwork = new PipelineNetwork()
 //      evalNetwork.add(biasLayer)
@@ -306,7 +306,7 @@
 ////      trainer.setTerminateThreshold(0.0)
 ////      trainer
 ////    }
-////    trainer2.run()
+////    trainer2.eval()
 //
 //  }: Unit, modelName)
 //

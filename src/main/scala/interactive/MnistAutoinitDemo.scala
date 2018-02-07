@@ -32,7 +32,7 @@ import com.simiacryptus.mindseye.opt.IterativeTrainer
 import com.simiacryptus.mindseye.opt.orient.TrustRegionStrategy
 import com.simiacryptus.mindseye.opt.region.TrustRegion
 import com.simiacryptus.mindseye.test.data.MNIST
-import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil, MarkdownNotebookOutput}
+import com.simiacryptus.util.io.{HtmlNotebookOutput, MarkdownNotebookOutput}
 import com.simiacryptus.util.{StreamNanoHTTPD, TableOutput}
 import guru.nidi.graphviz.engine.{Format, Graphviz}
 
@@ -194,7 +194,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
 
   def run {
 
-    log.p("In this apply we newTrainer a simple neural network against the MNIST handwritten digit dataset")
+    log.p("In this run we newTrainer a simple neural network against the MNIST handwritten digit dataset")
 
     log.h2("Data")
     log.p("First, we cache the training dataset: ")
@@ -220,10 +220,10 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
     log.p("Here we define the logic network that we are about to trainCjGD: ")
     defineHeader()
 
-    log.p("<a href='/apply.html'>Validation Report</a>")
-    server.addSyncHandler("apply.html", "text/html", Java8Util.cvt(out ⇒ {
+    log.p("<a href='/run.html'>Validation Report</a>")
+    server.addSyncHandler("run.html", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
-        validation(log, KryoUtil.kryo().copy(model))
+        validation(log, model.copy())
       })
     }), false)
 

@@ -34,7 +34,7 @@ import com.simiacryptus.mindseye.opt._
 import com.simiacryptus.mindseye.opt.orient.LBFGS
 import com.simiacryptus.mindseye.test.data._
 import com.simiacryptus.util.TableOutput
-import com.simiacryptus.util.io.{IOUtil, KryoUtil}
+import com.simiacryptus.util.io.IOUtil
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}
 import util.Java8Util._
@@ -120,9 +120,8 @@ class AutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook {
         val categorizationAdapter = new FullyConnectedLayer(Array[Int](5, 5, 1), Array[Int](10))
         categorizationAdapter.setByCoord(cvt((c: Coordinate) ⇒ Random.nextGaussian() * 0.001))
         var categorizationNetwork = log.eval {
-          val kryo = KryoUtil.kryo()
           val categorizationNetwork = new PipelineNetwork()
-          categorizationNetwork.add(KryoUtil.kryo().copy(autoencoder.getEncoder).freeze())
+          categorizationNetwork.add(autoencoder.getEncoder.copy().freeze())
           categorizationNetwork.add(categorizationAdapter)
           categorizationNetwork.add(new SoftmaxActivationLayer)
           val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(categorizationNetwork, new EntropyLossLayer)
@@ -137,9 +136,8 @@ class AutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook {
         }
         mnistClassificationReport(log, categorizationNetwork)
         categorizationNetwork = log.eval {
-          val kryo = KryoUtil.kryo()
           val categorizationNetwork = new PipelineNetwork()
-          categorizationNetwork.add(kryo.copy(autoencoder.getEncoder))
+          categorizationNetwork.add(autoencoder.getEncoder.copy())
           categorizationNetwork.add(categorizationAdapter)
           categorizationNetwork.add(new SoftmaxActivationLayer)
           val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(categorizationNetwork, new EntropyLossLayer)
