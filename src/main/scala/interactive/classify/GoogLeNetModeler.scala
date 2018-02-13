@@ -94,6 +94,24 @@ case class GoogLeNet(
                       trainingShunt: Double = -2
                     ) {
 import NNLayerUtil._
+
+  def fitness(monitor: TrainingMonitor, monitoringRoot: MonitoredObject, data: Array[Array[Tensor]], n: Int = 3): Double = {
+    val values = (1 to n).map(i ⇒ {
+      val network = getNetwork(monitor, monitoringRoot, fitness = true)
+      require(!data.isEmpty)
+      val fn = Java8Util.cvt((x: Tensor) => {
+        val v = x.getData()(0)
+        x.freeRef()
+        v
+      })
+      network.eval(NNConstant.batchResultArray(data: _*): _*)
+        .getData.stream().mapToDouble(fn).sum / data.length
+    }).toList
+    val avg = values.sum / n
+    monitor.log(s"Numeric Opt: $this => $avg ($values)")
+    avg
+  }
+
   def getNetwork(monitor: TrainingMonitor,
                  monitoringRoot: MonitoredObject,
                  fitness: Boolean = false): NNLayer = {
@@ -156,7 +174,7 @@ import NNLayerUtil._
       new FullyConnectedLayer(Array(1024), Array(1024)).setName("syn_6").addTo(monitoringRoot),
       new BiasLayer(1024).setName("bias_6").addTo(monitoringRoot))
 
-    val entropy = network.add(new SumInputsLayer(),
+    val entropy = network.add(new com.simiacryptus.mindseye.layers.java.SumInputsLayer(),
       network.add(new EntropyLossLayer(),
         network.add("classify", new SoftmaxActivationLayer(), rawCategorization),
         network.getInput(1)),
@@ -215,7 +233,7 @@ import NNLayerUtil._
 
       network.add(new ProductLayer(),
         entropy,
-        network.add(new SumInputsLayer(), (
+        network.add(new com.simiacryptus.mindseye.layers.java.SumInputsLayer(), (
           List(network.add(new ConstNNLayer(new Tensor(1).set(0, 0.1)))) ++
           List(
             inception_3a,
@@ -232,19 +250,6 @@ import NNLayerUtil._
     }
 
     network
-  }
-
-  def fitness(monitor: TrainingMonitor, monitoringRoot: MonitoredObject, data: Array[Array[Tensor]], n: Int = 3): Double = {
-    val values = (1 to n).map(i ⇒ {
-      val network = getNetwork(monitor, monitoringRoot, fitness = true)
-      require(!data.isEmpty)
-      val fn = Java8Util.cvt((x: Tensor) => x.getData()(0))
-      network.eval(NNConstant.batchResultArray(data: _*): _*)
-        .getData.stream().mapToDouble(fn).sum / data.length
-    }).toList
-    val avg = values.sum / n
-    monitor.log(s"Numeric Opt: $this => $avg ($values)")
-    avg
   }
 
 }
