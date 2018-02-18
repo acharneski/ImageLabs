@@ -50,7 +50,7 @@
 //import _root_.util._
 //import com.google.gson.{GsonBuilder, JsonObject}
 //import com.simiacryptus.mindseye.eval.{ArrayTrainable, Trainable}
-//import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, NNResult, Tensor}
+//import com.simiacryptus.mindseye.lang.{NNExecutionContext, LayerBase, Result, Tensor}
 //import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 //import com.simiacryptus.mindseye.layers.java._
 //import com.simiacryptus.mindseye.network.{DAGNode, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
@@ -76,7 +76,7 @@
 //
 //  def getNetwork(monitor: TrainingMonitor,
 //                 monitoringRoot : MonitoredObject,
-//                 fitness : Boolean = false) : NNLayer = {
+//                 fitness : Boolean = false) : LayerBase = {
 //    val parameters = this
 //    var network: PipelineNetwork = if(fitness) {
 //      new PipelineNetwork(2)
@@ -90,7 +90,7 @@
 //                   weights: Double,
 //                   layerRadius: Int = 5,
 //                   simpleBorder: Boolean = false,
-//                   activationLayer: NNLayer = new ReLuActivationLayer()) = {
+//                   activationLayer: LayerBase = new ReLuActivationLayer()) = {
 //      def weightSeed : DoubleSupplier = Java8Util.cvt(() ⇒ {
 //        val r = Util.R.get.nextDouble() * 2 - 1
 //        r * weights
@@ -126,10 +126,10 @@
 //      val output = network.getHead
 //      def normalizeStdDev(layer:DAGNode, target:Double) = network.add(new AbsActivationLayer(), network.add(new SumInputsLayer(),
 //                network.add(new AvgReducerLayer(), network.add(new StdDevMetaLayer(), layer)),
-//                network.add(new ConstNNLayer(new Tensor(1).setBytes(0,-target)))
+//                network.add(new ConstLayer(new Tensor(1).setBytes(0,-target)))
 //              ))
 //      network.add(new ProductInputsLayer(), network.add(new EntropyLossLayer(), output, network.getInput(1)), network.add(new SumInputsLayer(),
-//                network.add(new ConstNNLayer(new Tensor(1).setBytes(0,0.1))),
+//                network.add(new ConstLayer(new Tensor(1).setBytes(0,0.1))),
 //                normalizeStdDev(l1,1),
 //                normalizeStdDev(l2,1),
 //                normalizeStdDev(l3,1),
@@ -190,7 +190,7 @@
 //        DeepNetworkDescriminator(-3.1962815165239653,0.5,-2.5,-7.5),//(-2.1962815165239653,1.0,-2.0,-6.0),
 //        x ⇒ x.fitness(monitor, monitoringRoot, optTraining, n=3), relativeTolerance=0.01
 //      ).getNetwork(monitor, monitoringRoot)
-//    }, (model: NNLayer) ⇒ {
+//    }, (model: LayerBase) ⇒ {
 //      out.h1("Model Initialization")
 //      val trainer = out.eval {
 //        val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer())
@@ -209,10 +209,10 @@
 //    }: Unit, modelName)
 //  }
 //
-//  def step_diagnostics_layerRates(sampleSize : Int = (100 * scaleFactor).toInt) = phase[Map[NNLayer, LayerRateDiagnosticTrainer.LayerStats]](
-//    modelName, (model: NNLayer) ⇒ {
+//  def step_diagnostics_layerRates(sampleSize : Int = (100 * scaleFactor).toInt) = phase[Map[LayerBase, LayerRateDiagnosticTrainer.LayerStats]](
+//    modelName, (model: LayerBase) ⇒ {
 //    val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer())
-//    out.h1("Diagnostics - Layer Rates")
+//    out.h1("Diagnostics - LayerBase Rates")
 //    out.eval {
 //      var heapCopy: Trainable = new LinkedExampleArrayTrainable(data, trainingNetwork, sampleSize)
 //      val trainer = new LayerRateDiagnosticTrainer(heapCopy).setStrict(true).setMaxIterations(1)
@@ -222,7 +222,7 @@
 //    }
 //  }, modelName)
 //
-//  def step_SGD(sampleSize: Int, timeoutMin: Int, termValue: Double = 0.0, momentum: Double = 0.2, maxIterations: Int = Integer.MAX_VALUE, reshufflePeriod: Int = 1,rates: Map[String, Double] = Map.empty) = phase(modelName, (model: NNLayer) ⇒ {
+//  def step_SGD(sampleSize: Int, timeoutMin: Int, termValue: Double = 0.0, momentum: Double = 0.2, maxIterations: Int = Integer.MAX_VALUE, reshufflePeriod: Int = 1,rates: Map[String, Double] = Map.empty) = phase(modelName, (model: LayerBase) ⇒ {
 //    monitor.clear()
 //    out.h1(s"SGD(sampleSize=$sampleSize,timeoutMin=$timeoutMin)")
 //    val trainer = out.eval {
@@ -235,7 +235,7 @@
 //      trainer.setIterationsPerSample(reshufflePeriod)
 //      val momentumStrategy = new MomentumStrategy(new GradientDescent()).setCarryOver(momentum)
 //      val reweight = new LayerReweightingStrategy(momentumStrategy) {
-//        override def getRegionPolicy(layer: NNLayer): lang.Double = layer.getName match {
+//        override def getRegionPolicy(layer: LayerBase): lang.Double = layer.getName match {
 //          case key if rates.contains(key) ⇒ rates(key)
 //          case _ ⇒ 1.0
 //        }
@@ -252,7 +252,7 @@
 //
 //  lazy val forwardNetwork = loadModel("downsample_1")
 //
-//  def step_Adversarial(sampleSize: Int, timeoutMin: Int, termValue: Double = 0.0, momentum: Double = 0.2, maxIterations: Int = Integer.MAX_VALUE, reshufflePeriod: Int = 1,rates: Map[String, Double] = Map.empty) = phase(modelName, (model: NNLayer) ⇒ {
+//  def step_Adversarial(sampleSize: Int, timeoutMin: Int, termValue: Double = 0.0, momentum: Double = 0.2, maxIterations: Int = Integer.MAX_VALUE, reshufflePeriod: Int = 1,rates: Map[String, Double] = Map.empty) = phase(modelName, (model: LayerBase) ⇒ {
 //    monitor.clear()
 //    out.h1(s"Adversarial(sampleSize=$sampleSize,timeoutMin=$timeoutMin)")
 //    lazy val startModel = KryoUtil.kryo().copy(model)
@@ -288,7 +288,7 @@
 //      trainer.setIterationsPerSample(reshufflePeriod)
 //      val momentumStrategy = new MomentumStrategy(new GradientDescent()).setCarryOver(momentum)
 //      val reweight = new LayerReweightingStrategy(momentumStrategy) {
-//        override def getRegionPolicy(layer: NNLayer): lang.Double = layer.getName match {
+//        override def getRegionPolicy(layer: LayerBase): lang.Double = layer.getName match {
 //          case key if rates.contains(key) ⇒ rates(key)
 //          case _ ⇒ 1.0
 //        }
@@ -303,7 +303,7 @@
 //    trainer.eval()
 //  }, modelName)
 //
-//  def step_LBFGS(sampleSize: Int, timeoutMin: Int, iterationSize: Int): Unit = phase(modelName, (model: NNLayer) ⇒ {
+//  def step_LBFGS(sampleSize: Int, timeoutMin: Int, iterationSize: Int): Unit = phase(modelName, (model: LayerBase) ⇒ {
 //    monitor.clear()
 //    out.h1(s"LBFGS(sampleSize=$sampleSize,timeoutMin=$timeoutMin)")
 //    val trainer = out.eval {
@@ -334,7 +334,7 @@
 //    }), false)
 //  }
 //
-//  def testCategorization(out: HtmlNotebookOutput with ScalaNotebookOutput, model : NNLayer) = {
+//  def testCategorization(out: HtmlNotebookOutput with ScalaNotebookOutput, model : LayerBase) = {
 //    try {
 //      out.eval {
 //        TableOutput.create(Random.shuffle(data.flatten.toList).take(100).map(testObj ⇒ Map[String, AnyRef](
@@ -371,11 +371,11 @@
 //
 //    val filename = "filterNetwork.json"
 //    val preFilter : Seq[Tensor] ⇒ Seq[Tensor] = if(new File(filename).exists()) {
-//      val filterNetwork = NNLayer.fromJson(new GsonBuilder().create().fromJson(IOUtils.toString(new FileInputStream(filename), "UTF-8"), classOf[JsonObject]))
+//      val filterNetwork = LayerBase.fromJson(new GsonBuilder().create().fromJson(IOUtils.toString(new FileInputStream(filename), "UTF-8"), classOf[JsonObject]))
 //      (obj:Seq[Tensor]) ⇒ {
 //        import scala.collection.JavaConverters._
 //        obj.grouped(1000).toStream.flatMap(obj ⇒ {
-//          filterNetwork.eval(new NNExecutionContext() {}, NNResult.batchResultArray(obj.map(y ⇒ Array(y)).toArray):_*).getData.stream().collect(Collectors.toList()).asScala
+//          filterNetwork.eval(new NNExecutionContext() {}, Result.batchResultArray(obj.map(y ⇒ Array(y)).toArray):_*).getData.stream().collect(Collectors.toList()).asScala
 //        })
 //          .zip(obj).sortBy(-_._1.get(categories("noise"))).take(1000).map(_._2)
 //      }

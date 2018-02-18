@@ -63,7 +63,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
       })
     }
 
-    "Flat 2-Layer Abs" in {
+    "Flat 2-LayerBase Abs" in {
       report("twolayerabs", log ⇒ {
         test(log, log.eval {
           trainingTimeMinutes = 10
@@ -84,7 +84,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
       })
     }
 
-    "Flat 2-Layer ReLu" in {
+    "Flat 2-LayerBase ReLu" in {
       report("twolayerrelu", log ⇒ {
         test(log, log.eval {
           trainingTimeMinutes = 10

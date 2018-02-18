@@ -121,28 +121,28 @@
 //    require(set2.forall(categories.contains))
 //    val sourceClass = "chimp"
 //    val targetClass = "owl"
-//    out.h2("Layer Set 1")
+//    out.h2("LayerBase Set 1")
 //    step_Generate()
 //    step_AddLayer1(trainingMin = p.initMinutes, sampleSize = p.imagesPerIterationInit)
 //    step_Train(trainingMin = p.trainMinutes, categories = set1, sampleSize = p.imagesPerIterationTrain, iterationsPerSample = 10, ganImages = p.ganImages)
 //    step_Train(trainingMin = p.trainMinutes, categories = set2, sampleSize = p.imagesPerIterationTrain, iterationsPerSample = 10, ganImages = p.ganImages)
 //    step_GAN(imageCount = p.ganImages,sourceCategory = sourceClass,targetCategory = targetClass)
-//    out.h2("Layer Set 2")
+//    out.h2("LayerBase Set 2")
 //    step_AddLayer2(trainingMin = p.initMinutes, sampleSize = p.imagesPerIterationInit)
 //    step_Train(trainingMin = p.trainMinutes, categories = set1, sampleSize = p.imagesPerIterationTrain, iterationsPerSample = 10, ganImages = p.ganImages)
 //    step_Train(trainingMin = p.trainMinutes, categories = set2, sampleSize = p.imagesPerIterationTrain, iterationsPerSample = 10, ganImages = p.ganImages)
 //    step_GAN(imageCount = p.ganImages,sourceCategory = sourceClass,targetCategory = targetClass)
-//    out.h2("Layer Set 3")
+//    out.h2("LayerBase Set 3")
 //    step_AddLayer3(trainingMin = p.initMinutes, sampleSize = p.imagesPerIterationInit)
 //    step_Train(trainingMin = p.trainMinutes, categories = set1, sampleSize = p.imagesPerIterationTrain, iterationsPerSample = 10, ganImages = p.ganImages)
 //    step_Train(trainingMin = p.trainMinutes, categories = set2, sampleSize = p.imagesPerIterationTrain, iterationsPerSample = 10, ganImages = p.ganImages)
 //    step_GAN(imageCount = p.ganImages,sourceCategory = sourceClass,targetCategory = targetClass)
-//    out.h2("Layer Set 4")
+//    out.h2("LayerBase Set 4")
 //    step_AddLayer4(trainingMin = p.initMinutes, sampleSize = p.imagesPerIterationInit)
 //    step_Train(trainingMin = p.trainMinutes, categories = set1, sampleSize = p.imagesPerIterationTrain, iterationsPerSample = 10, ganImages = p.ganImages)
 //    step_Train(trainingMin = p.trainMinutes, categories = set2, sampleSize = p.imagesPerIterationTrain, iterationsPerSample = 10, ganImages = p.ganImages)
 //    step_GAN(imageCount = p.ganImages,sourceCategory = sourceClass,targetCategory = targetClass)
-//    out.h2("Layer Set 5")
+//    out.h2("LayerBase Set 5")
 //    step_AddLayer5(trainingMin = p.initMinutes, sampleSize = p.imagesPerIterationInit)
 //    step_Train(trainingMin = p.trainMinutes, categories = set1, sampleSize = p.imagesPerIterationTrain, iterationsPerSample = 10, ganImages = p.ganImages)
 //    step_Train(trainingMin = p.trainMinutes, categories = set2, sampleSize = p.imagesPerIterationTrain, iterationsPerSample = 10, ganImages = p.ganImages)
@@ -153,12 +153,12 @@
 //
 //  def step_Generate() = phase({
 //    new PipelineNetwork(2)
-//  }, (_: NNLayer) ⇒ {
+//  }, (_: LayerBase) ⇒ {
 //    // Do Nothing
 //  }: Unit, modelName)
 //
 //
-//  def newInceptionLayer(layerName : String, inputBands: Int, bands1x1: Int, bands3x1: Int, bands1x3: Int, bands5x1: Int, bands1x5: Int, bandsPooling: Int): NNLayer = {
+//  def newInceptionLayer(layerName : String, inputBands: Int, bands1x1: Int, bands3x1: Int, bands1x3: Int, bands5x1: Int, bands1x5: Int, bandsPooling: Int): LayerBase = {
 //    val network = new PipelineNetwork()
 //    newInceptionLayer(network, inputBands = inputBands, layerName = layerName, head = network.getHead,
 //      bands1x1 = bands1x1, bands1x3 = bands1x3, bands1x5 = bands1x5, bands3x1 = bands3x1,
@@ -198,13 +198,13 @@
 //        new ActivationLayer(ActivationLayer.Mode.RELU).setName("relu_pool_" + layerName)))
 //  }
 //
-//  def step_AddLayer1(trainingMin: Int, sampleSize: Int, categories: Set[String]): Any = phase(modelName, (model: NNLayer) ⇒
+//  def step_AddLayer1(trainingMin: Int, sampleSize: Int, categories: Set[String]): Any = phase(modelName, (model: LayerBase) ⇒
 //    {
 //      var selectedCategories: Map[String, List[Supplier[Array[Tensor]]]] = categories.map(s=>s->data(s)).toMap
 //      val sourceNetwork = model.asInstanceOf[PipelineNetwork]
 //      val priorFeaturesNode = Option(sourceNetwork.getByLabel("features")).getOrElse(sourceNetwork.getHead)
 //      val trainingData: List[Supplier[Array[Tensor]]] = takeNonNull(sampleSize, selectedCategories)
-////      model.asInstanceOf[DAGNetwork].visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+////      model.asInstanceOf[DAGNetwork].visitLayers((layer:LayerBase)=>if(layer.isInstanceOf[SchemaComponent]) {
 ////        layer.asInstanceOf[SchemaComponent].setSchema(selectedCategories.keys.toArray:_*)
 ////      } : Unit)
 //      addLayer(
@@ -230,12 +230,12 @@
 //    step_AddLayer2(trainingMin = trainingMin, sampleSize = sampleSize, categories = selectCategories(numberOfCategories).keys.toSet)
 //  }
 //
-//  def step_AddLayer2(trainingMin: Int, sampleSize: Int, categories: Set[String]): Any = phase(modelName, (model: NNLayer) ⇒
+//  def step_AddLayer2(trainingMin: Int, sampleSize: Int, categories: Set[String]): Any = phase(modelName, (model: LayerBase) ⇒
 //    {
 //      var selectedCategories = categories.map(s=>s->data(s)).toMap
 //      val sourceNetwork = model.asInstanceOf[PipelineNetwork]
 //      val priorFeaturesNode = sourceNetwork.getByLabel("features")
-////      sourceNetwork.visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+////      sourceNetwork.visitLayers((layer:LayerBase)=>if(layer.isInstanceOf[SchemaComponent]) {
 ////        layer.asInstanceOf[SchemaComponent].setSchema(selectedCategories.keys.toArray:_*)
 ////      } : Unit)
 //      addLayer(
@@ -261,12 +261,12 @@
 //    step_AddLayer3(trainingMin = trainingMin, sampleSize = sampleSize, categories = selectCategories(numberOfCategories).keys.toSet)
 //  }
 //
-//  def step_AddLayer3(trainingMin: Int, sampleSize: Int, categories: Set[String]): Any = phase(modelName, (model: NNLayer) ⇒
+//  def step_AddLayer3(trainingMin: Int, sampleSize: Int, categories: Set[String]): Any = phase(modelName, (model: LayerBase) ⇒
 //    {
 //      var selectedCategories = categories.map(s=>s->data(s)).toMap
 //      val sourceNetwork = model.asInstanceOf[PipelineNetwork]
 //      val priorFeaturesNode = sourceNetwork.getByLabel("features")
-////      sourceNetwork.visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+////      sourceNetwork.visitLayers((layer:LayerBase)=>if(layer.isInstanceOf[SchemaComponent]) {
 ////        layer.asInstanceOf[SchemaComponent].setSchema(selectedCategories.keys.toArray:_*)
 ////      } : Unit)
 //      addLayer(
@@ -288,12 +288,12 @@
 //    step_AddLayer4(trainingMin = trainingMin, sampleSize = sampleSize, categories = selectCategories(numberOfCategories).keys.toSet)
 //  }
 //
-//  def step_AddLayer4(trainingMin: Int, sampleSize: Int, categories: Set[String]): Any = phase(modelName, (model: NNLayer) ⇒
+//  def step_AddLayer4(trainingMin: Int, sampleSize: Int, categories: Set[String]): Any = phase(modelName, (model: LayerBase) ⇒
 //    {
 //      var selectedCategories = categories.map(s=>s->data(s)).toMap
 //      val sourceNetwork = model.asInstanceOf[PipelineNetwork]
 //      val priorFeaturesNode = sourceNetwork.getByLabel("features")
-////      sourceNetwork.visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+////      sourceNetwork.visitLayers((layer:LayerBase)=>if(layer.isInstanceOf[SchemaComponent]) {
 ////        layer.asInstanceOf[SchemaComponent].setSchema(selectedCategories.keys.toArray:_*)
 ////      } : Unit)
 //      addLayer(
@@ -317,12 +317,12 @@
 //    step_AddLayer5(trainingMin = trainingMin, sampleSize = sampleSize, categories = selectCategories(numberOfCategories).keys.toSet)
 //  }
 //
-//  def step_AddLayer5(trainingMin: Int, sampleSize: Int, categories: Set[String]): Any = phase(modelName, (model: NNLayer) ⇒
+//  def step_AddLayer5(trainingMin: Int, sampleSize: Int, categories: Set[String]): Any = phase(modelName, (model: LayerBase) ⇒
 //    {
 //      var selectedCategories = categories.map(s=>s->data(s)).toMap
 //      val sourceNetwork = model.asInstanceOf[PipelineNetwork]
 //      val priorFeaturesNode = sourceNetwork.getByLabel("features")
-////      sourceNetwork.visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+////      sourceNetwork.visitLayers((layer:LayerBase)=>if(layer.isInstanceOf[SchemaComponent]) {
 ////        layer.asInstanceOf[SchemaComponent].setSchema(selectedCategories.keys.toArray:_*)
 ////      } : Unit)
 //      addLayer(
@@ -346,7 +346,7 @@
 //      rawTrainingData.map(_.take(2)).toList.asJava,
 //      (data : util.List[Array[Tensor]], gpu : CudaExecutionContext)=>{
 //        priorFeaturesNode.get(gpu, sourceNetwork.buildExeCtx(
-//          NNResult.batchResultArray(data.asScala.toArray): _*)).getData
+//          Result.batchResultArray(data.asScala.toArray): _*)).getData
 //          .stream().collect(Collectors.toList()).asScala.toArray
 //      }, (a : Array[Tensor],b : Array[Tensor])=>a++b)
 //    (0 until featureTrainingData.length).map(i => Array(featureTrainingData(i), rawTrainingData(i)(1))).toArray
@@ -354,7 +354,7 @@
 //
 //
 //
-//  private def addLayer(trainingArray: Array[Array[Tensor]], sourceNetwork: PipelineNetwork, priorFeaturesNode: DAGNode, additionalLayer: NNLayer,
+//  private def addLayer(trainingArray: Array[Array[Tensor]], sourceNetwork: PipelineNetwork, priorFeaturesNode: DAGNode, additionalLayer: LayerBase,
 //                       reconstructionLayer: PipelineNetwork,
 //                       trainingMin: Int, sampleSize: Int,
 //                       featuresLabel:String = "features"): DAGNode =
@@ -400,7 +400,7 @@
 //    )
 //    require(null != PipelineNetwork.fromJson(trainingNetwork.getJson))
 //
-//    out.h1("Training New Layer")
+//    out.h1("Training New LayerBase")
 //    monitor.clear()
 //    model = trainingNetwork
 //    addMonitoring(model.asInstanceOf[DAGNetwork])
@@ -449,7 +449,7 @@
 //  final def addMonitoring(model: DAGNetwork) : Unit = {
 //    model.getNodes.asScala.foreach({
 //      case node: DAGNode =>
-//        node.getLayer[NNLayer] match {
+//        node.getLayer[LayerBase] match {
 //          case _:MonitoringWrapperLayer => // Ignore
 //          case layer: DAGNetwork =>
 //            addMonitoring(layer.asInstanceOf[DAGNetwork])
@@ -464,7 +464,7 @@
 //  final def removeMonitoring(model: DAGNetwork) : Unit = {
 //    model.getNodes.asScala.foreach({
 //      case node: DAGNode =>
-//        node.getLayer[NNLayer] match {
+//        node.getLayer[LayerBase] match {
 //          case layer : MonitoringWrapperLayer =>
 //            node.setLayer(layer.getInner)
 //          case layer: DAGNetwork =>
@@ -492,9 +492,9 @@
 //        t ++ Array(toOutNDArray(categoryIndices.size, categoryIndices(e._1)))
 //      }))
 //    })
-//    phase(modelName, (model: NNLayer) ⇒ {
+//    phase(modelName, (model: LayerBase) ⇒ {
 //      out.h1("Integration Training")
-//      model.asInstanceOf[DAGNetwork].visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+//      model.asInstanceOf[DAGNetwork].visitLayers((layer:LayerBase)=>if(layer.isInstanceOf[SchemaComponent]) {
 //        layer.asInstanceOf[SchemaComponent].setSchema(categoryArray:_*)
 //      } : Unit)
 //      out.eval {
@@ -513,7 +513,7 @@
 ////            super.restore()
 ////          }
 ////
-////          def getRegionPolicy(layer: NNLayer) = layer match {
+////          def getRegionPolicy(layer: LayerBase) = layer match {
 ////            case _ => new SingleOrthant
 ////          }
 ////        })
@@ -542,11 +542,11 @@
 //    }
 //  }
 //
-//  def step_GAN(imageCount: Int = 10, sourceCategory: String = "fire-hydrant", targetCategory: String = "bear") = phase(modelName, (model: NNLayer) ⇒ {
+//  def step_GAN(imageCount: Int = 10, sourceCategory: String = "fire-hydrant", targetCategory: String = "bear") = phase(modelName, (model: LayerBase) ⇒ {
 //    gan(out, model)(imageCount = imageCount, sourceCategory = sourceCategory, targetCategory = targetCategory)
 //  }: Unit, null)
 //
-//  def gan(out: HtmlNotebookOutput with ScalaNotebookOutput, model: NNLayer)
+//  def gan(out: HtmlNotebookOutput with ScalaNotebookOutput, model: LayerBase)
 //           (imageCount: Int = 1, sourceCategory: String = "fire-hydrant", targetCategory: String = "bear") = {
 //    assert(null != model)
 //    model.asInstanceOf[DAGNetwork].visitLayers(Java8Util.cvt(layer => layer match {
@@ -560,7 +560,7 @@
 //    out.h1(s"GAN Images Generation: $sourceCategory to $targetCategory (with 3x3 convolution)")
 //    val sourceClass = toOutNDArray(categoryArray.length, sourceClassId)
 //    val targetClass = toOutNDArray(categoryArray.length, targetClassId)
-//    model.asInstanceOf[DAGNetwork].visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+//    model.asInstanceOf[DAGNetwork].visitLayers((layer:LayerBase)=>if(layer.isInstanceOf[SchemaComponent]) {
 //      layer.asInstanceOf[SchemaComponent].setSchema(categoryArray:_*)
 //    } : Unit)
 //    val imagesInput = Random.shuffle(data(sourceCategory))
@@ -582,7 +582,7 @@
 //    this.model = null
 //  }
 //
-//  private def ganC(model: NNLayer, adversarialData: Array[Array[Tensor]]): Tensor = {
+//  private def ganC(model: LayerBase, adversarialData: Array[Array[Tensor]]): Tensor = {
 //    val adaptationLayer = new BiasLayer(adversarialData.head.head.getDimensions:_*)
 //    val trainingNetwork = new PipelineNetwork(2)
 //    trainingNetwork.add(adaptationLayer)
@@ -605,7 +605,7 @@
 //    adversarialImage
 //  }
 //
-//  private def ganA(model: NNLayer, adversarialData: Array[Array[Tensor]]): Tensor = {
+//  private def ganA(model: LayerBase, adversarialData: Array[Array[Tensor]]): Tensor = {
 //    val adaptationLayer = new BiasLayer(adversarialData.head.head.getDimensions:_*)
 //    val trainingNetwork = new PipelineNetwork(2)
 //    trainingNetwork.add(adaptationLayer)
@@ -628,7 +628,7 @@
 //    adversarialImage
 //  }
 //
-//  private def ganB(model: NNLayer, adversarialData: Array[Array[Tensor]]): Tensor = {
+//  private def ganB(model: LayerBase, adversarialData: Array[Array[Tensor]]): Tensor = {
 //    val adaptationLayer = new ConvolutionLayer(3, 3, 3, 3)
 //    for (i <- 0 until 3) adaptationLayer.filter.setBytes(Array(1, 1, 4 * i), 1.0)
 //    val trainingNetwork = new PipelineNetwork(2)
@@ -654,7 +654,7 @@
 //    adversarialImage
 //  }
 //
-//  private def ganD(model: NNLayer, adversarialData: Array[Array[Tensor]]): Tensor = {
+//  private def ganD(model: LayerBase, adversarialData: Array[Array[Tensor]]): Tensor = {
 //    val adaptationLayer = new ConvolutionLayer(3, 3, 3, 3)
 //    for (i <- 0 until 3) adaptationLayer.filter.setBytes(Array(1, 1, 4 * i), 1.0)
 //    val trainingNetwork = new PipelineNetwork(2)
@@ -714,7 +714,7 @@
 //    }), false)
 //  }
 //
-//  def testCategorization(out: HtmlNotebookOutput with ScalaNotebookOutput, model: NNLayer) = {
+//  def testCategorization(out: HtmlNotebookOutput with ScalaNotebookOutput, model: LayerBase) = {
 //    try {
 //      out.eval {
 //        TableOutput.create(takeData(5, 10).map(_.get()).map(testObj ⇒ Map[String, AnyRef](

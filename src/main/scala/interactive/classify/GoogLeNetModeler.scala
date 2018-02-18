@@ -93,7 +93,6 @@ case class GoogLeNet(
                       conv1b: Double = -2.28,
                       trainingShunt: Double = -2
                     ) {
-import NNLayerUtil._
 
   def fitness(monitor: TrainingMonitor, monitoringRoot: MonitoredObject, data: Array[Array[Tensor]], n: Int = 3): Double = {
     val values = (1 to n).map(i ⇒ {
@@ -104,7 +103,7 @@ import NNLayerUtil._
         x.freeRef()
         v
       })
-      network.eval(NNConstant.batchResultArray(data: _*): _*)
+      network.eval(ConstantResult.batchResultArray(data: _*): _*)
         .getData.stream().mapToDouble(fn).sum / data.length
     }).toList
     val avg = values.sum / n
@@ -114,7 +113,7 @@ import NNLayerUtil._
 
   def getNetwork(monitor: TrainingMonitor,
                  monitoringRoot: MonitoredObject,
-                 fitness: Boolean = false): NNLayer = {
+                 fitness: Boolean = false): LayerBase = {
     val network = new PipelineNetwork(2)
 
     def newInceptionLayer(layerName : String, head: DAGNode = network.getHead, inputBands: Int, bands1x1: Int, bands3x1: Int, bands1x3: Int, bands5x1: Int, bands1x5: Int, bandsPooling: Int): DAGNode = {
@@ -234,7 +233,7 @@ import NNLayerUtil._
       network.add(new ProductLayer(),
         entropy,
         network.add(new com.simiacryptus.mindseye.layers.java.SumInputsLayer(), (
-          List(network.add(new ConstNNLayer(new Tensor(1).set(0, 0.1)))) ++
+          List(network.add(new ConstLayer(new Tensor(1).set(0, 0.1)))) ++
           List(
             inception_3a,
             inception_3b,
@@ -309,7 +308,7 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
       0.5750375976562501, 0.5620375976562499, 0.3610414123535156, 0.3610414123535156, -3.6989585876464846,
       -1.2789585876464842, -1.3111851501464842, -1.8149351501464843, -1.3424351501464842, -1.6625, -1.0299999999999998, -2.0
     ).getNetwork(monitor, monitoringRoot)
-  }, (model: NNLayer) ⇒ {
+  }, (model: LayerBase) ⇒ {
     // Do Nothing
   }: Unit, modelName)
 
@@ -324,9 +323,9 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
         f.get().take(1) ++ Array(toOutNDArray(categoryIndices.size, categoryIndices(e._1)))
       }))
     })
-    phase(modelName, (model: NNLayer) ⇒ {
+    phase(modelName, (model: LayerBase) ⇒ {
       out.h1("Integration Training")
-      //      model.asInstanceOf[DAGNetwork].visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+      //      model.asInstanceOf[DAGNetwork].visitLayers((layer:LayerBase)=>if(layer.isInstanceOf[SchemaComponent]) {
       //        layer.asInstanceOf[SchemaComponent].setSchema(categoryArray:_*)
       //      } : Unit)
       val trainer2 = out.eval {
@@ -359,11 +358,11 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
     }
   }
 
-  def step_GAN(imageCount: Int = 10, sourceCategory: String = "fire-hydrant", targetCategory: String = "bear") = phase(modelName, (model: NNLayer) ⇒ {
+  def step_GAN(imageCount: Int = 10, sourceCategory: String = "fire-hydrant", targetCategory: String = "bear") = phase(modelName, (model: LayerBase) ⇒ {
     gan(out, model)(imageCount = imageCount, sourceCategory = sourceCategory, targetCategory = targetCategory)
   }: Unit, null)
 
-  def gan(out: HtmlNotebookOutput with ScalaNotebookOutput, model: NNLayer)
+  def gan(out: HtmlNotebookOutput with ScalaNotebookOutput, model: LayerBase)
          (imageCount: Int = 1, sourceCategory: String = "fire-hydrant", targetCategory: String = "bear") = {
     assert(null != model)
     val categoryArray = Array(sourceCategory, targetCategory)
@@ -374,7 +373,7 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
     val sourceClass = toOutNDArray(categoryArray.length, sourceClassId)
     val targetClass = toOutNDArray(categoryArray.length, targetClassId)
     val adversarialOutput = new ArrayBuffer[Array[Tensor]]()
-    //    model.asInstanceOf[DAGNetwork].visitLayers((layer:NNLayer)=>if(layer.isInstanceOf[SchemaComponent]) {
+    //    model.asInstanceOf[DAGNetwork].visitLayers((layer:LayerBase)=>if(layer.isInstanceOf[SchemaComponent]) {
     //      layer.asInstanceOf[SchemaComponent].setSchema(categoryArray:_*)
     //    } : Unit)
     val rows = data(sourceCategory)
@@ -433,7 +432,7 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
     }), false)
   }
 
-  def testCategorization(out: HtmlNotebookOutput with ScalaNotebookOutput, model: NNLayer) = {
+  def testCategorization(out: HtmlNotebookOutput with ScalaNotebookOutput, model: LayerBase) = {
     try {
       out.eval {
         TableOutput.create(takeData(5, 10).map(_.get()).map(testObj ⇒ Map[String, AnyRef](

@@ -171,7 +171,7 @@ class OptimizerDemo extends WordSpec with MustMatchers with ReportNotebook {
   }
 
   private def getBlankDeltaSet(model: PipelineNetwork) = {
-    val set = new DeltaSet[NNLayer]()
+    val set = new DeltaSet[LayerBase]()
     val tensorArray = TensorArray.create(new Tensor(outputSize: _*))
     model.eval(new Tensor(inputSize: _*)).accumulate(set, tensorArray)
     tensorArray.freeRef()

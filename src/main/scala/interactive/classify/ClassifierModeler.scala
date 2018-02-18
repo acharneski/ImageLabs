@@ -30,7 +30,7 @@ import javax.imageio.ImageIO
 import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.simiacryptus.mindseye.eval.{ArrayTrainable, SampledArrayTrainable, Trainable}
-import com.simiacryptus.mindseye.lang.{NNLayer, Tensor}
+import com.simiacryptus.mindseye.lang.{LayerBase, Tensor}
 import com.simiacryptus.mindseye.layers.cudnn
 import com.simiacryptus.mindseye.layers.cudnn.{ActivationLayer, ConvolutionLayer, PoolingLayer}
 import com.simiacryptus.mindseye.layers.java._
@@ -41,7 +41,6 @@ import com.simiacryptus.mindseye.opt.orient._
 import com.simiacryptus.util.io.HtmlNotebookOutput
 import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, TableOutput, Util}
 import interactive.superres.SimplexOptimizer
-import util.NNLayerUtil._
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -88,7 +87,7 @@ case class TestClassifier(
 
   def getNetwork(monitor: TrainingMonitor,
                  monitoringRoot : MonitoredObject,
-                 fitness : Boolean = false) : NNLayer = {
+                 fitness: Boolean = false): LayerBase = {
     var network: PipelineNetwork = new PipelineNetwork(2)
     val zeroSeed : IntToDoubleFunction = Java8Util.cvt(_ ⇒ 0.0)
     val normalizedPoints = new ArrayBuffer[DAGNode]()
@@ -100,7 +99,7 @@ case class TestClassifier(
                    weights: Double,
                    layerRadius: Int = 5,
                    simpleBorder: Boolean = false,
-                   activationLayer: NNLayer = new ActivationLayer(ActivationLayer.Mode.RELU),
+                   activationLayer: LayerBase = new ActivationLayer(ActivationLayer.Mode.RELU),
                    auxWeight : Double = Double.NaN): DAGNode = {
       def weightSeed : DoubleSupplier = Java8Util.cvt(() ⇒ rand * weights)
 
@@ -142,11 +141,11 @@ case class TestClassifier(
     if(fitness) {
       def auxRmsLayer(layer:DAGNode, target:Double) = network.add(new AbsActivationLayer(), network.add(new SumInputsLayer(),
                 network.add(new AvgReducerLayer(), network.add(new StdDevMetaLayer(), layer)),
-                network.add(new ConstNNLayer(new Tensor(1).set(0,-target)))
+        network.add(new ConstLayer(new Tensor(1).set(0, -target)))
               ))
       val prediction = network.getHead
       network.add(new cudnn.ProductLayer(), prediction, network.add(new SumInputsLayer(),
-                (List(network.add(new ConstNNLayer(new Tensor(1).set(0,0.1)))) ++ normalizedPoints.map(auxRmsLayer(_,1))):_*
+        (List(network.add(new ConstLayer(new Tensor(1).set(0, 0.1)))) ++ normalizedPoints.map(auxRmsLayer(_, 1))): _*
               ))
     }
 
@@ -202,7 +201,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
         x ⇒ x.fitness(monitor, monitoringRoot, optTraining, n=3), relativeTolerance=0.01
       ).getNetwork(monitor, monitoringRoot)
 //      TestClassifier().getNetwork(monitor, monitoringRoot)
-    }, (model: NNLayer) ⇒ {
+    }, (model: LayerBase) ⇒ {
       out.h1("Model Initialization")
       val trainer = out.eval {
         assert(null != data)
@@ -220,9 +219,9 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
     }: Unit, modelName)
   }
 
-  def step_diagnostics_layerRates(sampleSize : Int = (100 * scaleFactor).toInt) = phase[Map[NNLayer, LayerRateDiagnosticTrainer.LayerStats]](
-    modelName, (model: NNLayer) ⇒ {
-    out.h1("Diagnostics - Layer Rates")
+  def step_diagnostics_layerRates(sampleSize: Int = (100 * scaleFactor).toInt) = phase[Map[LayerBase, LayerRateDiagnosticTrainer.LayerStats]](
+    modelName, (model: LayerBase) ⇒ {
+      out.h1("Diagnostics - LayerBase Rates")
     out.eval {
       var inner: Trainable = new SampledArrayTrainable(data, model, sampleSize)
       val trainer = new LayerRateDiagnosticTrainer(inner).setStrict(true).setMaxIterations(1)
@@ -232,7 +231,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
     }
   }, modelName)
 
-  def step_SGD(sampleSize: Int, timeoutMin: Int, termValue: Double = 0.0, momentum: Double = 0.2, maxIterations: Int = Integer.MAX_VALUE, reshufflePeriod: Int = 1,rates: Map[String, Double] = Map.empty) = phase(modelName, (model: NNLayer) ⇒ {
+  def step_SGD(sampleSize: Int, timeoutMin: Int, termValue: Double = 0.0, momentum: Double = 0.2, maxIterations: Int = Integer.MAX_VALUE, reshufflePeriod: Int = 1, rates: Map[String, Double] = Map.empty) = phase(modelName, (model: LayerBase) ⇒ {
     monitor.clear()
     out.h1(s"SGD(sampleSize=$sampleSize,timeoutMin=$timeoutMin)")
     val trainer = out.eval {
@@ -243,7 +242,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
       trainer.setIterationsPerSample(reshufflePeriod)
       val momentumStrategy = new MomentumStrategy(new GradientDescent()).setCarryOver(momentum)
       val reweight = new LayerReweightingStrategy(momentumStrategy) {
-        override def getRegionPolicy(layer: NNLayer): lang.Double = layer.getName match {
+        override def getRegionPolicy(layer: LayerBase): lang.Double = layer.getName match {
           case key if rates.contains(key) ⇒ rates(key)
           case _ ⇒ 1.0
         }
@@ -258,7 +257,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
     trainer.run()
   }, modelName)
 
-  def step_LBFGS(sampleSize: Int, timeoutMin: Int, iterationSize: Int): Unit = phase(modelName, (model: NNLayer) ⇒ {
+  def step_LBFGS(sampleSize: Int, timeoutMin: Int, iterationSize: Int): Unit = phase(modelName, (model: LayerBase) ⇒ {
     monitor.clear()
     out.h1(s"LBFGS(sampleSize=$sampleSize,timeoutMin=$timeoutMin)")
     val trainer = out.eval {
@@ -288,7 +287,7 @@ class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebo
     }), false)
   }
 
-  def testCategorization(out: HtmlNotebookOutput with ScalaNotebookOutput, model : NNLayer) = {
+  def testCategorization(out: HtmlNotebookOutput with ScalaNotebookOutput, model: LayerBase) = {
     try {
       out.eval {
         TableOutput.create(Random.shuffle(data.toList).take(100).map(testObj ⇒ Map[String, AnyRef](

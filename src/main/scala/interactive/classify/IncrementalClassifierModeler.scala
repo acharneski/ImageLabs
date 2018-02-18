@@ -48,7 +48,7 @@
 //import _root_.util.Java8Util.cvt
 //import _root_.util._
 //import com.simiacryptus.mindseye.eval.{ArrayTrainable, SampledArrayTrainable, Trainable}
-//import com.simiacryptus.mindseye.lang.{NNExecutionContext, NNLayer, NNResult, Tensor}
+//import com.simiacryptus.mindseye.lang.{NNExecutionContext, LayerBase, Result, Tensor}
 //import com.simiacryptus.mindseye.layers.cudnn.ProductLayer
 //import com.simiacryptus.mindseye.layers.java._
 //import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork}
@@ -136,12 +136,12 @@
 //
 //  def step_Generate() = phase({
 //    new PipelineNetwork() // Use an empty pipeline to begin
-//  }, (model: NNLayer) ⇒ {
+//  }, (model: LayerBase) ⇒ {
 //    // Do Nothing
 //  }: Unit, modelName)
 //
 //
-//  def step_AddLayer(trainingMin: Int = 15, sampleSize: Int = 100, inputBands: Int, featureBands: Int, radius: Int = 3, mode: PoolingMode = PoolingMode.Max): Any = phase(modelName, (model: NNLayer) ⇒ {
+//  def step_AddLayer(trainingMin: Int = 15, sampleSize: Int = 100, inputBands: Int, featureBands: Int, radius: Int = 3, mode: PoolingMode = PoolingMode.Max): Any = phase(modelName, (model: LayerBase) ⇒ {
 //    addLayer(trainingMin, sampleSize, model){
 //      new PipelineNetwork(
 //        new ConvolutionLayer(radius, radius, inputBands, featureBands).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, -6)),
@@ -151,7 +151,7 @@
 //  }: Unit, modelName)
 //
 //
-//  private def addLayer(trainingMin: Int, sampleSize: Int, model: NNLayer)(additionalLayer: NNLayer) = {
+//  private def addLayer(trainingMin: Int, sampleSize: Int, model: LayerBase)(additionalLayer: LayerBase) = {
 //    val weight = -6
 //    val stdDevTarget: Int = 1
 //    val rmsSmoothing: Int = 1
@@ -162,7 +162,7 @@
 //    val rawTrainingData: Array[Array[Tensor]] = takeData().map(_.get()).toArray
 //    val justInputs: Array[Array[Tensor]] = rawTrainingData.map(_.take(1))
 //    val featureTrainingData = priorFeaturesNode.get(new NNExecutionContext() {}, sourceNetwork.buildExeCtx(
-//      NNResult.batchResultArray(justInputs): _*)).getData
+//      Result.batchResultArray(justInputs): _*)).getData
 //      .stream().collect(Collectors.toList()).asScala.toArray
 //    val trainingArray = (0 until featureTrainingData.length).map(i => Array(featureTrainingData(i), rawTrainingData(i)(1))).toArray
 //    val inputFeatureDimensions = featureTrainingData.head.getDimensions()
@@ -204,7 +204,7 @@
 //      )
 //    )
 //
-//    out.h1("Training New Layer")
+//    out.h1("Training New LayerBase")
 //    val trainer1 = out.eval {
 //      var heapCopy: Trainable = new SampledArrayTrainable(trainingArray, trainingNetwork, sampleSize)
 //      val trainer = new IterativeTrainer(heapCopy)
@@ -229,7 +229,7 @@
 //    )
 //  }
 //
-//  def step_Train(trainingMin: Int = 15, sampleSize: Int = 250, iterationsPerSample: Int = 50) = phase(modelName, (model: NNLayer) ⇒ {
+//  def step_Train(trainingMin: Int = 15, sampleSize: Int = 250, iterationsPerSample: Int = 50) = phase(modelName, (model: LayerBase) ⇒ {
 //    out.h1("Integration Training")
 //    val trainer2 = out.eval {
 //      assert(null != data)
@@ -250,7 +250,7 @@
 //    trainer2.eval()
 //  }: Unit, modelName)
 //
-//  def step_GAN() = phase(modelName, (model: NNLayer) ⇒ {
+//  def step_GAN() = phase(modelName, (model: LayerBase) ⇒ {
 //    val sourceClassId = 0
 //    val imageCount = 10
 //    out.h1("GAN Images Generation")
@@ -320,7 +320,7 @@
 //    }), false)
 //  }
 //
-//  def testCategorization(out: HtmlNotebookOutput with ScalaNotebookOutput, model : NNLayer) = {
+//  def testCategorization(out: HtmlNotebookOutput with ScalaNotebookOutput, model : LayerBase) = {
 //    try {
 //      out.eval {
 //        TableOutput.create(Random.shuffle(data.values.flatten.toList).take(100).map(_.get()).map(testObj ⇒ Map[String, AnyRef](

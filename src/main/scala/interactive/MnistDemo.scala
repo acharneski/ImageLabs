@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
 import _root_.util.NetworkViz._
 import _root_.util._
 import com.simiacryptus.mindseye.eval.{L12Normalizer, SampledArrayTrainable}
-import com.simiacryptus.mindseye.lang.{NNLayer, Tensor}
+import com.simiacryptus.mindseye.lang.{LayerBase, Tensor}
 import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.{DAGNetwork, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt.IterativeTrainer
@@ -54,11 +54,12 @@ object MnistDemo_L1Normalizations extends Report {
         val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
         val executor = new SampledArrayTrainable(data.toArray, trainingNetwork, 1000)
         val normalized = new L12Normalizer(executor) {
-          override protected def getL1(layer: NNLayer): Double = layer match {
+          override protected def getL1(layer: LayerBase): Double = layer match {
             case _ : FullyConnectedLayer ⇒ -0.001
             case _ ⇒ 0.0
           }
-          override protected def getL2(layer: NNLayer): Double = 0.0
+
+          override protected def getL2(layer: LayerBase): Double = 0.0
 
           override def getLayer = trainingNetwork
         }
@@ -154,7 +155,7 @@ class MnistDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNoteb
     waitForExit()
   }
 
-  def validation(log: HtmlNotebookOutput with ScalaNotebookOutput, model: NNLayer) = {
+  def validation(log: HtmlNotebookOutput with ScalaNotebookOutput, model: LayerBase) = {
     log.h2("Validation")
     log.p("Here we examine a sample of validation rows, randomly selected: ")
     log.eval {

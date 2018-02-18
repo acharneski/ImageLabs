@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
 import _root_.util.NetworkViz._
 import _root_.util._
 import com.simiacryptus.mindseye.eval.SampledArrayTrainable
-import com.simiacryptus.mindseye.lang.{NNLayer, Tensor}
+import com.simiacryptus.mindseye.lang.{LayerBase, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.{DAGNetwork, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
@@ -90,7 +90,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
     model
   }
 
-  def normalizePosition(component : NNLayer) = log.eval {
+  def normalizePosition(component: LayerBase) = log.eval {
     var model: PipelineNetwork = new PipelineNetwork
     val componentNode = model.add(component)
     val means = model.add(new AvgMetaLayer(), componentNode)
@@ -98,7 +98,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
     model
   }
 
-  def normalizeScale(component : NNLayer) = log.eval {
+  def normalizeScale(component: LayerBase) = log.eval {
     var model: PipelineNetwork = new PipelineNetwork
     val componentNode = model.add(component)
     model.add(new SqActivationLayer(), componentNode)
@@ -107,7 +107,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
     model
   }
 
-  def autoinitializer(component : NNLayer) = log.eval {
+  def autoinitializer(component: LayerBase) = log.eval {
     var model: PipelineNetwork = new PipelineNetwork
     model.add(new MonitoringWrapperLayer(component).addTo(monitoringRoot, "component1init"))
     val componentNode = model.add(new MonitoringSynapse().addTo(monitoringRoot, "component1out"))
@@ -153,7 +153,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
     model
   }
 
-  def pretrain(component:NNLayer, data:Array[Array[Tensor]]) = {
+  def pretrain(component: LayerBase, data: Array[Array[Tensor]]) = {
     log.eval {
       val autoinitializerNetwork = autoinitializer(component)
       val trainable = new SampledArrayTrainable(data, autoinitializerNetwork, 2000)
@@ -162,7 +162,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
       trainer.setTimeout(5, TimeUnit.MINUTES)
       trainer.setTerminateThreshold(Double.NegativeInfinity)
       trainer.setOrientation(new TrustRegionStrategy() {
-        override def getRegionPolicy(layer: NNLayer): TrustRegion = layer match {
+        override def getRegionPolicy(layer: LayerBase): TrustRegion = layer match {
           case _ ⇒ null//new LinearSumConstraint
         }
       })
@@ -181,7 +181,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
     model
   }
 
-  def buildTrainer(data: Seq[Array[Tensor]], model: NNLayer): IterativeTrainer = {
+  def buildTrainer(data: Seq[Array[Tensor]], model: LayerBase): IterativeTrainer = {
     val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
     val trainable = new SampledArrayTrainable(data.toArray, trainingNetwork, 1000)
     val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
@@ -253,7 +253,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
     waitForExit()
   }
 
-  def validation(log: HtmlNotebookOutput with ScalaNotebookOutput, model: NNLayer) = {
+  def validation(log: HtmlNotebookOutput with ScalaNotebookOutput, model: LayerBase) = {
     log.h2("Validation")
     log.p("Here we examine a sample of validation rows, randomly selected: ")
     log.eval {
