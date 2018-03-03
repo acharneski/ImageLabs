@@ -260,7 +260,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
           log.eval {
             overall → byCategory
           }
-          //summarizeHistory(log, trainer.history)
+          //summarizeHistory(_log, trainer.history)
         }
 
         log.h2("Linear")
@@ -495,7 +495,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
         item.iteration, Math.log(item.point.sum)
       )).toArray: _*)
       plot.setTitle("Convergence Plot")
-      plot.setAxisLabels("Iteration", "log(Fitness)")
+      plot.setAxisLabels("Iteration", "_log(Fitness)")
       plot.setSize(600, 400)
       plot
     }

@@ -247,8 +247,8 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
     log.p("Validation Report")
     validation(log, model)
 
-    //log.p("Parameter History Data Table")
-    //log.p(dataTable.toHtmlTable)
+    //_log.p("Parameter History Data Table")
+    //_log.p(dataTable.toHtmlTable)
 
     waitForExit()
   }

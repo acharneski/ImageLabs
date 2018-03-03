@@ -49,7 +49,7 @@
 //import _root_.util._
 //import com.simiacryptus.mindseye.eval.{ArrayTrainable, SampledArrayTrainable, Trainable}
 //import com.simiacryptus.mindseye.lang.{NNExecutionContext, LayerBase, Result, Tensor}
-//import com.simiacryptus.mindseye.layers.cudnn.ProductLayer
+//import com.simiacryptus.mindseye.layers.cudnn.NProductLayer
 //import com.simiacryptus.mindseye.layers.java._
 //import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork}
 //import com.simiacryptus.mindseye.opt._
@@ -174,7 +174,7 @@
 //    val reconstructionLayer = new ConvolutionLayer(1, 1, featureBands, 4 * inputBands).setWeights(() => (Random.nextDouble() - 0.5) * Math.pow(10, weight))
 //    val trainingNetwork = new PipelineNetwork(2)
 //    val features = trainingNetwork.add("features", additionalLayer, trainingNetwork.getInput(0))
-//    val fitness = trainingNetwork.add(new ProductLayer(),
+//    val fitness = trainingNetwork.add(new NProductLayer(),
 //      // Features should be relevant - predict the class given a final linear/softmax transform
 //      trainingNetwork.add(new EntropyLossLayer(),
 //        trainingNetwork.add(new SoftmaxActivationLayer(),

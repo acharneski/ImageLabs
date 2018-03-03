@@ -31,8 +31,7 @@ import _root_.util.Java8Util.cvt
 import _root_.util._
 import com.simiacryptus.mindseye.eval.{ArrayTrainable, SampledArrayTrainable, Trainable}
 import com.simiacryptus.mindseye.lang.{LayerBase, Tensor}
-import com.simiacryptus.mindseye.layers.cudnn
-import com.simiacryptus.mindseye.layers.cudnn.{ActivationLayer, ConvolutionLayer, PoolingLayer}
+import com.simiacryptus.mindseye.layers.cudnn.{ActivationLayer, ConvolutionLayer, NProductLayer, PoolingLayer}
 import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.{DAGNode, PipelineNetwork}
 import com.simiacryptus.mindseye.opt._
@@ -144,7 +143,7 @@ case class TestClassifier(
         network.add(new ConstLayer(new Tensor(1).set(0, -target)))
               ))
       val prediction = network.getHead
-      network.add(new cudnn.ProductLayer(), prediction, network.add(new SumInputsLayer(),
+      network.add(new NProductLayer(), prediction, network.add(new SumInputsLayer(),
         (List(network.add(new ConstLayer(new Tensor(1).set(0, 0.1)))) ++ normalizedPoints.map(auxRmsLayer(_, 1))): _*
               ))
     }

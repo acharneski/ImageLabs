@@ -268,7 +268,7 @@ class MnistNetDemo extends WordSpec with MustMatchers with ReportNotebook {
         item.iteration, Math.log(item.point.sum)
       )).toArray: _*)
       plot.setTitle("Convergence Plot")
-      plot.setAxisLabels("Iteration", "log(Fitness)")
+      plot.setAxisLabels("Iteration", "_log(Fitness)")
       plot.setSize(600, 400)
       plot
     }

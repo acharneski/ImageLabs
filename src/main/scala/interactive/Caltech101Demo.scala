@@ -73,8 +73,8 @@ class Caltech101Demo {
       mapper.writeValue(buffer, monitoringRoot.getMetrics)
       out.write(buffer.toByteArray)
     }), false)
-    log.p("View the log: <a href='/log'>/log</a>")
-    val logOut = new TeeOutputStream(log.file("log.txt"), true)
+    log.p("View the _log: <a href='/_log'>/_log</a>")
+    val logOut = new TeeOutputStream(log.file("_log.txt"), true)
     val logPrintStream = new PrintStream(logOut)
     server.addSessionHandler("log", Java8Util.cvt((session : IHTTPSession)⇒{
       NanoHTTPD.newChunkedResponse(NanoHTTPD.Response.Status.OK, "text/plain", logOut.newInputStream())
@@ -264,7 +264,7 @@ class Caltech101Demo {
           item.iteration, Math.log(item.point.sum)
         )).toArray: _*)
         plot.setTitle("Convergence Plot")
-        plot.setAxisLabels("Iteration", "log(Fitness)")
+        plot.setAxisLabels("Iteration", "_log(Fitness)")
         plot.setSize(600, 400)
         plot
       }

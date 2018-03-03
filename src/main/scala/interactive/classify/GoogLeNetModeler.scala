@@ -230,7 +230,7 @@ case class GoogLeNet(
             network.add(new StdDevMetaLayer(), layer))
         ))
 
-      network.add(new ProductLayer(),
+      network.add(new NProductLayer(),
         entropy,
         network.add(new com.simiacryptus.mindseye.layers.java.SumInputsLayer(), (
           List(network.add(new ConstLayer(new Tensor(1).set(0, 0.1)))) ++
@@ -338,7 +338,7 @@ class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNoteboo
         trainer.setOrientation(new LBFGS() {
           override def reset(): Unit = {
             model.asInstanceOf[DAGNetwork].visitLayers(Java8Util.cvt(layer => layer match {
-              case layer: DropoutNoiseLayer => layer.shuffle()
+              case layer: DropoutNoiseLayer => layer.shuffle(com.simiacryptus.mindseye.layers.java.StochasticComponent.random.get().nextLong())
               case _ =>
             }))
             super.reset()
