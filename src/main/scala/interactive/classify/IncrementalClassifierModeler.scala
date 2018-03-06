@@ -383,7 +383,7 @@
 //          .filterNot(_ == null).filterNot(_ == null)
 //          .map(file ⇒ {
 //            new WeakCachedSupplier[Array[Tensor]](Java8Util.cvt(()=>{
-//              val original = ImageIO.read(file)
+//              val original = ImageIO.transformAndRead(file)
 //              val fromWidth = original.getWidth()
 //              val fromHeight = original.getHeight()
 //              val scale = maxDim.toDouble / Math.min(fromWidth, fromHeight)

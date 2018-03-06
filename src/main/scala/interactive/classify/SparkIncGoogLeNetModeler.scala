@@ -140,7 +140,7 @@
 //
 //  private def readImage(file: File): BufferedImage = {
 //    try {
-//      val image = ImageIO.read(file)
+//      val image = ImageIO.transformAndRead(file)
 //      if (null == image) {
 //        System.err.println(s"Error reading ${file.getAbsolutePath}: No image found")
 //      }
