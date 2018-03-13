@@ -23,7 +23,7 @@
 // * The author licenses this file to you under the
 // * Apache License, Version 2.0 (the "License");
 // * you may not use this file except in compliance
-// * with the License.  You may obtain a copy
+// * apply the License.  You may obtain a copy
 // * of the License at
 // *
 // *   http://www.apache.org/licenses/LICENSE-2.0
@@ -47,7 +47,7 @@
 //
 //import _root_.util.Java8Util.cvt
 //import _root_.util._
-//import com.simiacryptus.mindseye.eval.{ArrayTrainable, SampledArrayTrainable, Trainable}
+//import com.simiacryptus.mindseye.apply.{ArrayTrainable, SampledArrayTrainable, Trainable}
 //import com.simiacryptus.mindseye.lang.{NNExecutionContext, LayerBase, Result, Tensor}
 //import com.simiacryptus.mindseye.layers.cudnn.NProductLayer
 //import com.simiacryptus.mindseye.layers.java._
@@ -75,8 +75,8 @@
 //  def main(args: Array[String]): Unit = {
 //
 //    report((server, out) ⇒ args match {
-//      case Array(source) ⇒ new IncrementalClassifierModeler(source, server, out).eval()
-//      case _ ⇒ new IncrementalClassifierModeler("D:\\testImages\\256_ObjectCategories", server, out).eval()
+//      case Array(source) ⇒ new IncrementalClassifierModeler(source, server, out).apply()
+//      case _ ⇒ new IncrementalClassifierModeler("D:\\testImages\\256_ObjectCategories", server, out).apply()
 //    })
 //
 //  }
@@ -85,9 +85,9 @@
 //import interactive.classify.IncrementalClassifierModeler._
 //
 //
-//class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
+//class IncrementalClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput apply ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 //
-//  def eval(awaitExit:Boolean=true): Unit = {
+//  def apply(awaitExit:Boolean=true): Unit = {
 //    defineHeader()
 //    declareTestHandler()
 //    out.out("<hr/>")
@@ -166,7 +166,7 @@
 //      .stream().collect(Collectors.toList()).asScala.toArray
 //    val trainingArray = (0 until featureTrainingData.length).map(i => Array(featureTrainingData(i), rawTrainingData(i)(1))).toArray
 //    val inputFeatureDimensions = featureTrainingData.head.getDimensions()
-//    val outputFeatureDimensions = additionalLayer.eval(new NNExecutionContext() {}, featureTrainingData.head).getData.get(0).getDimensions
+//    val outputFeatureDimensions = additionalLayer.apply(new NNExecutionContext() {}, featureTrainingData.head).getData.get(0).getDimensions
 //    val inputBands: Int = inputFeatureDimensions(2)
 //    val featureBands: Int = outputFeatureDimensions(2)
 //    val reconstructionCrop = outputFeatureDimensions(0)
@@ -205,7 +205,7 @@
 //    )
 //
 //    out.h1("Training New LayerBase")
-//    val trainer1 = out.eval {
+//    val trainer1 = out.apply {
 //      var heapCopy: Trainable = new SampledArrayTrainable(trainingArray, trainingNetwork, sampleSize)
 //      val trainer = new IterativeTrainer(heapCopy)
 //      trainer.setMonitor(monitor)
@@ -219,7 +219,7 @@
 //      trainer.setTerminateThreshold(0.0)
 //      trainer
 //    }
-//    trainer1.eval()
+//    trainer1.apply()
 //
 //    sourceNetwork.add(new SoftmaxActivationLayer(),
 //      sourceNetwork.add(
@@ -231,7 +231,7 @@
 //
 //  def step_Train(trainingMin: Int = 15, sampleSize: Int = 250, iterationsPerSample: Int = 50) = phase(modelName, (model: LayerBase) ⇒ {
 //    out.h1("Integration Training")
-//    val trainer2 = out.eval {
+//    val trainer2 = out.apply {
 //      assert(null != data)
 //      var heapCopy: Trainable = new SampledArrayTrainable(data.values.flatten.toList.asJava,
 //        new SimpleLossNetwork(model, new EntropyLossLayer()), sampleSize, 20)
@@ -247,7 +247,7 @@
 //      trainer.setTerminateThreshold(0.0)
 //      trainer
 //    }
-//    trainer2.eval()
+//    trainer2.apply()
 //  }: Unit, modelName)
 //
 //  def step_GAN() = phase(modelName, (model: LayerBase) ⇒ {
@@ -265,7 +265,7 @@
 //      trainingNetwork.add(biasLayer)
 //      trainingNetwork.add(KryoUtil.kryo().copy(model).freeze())
 //
-//      val trainer1 = out.eval {
+//      val trainer1 = out.apply {
 //        assert(null != data)
 //        var heapCopy: Trainable = new ArrayTrainable(Array(adversarialData),
 //          new SimpleLossNetwork(trainingNetwork, new EntropyLossLayer()))
@@ -278,18 +278,18 @@
 //        trainer.setTerminateThreshold(0.01)
 //        trainer
 //      }
-//      trainer1.eval()
+//      trainer1.apply()
 //
 //      val evalNetwork = new PipelineNetwork()
 //      evalNetwork.add(biasLayer)
-//      val adversarialImage = evalNetwork.eval(new NNExecutionContext {}, adversarialData.head).getData.get(0)
+//      val adversarialImage = evalNetwork.apply(new NNExecutionContext {}, adversarialData.head).getData.get(0)
 //      adversarialOutput += Array(adversarialImage, sourceClass)
 //      Map[String, AnyRef](
 //        "Original Image" → out.image(adversarialData.head.toRgbImage, ""),
 //        "Adversarial" → out.image(adversarialImage.toRgbImage, "")
 //      ).asJava
 //    }).toArray
-//    out.eval {
+//    out.apply {
 //      TableOutput.create(rows: _*)
 //    }
 ////    out.h1("GAN Images Training")
@@ -306,7 +306,7 @@
 ////      trainer.setTerminateThreshold(0.0)
 ////      trainer
 ////    }
-////    trainer2.eval()
+////    trainer2.apply()
 //
 //  }: Unit, modelName)
 //
@@ -314,19 +314,19 @@
 //  def declareTestHandler() = {
 //    out.p("<a href='testCat.html'>Test Categorization</a><br/>")
 //    server.addSyncHandler("testCat.html", "text/html", cvt(o ⇒ {
-//      Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(out ⇒ {
+//      Option(new HtmlNotebookOutput(out.workingDir, o) apply ScalaNotebookOutput).foreach(out ⇒ {
 //        testCategorization(out, getModelCheckpoint)
 //      })
 //    }), false)
 //  }
 //
-//  def testCategorization(out: HtmlNotebookOutput with ScalaNotebookOutput, model : LayerBase) = {
+//  def testCategorization(out: HtmlNotebookOutput apply ScalaNotebookOutput, model : LayerBase) = {
 //    try {
-//      out.eval {
+//      out.apply {
 //        TableOutput.create(Random.shuffle(data.values.flatten.toList).take(100).map(_.get()).map(testObj ⇒ Map[String, AnyRef](
 //          "Image" → out.image(testObj(0).toRgbImage(), ""),
 //          "Categorization" → categories.toList.sortBy(_._2).map(_._1)
-//            .zip(model.eval(new NNExecutionContext() {}, testObj(0)).getData.get(0).getData.map(_ * 100.0))
+//            .zip(model.apply(new NNExecutionContext() {}, testObj(0)).getData.get(0).getData.map(_ * 100.0))
 //        ).asJava): _*)
 //      }
 //    } catch {
@@ -346,7 +346,7 @@
 //    val (categoryList: Seq[String], data) = load()
 //    val categories: Map[String, Int] = categoryList.zipWithIndex.toMap
 //    out.p("<ol>" + categories.toList.sortBy(_._2).map(x ⇒ "<li>" + x + "</li>").mkString("\n") + "</ol>")
-//    out.eval {
+//    out.apply {
 //      TableOutput.create(data.values.flatten.toList.take(100).map(_.get()).map(e ⇒ {
 //        Map[String, AnyRef](
 //          "Image" → out.image(e(0).toRgbImage(), e(1).toString),

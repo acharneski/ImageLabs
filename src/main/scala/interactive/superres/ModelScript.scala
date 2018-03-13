@@ -23,7 +23,7 @@
 // * The author licenses this file to you under the
 // * Apache License, Version 2.0 (the "License");
 // * you may not use this file except in compliance
-// * with the License.  You may obtain a copy
+// * apply the License.  You may obtain a copy
 // * of the License at
 // *
 // *   http://www.apache.org/licenses/LICENSE-2.0
@@ -49,15 +49,15 @@
 //
 //    report((server, out) ⇒ args match {
 //      case Array(source) ⇒
-//        new DownsamplingModel(source, server, out).eval(false)
-//        new DiscriminatorModel(source, server, out).eval(false)
-//        new UpsamplingOptimizer(source, server, out).eval(false)
-//        new UpsamplingModel(source, server, out).eval(false)
+//        new DownsamplingModel(source, server, out).apply(false)
+//        new DiscriminatorModel(source, server, out).apply(false)
+//        new UpsamplingOptimizer(source, server, out).apply(false)
+//        new UpsamplingModel(source, server, out).apply(false)
 //      case _ ⇒
-//        new DownsamplingModel("E:\\testImages\\256_ObjectCategories", server, out).eval(false)
-//        new DiscriminatorModel("E:\\testImages\\256_ObjectCategories", server, out).eval(false)
-//        new UpsamplingOptimizer("E:\\testImages\\256_ObjectCategories", server, out).eval(false)
-//        new UpsamplingModel("E:\\testImages\\256_ObjectCategories", server, out).eval(false)
+//        new DownsamplingModel("E:\\testImages\\256_ObjectCategories", server, out).apply(false)
+//        new DiscriminatorModel("E:\\testImages\\256_ObjectCategories", server, out).apply(false)
+//        new UpsamplingOptimizer("E:\\testImages\\256_ObjectCategories", server, out).apply(false)
+//        new UpsamplingModel("E:\\testImages\\256_ObjectCategories", server, out).apply(false)
 //    })
 //
 //  }

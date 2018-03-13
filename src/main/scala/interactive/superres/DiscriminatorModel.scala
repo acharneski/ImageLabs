@@ -23,7 +23,7 @@
 // * The author licenses this file to you under the
 // * Apache License, Version 2.0 (the "License");
 // * you may not use this file except in compliance
-// * with the License.  You may obtain a copy
+// * apply the License.  You may obtain a copy
 // * of the License at
 // *
 // *   http://www.apache.org/licenses/LICENSE-2.0
@@ -49,7 +49,7 @@
 //import _root_.util.Java8Util.cvt
 //import _root_.util._
 //import com.google.gson.{GsonBuilder, JsonObject}
-//import com.simiacryptus.mindseye.eval.{ArrayTrainable, Trainable}
+//import com.simiacryptus.mindseye.apply.{ArrayTrainable, Trainable}
 //import com.simiacryptus.mindseye.lang.{NNExecutionContext, LayerBase, Result, Tensor}
 //import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 //import com.simiacryptus.mindseye.layers.java._
@@ -57,9 +57,9 @@
 //import com.simiacryptus.mindseye.opt._
 //import com.simiacryptus.mindseye.opt.line._
 //import com.simiacryptus.mindseye.opt.orient._
-//import com.simiacryptus.mindseye.eval.data.ImageTiles.ImageTensorLoader
+//import com.simiacryptus.mindseye.apply.data.ImageTiles.ImageTensorLoader
 //import com.simiacryptus.util.io.{HtmlNotebookOutput, KryoUtil}
-//import com.simiacryptus.util.eval.LabeledObject
+//import com.simiacryptus.util.apply.LabeledObject
 //import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, TableOutput, Util}
 //import org.apache.commons.io.IOUtils
 //import util.NNLayerUtil._
@@ -153,14 +153,14 @@
 //
 //}
 //
-//class DiscriminatorModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
+//class DiscriminatorModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput apply ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 //
 //  val modelName = System.getProperty("modelName","descriminator_1")
 //  val tileSize = 64
 //  val scaleFactor: Double = (64 * 64.0) / (tileSize * tileSize)
 //  val sampleTiles = 1000
 //
-//  def eval(awaitExit:Boolean=true): Unit = {
+//  def apply(awaitExit:Boolean=true): Unit = {
 //    defineHeader()
 //    declareTestHandler()
 //    out.out("<hr/>")
@@ -192,7 +192,7 @@
 //      ).getNetwork(monitor, monitoringRoot)
 //    }, (model: LayerBase) ⇒ {
 //      out.h1("Model Initialization")
-//      val trainer = out.eval {
+//      val trainer = out.apply {
 //        val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer())
 //        var heapCopy: Trainable = new LinkedExampleArrayTrainable(data, trainingNetwork, (50 * scaleFactor).toInt)
 //        //heapCopy = new ConstL12Normalizer(heapCopy).setFactor_L1(0.001)
@@ -205,7 +205,7 @@
 //        trainer.setTerminateThreshold(1.0)
 //        trainer
 //      }
-//      trainer.eval()
+//      trainer.apply()
 //    }: Unit, modelName)
 //  }
 //
@@ -213,11 +213,11 @@
 //    modelName, (model: LayerBase) ⇒ {
 //    val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer())
 //    out.h1("Diagnostics - LayerBase Rates")
-//    out.eval {
+//    out.apply {
 //      var heapCopy: Trainable = new LinkedExampleArrayTrainable(data, trainingNetwork, sampleSize)
 //      val trainer = new LayerRateDiagnosticTrainer(heapCopy).setStrict(true).setMaxIterations(1)
 //      trainer.setMonitor(monitor)
-//      trainer.eval()
+//      trainer.apply()
 //      trainer.getLayerRates().asScala.toMap
 //    }
 //  }, modelName)
@@ -225,7 +225,7 @@
 //  def step_SGD(sampleSize: Int, timeoutMin: Int, termValue: Double = 0.0, momentum: Double = 0.2, maxIterations: Int = Integer.MAX_VALUE, reshufflePeriod: Int = 1,rates: Map[String, Double] = Map.empty) = phase(modelName, (model: LayerBase) ⇒ {
 //    monitor.clear()
 //    out.h1(s"SGD(sampleSize=$sampleSize,timeoutMin=$timeoutMin)")
-//    val trainer = out.eval {
+//    val trainer = out.apply {
 //      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer())
 //      var heapCopy: Trainable = new LinkedExampleArrayTrainable(data, trainingNetwork, sampleSize)
 //      //heapCopy = new ConstL12Normalizer(heapCopy).setFactor_L1(0.001)
@@ -247,7 +247,7 @@
 //      trainer.setMaxIterations(maxIterations)
 //      trainer
 //    }
-//    trainer.eval()
+//    trainer.apply()
 //  }, modelName)
 //
 //  lazy val forwardNetwork = loadModel("downsample_1")
@@ -264,7 +264,7 @@
 //      val reconstruct = UpsamplingOptimizer.reconstructImage(forwardNetwork, startModel, downsampled, monitor)
 //      x ++ Array(Array(reconstruct, new Tensor(3).setBytes(2,1)))
 //    })
-//    out.eval {
+//    out.apply {
 //      TableOutput.create(adversarialData.map((data: Array[Array[Tensor]]) ⇒ {
 //        assert(4 == data.length)
 //        assert(2 == data(0).length)
@@ -278,7 +278,7 @@
 //    }
 //    summarizeHistory()
 //    monitor.clear()
-//    val trainer = out.eval {
+//    val trainer = out.apply {
 //      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer())
 //      var heapCopy: Trainable = new ArrayTrainable(adversarialData.toList.flatten.toArray, trainingNetwork)
 //      //heapCopy = new ConstL12Normalizer(heapCopy).setFactor_L1(0.001)
@@ -300,13 +300,13 @@
 //      trainer.setMaxIterations(maxIterations)
 //      trainer
 //    }
-//    trainer.eval()
+//    trainer.apply()
 //  }, modelName)
 //
 //  def step_LBFGS(sampleSize: Int, timeoutMin: Int, iterationSize: Int): Unit = phase(modelName, (model: LayerBase) ⇒ {
 //    monitor.clear()
 //    out.h1(s"LBFGS(sampleSize=$sampleSize,timeoutMin=$timeoutMin)")
-//    val trainer = out.eval {
+//    val trainer = out.apply {
 //      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer())
 //      val heapCopy = new LinkedExampleArrayTrainable(data, trainingNetwork, sampleSize)
 //      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(heapCopy)
@@ -322,25 +322,25 @@
 //      trainer.setTerminateThreshold(0.0)
 //      trainer
 //    }
-//    trainer.eval()
+//    trainer.apply()
 //  }, modelName)
 //
 //  def declareTestHandler() = {
 //    out.p("<a href='testCat.html'>Test Categorization</a><br/>")
 //    server.addSyncHandler("testCat.html", "text/html", cvt(o ⇒ {
-//      Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(out ⇒ {
+//      Option(new HtmlNotebookOutput(out.workingDir, o) apply ScalaNotebookOutput).foreach(out ⇒ {
 //        testCategorization(out, getModelCheckpoint)
 //      })
 //    }), false)
 //  }
 //
-//  def testCategorization(out: HtmlNotebookOutput with ScalaNotebookOutput, model : LayerBase) = {
+//  def testCategorization(out: HtmlNotebookOutput apply ScalaNotebookOutput, model : LayerBase) = {
 //    try {
-//      out.eval {
+//      out.apply {
 //        TableOutput.create(Random.shuffle(data.flatten.toList).take(100).map(testObj ⇒ Map[String, AnyRef](
 //          "Image" → out.image(testObj(0).toRgbImage(), ""),
 //          "Categorization" → categories.toList.sortBy(_._2).map(_._1)
-//            .zip(model.eval(new NNExecutionContext() {}, testObj(0)).getData.get(0).getData.map(_ * 100.0))
+//            .zip(model.apply(new NNExecutionContext() {}, testObj(0)).getData.get(0).getData.map(_ * 100.0))
 //        ).asJava): _*)
 //      }
 //    } catch {
@@ -375,7 +375,7 @@
 //      (obj:Seq[Tensor]) ⇒ {
 //        import scala.collection.JavaConverters._
 //        obj.grouped(1000).toStream.flatMap(obj ⇒ {
-//          filterNetwork.eval(new NNExecutionContext() {}, Result.batchResultArray(obj.map(y ⇒ Array(y)).toArray):_*).getData.stream().collect(Collectors.toList()).asScala
+//          filterNetwork.apply(new NNExecutionContext() {}, Result.batchResultArray(obj.map(y ⇒ Array(y)).toArray):_*).getData.stream().collect(Collectors.toList()).asScala
 //        })
 //          .zip(obj).sortBy(-_._1.get(categories("noise"))).take(1000).map(_._2)
 //      }
@@ -398,7 +398,7 @@
 //    val data: Array[Array[Array[Tensor]]] = rawData.map(rawData⇒rawData.map((labeledObj: LabeledObject[Tensor]) ⇒ {
 //      Array(labeledObj.data, toOutNDArray(categories(labeledObj.label), categories.size))
 //    }).toArray).toArray
-//    out.eval {
+//    out.apply {
 //      TableOutput.create(rawData.flatten.take(100).map(testObj ⇒ {
 //        val checkpoint = getModelCheckpoint
 //        if(null != checkpoint) {
@@ -406,7 +406,7 @@
 //            "Image" → out.image(testObj.data.toRgbImage(), testObj.data.toString),
 //            "Label" → testObj.label,
 //            "Categorization" → categories.toList.sortBy(_._2).map(_._1)
-//              .zip(checkpoint.eval(new NNExecutionContext() {}, testObj.data).getData.get(0).getData.map(_ * 100.0)).mkString(", ")
+//              .zip(checkpoint.apply(new NNExecutionContext() {}, testObj.data).getData.get(0).getData.map(_ * 100.0)).mkString(", ")
 //          ).asJava
 //        } else {
 //          Map[String, AnyRef](
@@ -427,8 +427,8 @@
 //  def main(args: Array[String]): Unit = {
 //
 //    report((server, out) ⇒ args match {
-//      case Array(source) ⇒ new DiscriminatorModel(source, server, out).eval()
-//      case _ ⇒ new DiscriminatorModel("E:\\testImages\\256_ObjectCategories", server, out).eval()
+//      case Array(source) ⇒ new DiscriminatorModel(source, server, out).apply()
+//      case _ ⇒ new DiscriminatorModel("E:\\testImages\\256_ObjectCategories", server, out).apply()
 //    })
 //
 //  }

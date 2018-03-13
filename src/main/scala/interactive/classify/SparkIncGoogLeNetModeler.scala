@@ -23,7 +23,7 @@
 // * The author licenses this file to you under the
 // * Apache License, Version 2.0 (the "License");
 // * you may not use this file except in compliance
-// * with the License.  You may obtain a copy
+// * apply the License.  You may obtain a copy
 // * of the License at
 // *
 // *   http://www.apache.org/licenses/LICENSE-2.0
@@ -49,7 +49,7 @@
 //
 //import _root_.util.Java8Util.cvt
 //import _root_.util._
-//import com.simiacryptus.mindseye.eval._
+//import com.simiacryptus.mindseye.apply._
 //import com.simiacryptus.mindseye.lang._
 //import com.simiacryptus.mindseye.layers.cudnn.CudaExecutionContext
 //import com.simiacryptus.mindseye.layers.java._
@@ -84,8 +84,8 @@
 //  def main(args: Array[String]): Unit = {
 //
 //    report((server, out) ⇒ args match {
-//      case Array(source) ⇒ new SparkIncGoogLeNetModeler(source, server, out).eval()
-//      case _ ⇒ new SparkIncGoogLeNetModeler("D:\\testImages\\256_ObjectCategories", server, out).eval()
+//      case Array(source) ⇒ new SparkIncGoogLeNetModeler(source, server, out).apply()
+//      case _ ⇒ new SparkIncGoogLeNetModeler("D:\\testImages\\256_ObjectCategories", server, out).apply()
 //    })
 //
 //  }
@@ -235,15 +235,15 @@
 //    }).toMap
 //}
 //
-//class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
+//class SparkIncGoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput apply ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 //
 //  val data = {
 //    out.p("Loading data from " + source)
 //    val data = new TrainingData(source)
-//    out.eval {
+//    out.apply {
 //      data.data.mapValues(_.count())
 //    }
-//    out.eval {
+//    out.apply {
 //      val tuples: List[(String, RDD[Array[Tensor]])] = Random.shuffle(data.data.take(3).toList).take(3)
 //      TableOutput.create(tuples.flatMap(x => x._2.takeSample(false, 3).toList).par.map(x ⇒ {
 //        Map[String, AnyRef](
@@ -257,11 +257,11 @@
 //  }
 //
 //
-//  def eval(awaitExit: Boolean = true): Unit = {
+//  def apply(awaitExit: Boolean = true): Unit = {
 //    recordMetrics = false
 //    defineHeader()
 //    declareTestHandler()
-//    out.h1("Incremental GoogLeNet Builder with Adversarial Images")
+//    out.h1("Incremental GoogLeNet Builder apply Adversarial Images")
 //    out.out("<hr/>")
 //    case class Parameters(initMinutes: Int, ganImages: Int, trainMinutes: Int, imagesPerIterationTrain: Int, imagesPerIterationInit: Int)
 //    val p = "daytime" match {
@@ -519,7 +519,7 @@
 //                       featuresLabel:String = "features"): DAGNode =
 //  {
 //    val numberOfCategories = rdd.take(1).head(1).dim()
-//    val newFeatureDimensions: Array[Int] = CudaExecutionContext.gpuContexts.eval((cuda:CudaExecutionContext)=>additionalLayer.eval(cuda, rdd.take(1).head.head).getData.get(0).getDimensions)
+//    val newFeatureDimensions: Array[Int] = CudaExecutionContext.gpuContexts.apply((cuda:CudaExecutionContext)=>additionalLayer.apply(cuda, rdd.take(1).head.head).getData.get(0).getDimensions)
 //    val trainingNetwork = new PipelineNetwork(2)
 //    val featuresNode = trainingNetwork.add(featuresLabel, additionalLayer, trainingNetwork.getInput(0))
 //    val dropoutNode = trainingNetwork.add(new f32.DropoutNoiseLayer().setValue(0.2), featuresNode)
@@ -559,7 +559,7 @@
 //    )
 //    require(null != PipelineNetwork.fromJson(trainingNetwork.getJson))
 //
-//    out.h1(s"Training New LayerBase with $sampleSize images")
+//    out.h1(s"Training New LayerBase apply $sampleSize images")
 //    val relativeScale = 2
 //    val trainingMin1 = trainingMin / relativeScale
 //    val sampleSize2 = relativeScale * sampleSize
@@ -567,7 +567,7 @@
 //    monitor.clear()
 //    model = trainingNetwork
 //    addMonitoring(model.asInstanceOf[DAGNetwork])
-//    out.eval {
+//    out.apply {
 //      var heapCopy: Trainable = new LocalSparkTrainable(rdd, trainingNetwork, sampleSize).setPartitions(1).setStorageLevel(StorageLevel.MEMORY_AND_DISK).cached()
 //      val trainer = new IterativeTrainer(heapCopy)
 //      trainer.setMonitor(monitor)
@@ -588,10 +588,10 @@
 //      })))
 //      trainer.setTerminateThreshold(0.0)
 //      trainer
-//    } eval
+//    } apply
 //
-//    out.h1(s"Training New LayerBase with $sampleSize2 images")
-//    out.eval {
+//    out.h1(s"Training New LayerBase apply $sampleSize2 images")
+//    out.apply {
 //      var heapCopy: Trainable = new LocalSparkTrainable(rdd, trainingNetwork, sampleSize2).setPartitions(relativeScale).setStorageLevel(StorageLevel.MEMORY_AND_DISK).cached()
 //      val trainer = new IterativeTrainer(heapCopy)
 //      trainer.setMonitor(monitor)
@@ -612,7 +612,7 @@
 //      })))
 //      trainer.setTerminateThreshold(0.0)
 //      trainer
-//    } eval
+//    } apply
 //
 //    removeMonitoring(model.asInstanceOf[DAGNetwork])
 //
@@ -677,7 +677,7 @@
 //      model.asInstanceOf[DAGNetwork].visitLayers((layer:LayerBase)=>if(layer.isInstanceOf[SchemaComponent]) {
 //        layer.asInstanceOf[SchemaComponent].setSchema(categoryArray:_*)
 //      } : Unit)
-//      out.eval {
+//      out.apply {
 //        val rdd = selectedCategories.values.reduce(_.union(_)).persist(StorageLevel.NONE)
 //        var heapCopy: Trainable = new LocalSparkTrainable(rdd, model, sampleSize).setPartitions(Math.max(1,50/sampleSize)).setStorageLevel(StorageLevel.MEMORY_AND_DISK).cached()
 //        val trainer = new IterativeTrainer(heapCopy)
@@ -699,7 +699,7 @@
 //        })))
 //        trainer.setTerminateThreshold(0.0)
 //        trainer
-//      } eval
+//      } apply
 //    }: Unit, modelName)
 //    removeMonitoring(model.asInstanceOf[DAGNetwork])
 //    val thisModel = model
@@ -719,7 +719,7 @@
 //    gan(out, model)(imageCount = imageCount, sourceCategory = sourceCategory, targetCategory = targetCategory)
 //  }: Unit, null)
 //
-//  def gan(out: HtmlNotebookOutput with ScalaNotebookOutput, model: LayerBase)
+//  def gan(out: HtmlNotebookOutput apply ScalaNotebookOutput, model: LayerBase)
 //           (imageCount: Int = 1, sourceCategory: String = "fire-hydrant", targetCategory: String = "bear") = {
 //    assert(null != model)
 //    model.asInstanceOf[DAGNetwork].visitLayers(Java8Util.cvt(layer => layer match {
@@ -730,14 +730,14 @@
 //    val categoryIndices = categoryArray.zipWithIndex.toMap
 //    val sourceClassId = categoryIndices(sourceCategory)
 //    val targetClassId = categoryIndices(targetCategory)
-//    out.h1(s"GAN Images Generation: $sourceCategory to $targetCategory (with 3x3 convolution)")
+//    out.h1(s"GAN Images Generation: $sourceCategory to $targetCategory (apply 3x3 convolution)")
 //    val sourceClass = data.toOutNDArray(categoryArray.length, sourceClassId)
 //    val targetClass = data.toOutNDArray(categoryArray.length, targetClassId)
 //    model.asInstanceOf[DAGNetwork].visitLayers((layer:LayerBase)=>if(layer.isInstanceOf[SchemaComponent]) {
 //      layer.asInstanceOf[SchemaComponent].setSchema(categoryArray:_*)
 //    } : Unit)
 //    val imagesInput = data.data(sourceCategory).take(imageCount)
-//    out.eval {
+//    out.apply {
 //      TableOutput.create(imagesInput.grouped(1).map(group => {
 //        val adversarialData: Array[Array[Tensor]] = group.map(_.take(1) ++ Array(targetClass)).toArray
 //        Map[String, AnyRef](
@@ -770,10 +770,10 @@
 //    trainer.setOrientation(new GradientDescent)
 //    trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ new ArmijoWolfeSearch().setMaxAlpha(1e8): LineSearchStrategy))
 //    trainer.setTerminateThreshold(0.01)
-//    trainer.eval()
+//    trainer.apply()
 //    val evalNetwork = new PipelineNetwork()
 //    evalNetwork.add(adaptationLayer)
-//    val adversarialImage = evalNetwork.eval(new NNExecutionContext {}, adversarialData.head.head).getData.get(0)
+//    val adversarialImage = evalNetwork.apply(new NNExecutionContext {}, adversarialData.head.head).getData.get(0)
 //    adversarialImage
 //  }
 //
@@ -793,10 +793,10 @@
 //    trainer.setOrientation(new GradientDescent)
 //    trainer.setLineSearchFactory(Java8Util.cvt((_: String) ⇒ new QuadraticSearch))
 //    trainer.setTerminateThreshold(0.01)
-//    trainer.eval()
+//    trainer.apply()
 //    val evalNetwork = new PipelineNetwork()
 //    evalNetwork.add(adaptationLayer)
-//    val adversarialImage = evalNetwork.eval(new NNExecutionContext {}, adversarialData.head.head).getData.get(0)
+//    val adversarialImage = evalNetwork.apply(new NNExecutionContext {}, adversarialData.head.head).getData.get(0)
 //    adversarialImage
 //  }
 //
@@ -819,10 +819,10 @@
 //    //trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ new ArmijoWolfeSearch().setMaxAlpha(1e8): LineSearchStrategy))
 //    trainer.setLineSearchFactory(Java8Util.cvt((_: String) ⇒ new QuadraticSearch))
 //    trainer.setTerminateThreshold(0.01)
-//    trainer.eval()
+//    trainer.apply()
 //    val evalNetwork = new PipelineNetwork()
 //    evalNetwork.add(adaptationLayer)
-//    val adversarialImage = CudaExecutionContext.gpuContexts.eval((cuda:CudaExecutionContext)=>evalNetwork.eval(cuda, adversarialData.head.head).getData.get(0))
+//    val adversarialImage = CudaExecutionContext.gpuContexts.apply((cuda:CudaExecutionContext)=>evalNetwork.apply(cuda, adversarialData.head.head).getData.get(0))
 //    adversarialImage
 //  }
 //
@@ -863,10 +863,10 @@
 //    trainer.setOrientation(new GradientDescent)
 //    trainer.setLineSearchFactory(Java8Util.cvt((s: String) ⇒ new ArmijoWolfeSearch().setMaxAlpha(1e8): LineSearchStrategy))
 //    trainer.setTerminateThreshold(0.01)
-//    trainer.eval()
+//    trainer.apply()
 //    val evalNetwork = new PipelineNetwork()
 //    evalNetwork.add(adaptationLayer)
-//    val adversarialImage = CudaExecutionContext.gpuContexts.eval((cuda:CudaExecutionContext)=>evalNetwork.eval(cuda, adversarialData.head.head).getData.get(0))
+//    val adversarialImage = CudaExecutionContext.gpuContexts.apply((cuda:CudaExecutionContext)=>evalNetwork.apply(cuda, adversarialData.head.head).getData.get(0))
 //    adversarialImage
 //  }
 //
@@ -874,25 +874,25 @@
 //  def declareTestHandler() = {
 //    out.p("<a href='testCat.html'>Test Categorization</a><br/>")
 //    server.addSyncHandler("testCat.html", "text/html", cvt(o ⇒ {
-//      Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(out ⇒ {
+//      Option(new HtmlNotebookOutput(out.workingDir, o) apply ScalaNotebookOutput).foreach(out ⇒ {
 //        testCategorization(out, getModelCheckpoint)
 //      })
 //    }), false)
 //    out.p("<a href='gan.html'>Generate Adversarial Images</a><br/>")
 //    server.addSyncHandler("gan.html", "text/html", cvt(o ⇒ {
-//      Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(out ⇒ {
+//      Option(new HtmlNotebookOutput(out.workingDir, o) apply ScalaNotebookOutput).foreach(out ⇒ {
 //        gan(out, getModelCheckpoint)()
 //      })
 //    }), false)
 //  }
 //
-//  def testCategorization(out: HtmlNotebookOutput with ScalaNotebookOutput, model: LayerBase) = {
+//  def testCategorization(out: HtmlNotebookOutput apply ScalaNotebookOutput, model: LayerBase) = {
 //    try {
-//      out.eval {
+//      out.apply {
 //        TableOutput.create(data.selectCategories(2).values.reduce(_.union(_)).collect().map(testObj ⇒ Map[String, AnyRef](
 //          "Image" → out.image(testObj(0).toRgbImage(), ""),
 //          "Categorization" → categories.toList.sortBy(_._2).map(_._1)
-//            .zip(model.eval(new NNExecutionContext() {}, testObj(0)).getData.get(0).getData.map(_ * 100.0))
+//            .zip(model.apply(new NNExecutionContext() {}, testObj(0)).getData.get(0).getData.map(_ * 100.0))
 //        ).asJava): _*)
 //      }
 //    } catch {

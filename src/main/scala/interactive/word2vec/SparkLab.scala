@@ -66,7 +66,7 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
 
   def inplane1(rdd: RDD[(String, Array[Float])], positiveExamples: Seq[String], n: Int = 50) = out.eval {
     val primaryBasis = findVector(rdd, positiveExamples: _*)
-    System.out.println(s"Inplane with $positiveExamples")
+    System.out.println(s"Inplane apply $positiveExamples")
     val metric: (Array[Float]) => Double = orthogonalDistance(primaryBasis:_*)
     val result = rdd.map(x => {
       val (key, vector) = x
@@ -100,7 +100,7 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
       })
       orthogonalBasis.toArray
     })
-    System.out.println(s"Inplane with $positiveExamples")
+    System.out.println(s"Inplane apply $positiveExamples")
     val result = rdd.map(x => {
       val (key, vector) = x
       (key, orthogonalBasis.map(orthogonalBasis=>{
@@ -187,7 +187,7 @@ class SparkLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
 
     out.out("Our first example is to use our data solve analogy problems:")
     analogy(rdd, "boy", "girl")("man")(50)
-    analogy(rdd, "wait", "waiting")("run")(50)
+    analogy(rdd, "wait", "waiting")("apply")(50)
     analogy(rdd, "red", "green")("white")(50)
     analogy(rdd, "England", "London")("USA")(50)
 

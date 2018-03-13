@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
 import _root_.util.NetworkViz._
 import _root_.util._
 import com.simiacryptus.mindseye.eval.{L12Normalizer, SampledArrayTrainable}
-import com.simiacryptus.mindseye.lang.{LayerBase, Tensor}
+import com.simiacryptus.mindseye.lang.Tensor
 import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.{DAGNetwork, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
 import com.simiacryptus.mindseye.opt.IterativeTrainer
@@ -105,7 +105,7 @@ class MnistDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNoteb
 
   def run {
 
-    log.p("In this run we newTrainer a simple neural network against the MNIST handwritten digit dataset")
+    log.p("In this apply we newTrainer a simple neural network against the MNIST handwritten digit dataset")
 
     log.h2("Data")
     log.p("First, we cache the training dataset: ")
@@ -131,8 +131,8 @@ class MnistDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNoteb
     log.p("Here we define the logic network that we are about to trainCjGD: ")
     defineHeader()
 
-    log.p("<a href='/run.html'>Validation Report</a>")
-    server.addSyncHandler("run.html", "text/html", Java8Util.cvt(out ⇒ {
+    log.p("<a href='/apply.html'>Validation Report</a>")
+    server.addSyncHandler("apply.html", "text/html", Java8Util.cvt(out ⇒ {
       Option(new HtmlNotebookOutput(log.workingDir, out) with ScalaNotebookOutput).foreach(log ⇒ {
         validation(log, model.copy())
       })

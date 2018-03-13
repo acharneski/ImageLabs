@@ -86,7 +86,7 @@ class LocalLab(server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebo
 
   def inplane(rdd: Word2VecLocalModel, a: Seq[String], n: Int = 50) = out.eval {
     val vectors = findVector(rdd, a: _*)
-    System.out.println(s"Inplane with $a")
+    System.out.println(s"Inplane apply $a")
     val result = rdd.map(x => {
       val (key, vector) = x
       key -> vectors.tail.foldLeft(vector - vectors.head)((x, y) => x without (y - vectors.head)).magnitude.toDouble

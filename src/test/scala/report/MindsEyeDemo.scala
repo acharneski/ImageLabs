@@ -54,7 +54,7 @@ class MindsEyeDemo extends WordSpec with MustMatchers with ReportNotebook {
       report("mnist_simple", log ⇒ {
         val inputSize = Array[Int](28, 28, 1)
         val outputSize = Array[Int](10)
-        log.p("In this run we newTrainer a simple neural network against the MNIST handwritten digit dataset")
+        log.p("In this apply we newTrainer a simple neural network against the MNIST handwritten digit dataset")
 
         log.h2("Data")
         log.p("First, we cache the training dataset: ")

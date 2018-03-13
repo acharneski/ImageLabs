@@ -23,7 +23,7 @@
 // * The author licenses this file to you under the
 // * Apache License, Version 2.0 (the "License");
 // * you may not use this file except in compliance
-// * with the License.  You may obtain a copy
+// * apply the License.  You may obtain a copy
 // * of the License at
 // *
 // *   http://www.apache.org/licenses/LICENSE-2.0
@@ -47,7 +47,7 @@
 //
 //import _root_.util.Java8Util.cvt
 //import _root_.util._
-//import com.simiacryptus.mindseye.eval._
+//import com.simiacryptus.mindseye.apply._
 //import com.simiacryptus.mindseye.lang.{Coordinate, NNExecutionContext, LayerBase, Tensor}
 //import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 //import com.simiacryptus.mindseye.layers.java._
@@ -55,7 +55,7 @@
 //import com.simiacryptus.mindseye.opt._
 //import com.simiacryptus.mindseye.opt.line._
 //import com.simiacryptus.mindseye.opt.orient._
-//import com.simiacryptus.mindseye.eval.data.ImageTiles.ImageTensorLoader
+//import com.simiacryptus.mindseye.apply.data.ImageTiles.ImageTensorLoader
 //import com.simiacryptus.util.io.HtmlNotebookOutput
 //import com.simiacryptus.util.{MonitoredObject, StreamNanoHTTPD, TableOutput, Util}
 //import util.NNLayerUtil._
@@ -136,14 +136,14 @@
 //}
 //
 //
-//class UpsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
+//class UpsamplingModel(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput apply ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 //
 //  val modelName = System.getProperty("modelName","upsample_1")
 //  val tileSize = 128
 //  val fitnessBorderPadding = 8
 //  val scaleFactor: Double = (64 * 64.0) / (tileSize * tileSize)
 //
-//  def eval(awaitExit:Boolean=true): Unit = {
+//  def apply(awaitExit:Boolean=true): Unit = {
 //    defineHeader()
 //    defineTestHandler()
 //    out.out("<hr/>")
@@ -171,7 +171,7 @@
 //    val rawList: List[Tensor] = rawData
 //    System.gc()
 //    val data: List[Array[Tensor]] = rawList.map(tile ⇒ Array(Tensor.fromRGB(resize(tile.toRgbImage, tileSize/4)), tile))
-//    out.eval {
+//    out.apply {
 //      TableOutput.create(Random.shuffle(data).take(100).map(testObj ⇒ Map[String, AnyRef](
 //        "Source" → out.image(testObj(1).toRgbImage(), ""),
 //        "Resized" → out.image(testObj(0).toRgbImage(), "")
@@ -199,7 +199,7 @@
 //    }, (model: LayerBase) ⇒ {
 //      out.h1("Step 1")
 //      monitor.clear()
-//      val trainer = out.eval {
+//      val trainer = out.apply {
 //        val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
 //        val dataArray = data.toArray
 //        var heapCopy: Trainable = new SampledArrayTrainable(dataArray, trainingNetwork, (50 * scaleFactor).toInt)
@@ -214,7 +214,7 @@
 //        trainer.setTerminateThreshold(2500.0)
 //        trainer
 //      }
-//      trainer.eval()
+//      trainer.apply()
 //    }: Unit, modelName)
 //  }
 //
@@ -223,11 +223,11 @@
 //    val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
 //    val dataArray = data.toArray
 //    out.h1("Diagnostics - LayerBase Rates")
-//    val result = out.eval {
+//    val result = out.apply {
 //      var heapCopy: Trainable = new SampledArrayTrainable(dataArray, trainingNetwork, sampleSize)
 //      val trainer = new LayerRateDiagnosticTrainer(heapCopy).setStrict(true).setMaxIterations(1)
 //      trainer.setMonitor(monitor)
-//      trainer.eval()
+//      trainer.apply()
 //      trainer.getLayerRates().asScala.toMap
 //    }
 //    result
@@ -236,7 +236,7 @@
 //  def step_SGD(sampleSize: Int, timeoutMin: Int, termValue: Double = 0.0, momentum: Double = 0.2, maxIterations: Int = Integer.MAX_VALUE, reshufflePeriod: Int = 1,rates: Map[String, Double] = Map.empty) = phase(modelName, (model: LayerBase) ⇒ {
 //    monitor.clear()
 //    out.h1(s"SGD(sampleSize=$sampleSize,timeoutMin=$timeoutMin)")
-//    val trainer = out.eval {
+//    val trainer = out.apply {
 //      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
 //      val dataArray = data.toArray
 //      var heapCopy: Trainable = new SampledArrayTrainable(dataArray, trainingNetwork, sampleSize)
@@ -260,14 +260,14 @@
 //      trainer.setMaxIterations(maxIterations)
 //      trainer
 //    }
-//    val result = trainer.eval()
+//    val result = trainer.apply()
 //    result
 //  }, modelName)
 //
 //  def step_LBFGS(sampleSize: Int, timeoutMin: Int, iterationSize: Int): Unit = phase(modelName, (model: LayerBase) ⇒ {
 //    monitor.clear()
 //    out.h1(s"LBFGS(sampleSize=$sampleSize,timeoutMin=$timeoutMin)")
-//    val trainer = out.eval {
+//    val trainer = out.apply {
 //      val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, lossNetwork)
 //      val heapCopy = new SampledArrayTrainable(data.toArray, trainingNetwork, sampleSize)
 //      val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(heapCopy)
@@ -283,7 +283,7 @@
 //      trainer.setTerminateThreshold(0.0)
 //      trainer
 //    }
-//    trainer.eval()
+//    trainer.apply()
 //  }, modelName)
 //
 //  def lossNetwork = {
@@ -303,15 +303,15 @@
 //  }
 //
 //  def defineTestHandler() = {
-//    out.p("<a href='eval.html'>Test Reconstruction</a>")
-//    server.addSyncHandler("eval.html", "text/html", cvt(o ⇒ {
-//      Option(new HtmlNotebookOutput(out.workingDir, o) with ScalaNotebookOutput).foreach(out ⇒ {
+//    out.p("<a href='apply.html'>Test Reconstruction</a>")
+//    server.addSyncHandler("apply.html", "text/html", cvt(o ⇒ {
+//      Option(new HtmlNotebookOutput(out.workingDir, o) apply ScalaNotebookOutput).foreach(out ⇒ {
 //        try {
-//          out.eval {
+//          out.apply {
 //            TableOutput.create(Random.shuffle(data).take(100).map(testObj ⇒ Map[String, AnyRef](
 //              "Source Truth" → out.image(testObj(1).toRgbImage(), ""),
 //              "Corrupted" → out.image(testObj(0).toRgbImage(), ""),
-//              "Reconstruction" → out.image(getModelCheckpoint.eval(new NNExecutionContext() {}, testObj(0)).getData.get(0).toRgbImage(), "")
+//              "Reconstruction" → out.image(getModelCheckpoint.apply(new NNExecutionContext() {}, testObj(0)).getData.get(0).toRgbImage(), "")
 //            ).asJava): _*)
 //          }
 //        } catch {
@@ -328,8 +328,8 @@
 //  def main(args: Array[String]): Unit = {
 //
 //    report((server, out) ⇒ args match {
-//      case Array(source) ⇒ new UpsamplingModel(source, server, out).eval()
-//      case _ ⇒ new UpsamplingModel("E:\\testImages\\256_ObjectCategories", server, out).eval()
+//      case Array(source) ⇒ new UpsamplingModel(source, server, out).apply()
+//      case _ ⇒ new UpsamplingModel("E:\\testImages\\256_ObjectCategories", server, out).apply()
 //    })
 //
 //  }
