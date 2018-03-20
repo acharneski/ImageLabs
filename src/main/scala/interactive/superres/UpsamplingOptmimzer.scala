@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit
 
 import _root_.util._
 import com.simiacryptus.mindseye.eval.ArrayTrainable
-import com.simiacryptus.mindseye.lang.{LayerBase, Tensor}
+import com.simiacryptus.mindseye.lang.{Layer, Tensor}
 import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.PipelineNetwork
 import com.simiacryptus.mindseye.opt._
@@ -87,20 +87,18 @@ object UpsamplingOptimizer extends Report {
     })
   }
 
-  def reconstructImage(forwardModel: LayerBase, discriminatorModel: LayerBase, originalTensor: Tensor, monitor: TrainingMonitor, scaleFactor: Int = 4): Tensor = {
+  def reconstructImage(forwardModel: Layer, discriminatorModel: Layer, originalTensor: Tensor, monitor: TrainingMonitor, scaleFactor: Int = 4): Tensor = {
 
     val network = new PipelineNetwork(0)
 
     val targetTensor = Tensor.fromRGB(resize(originalTensor.toRgbImage, originalTensor.getDimensions.head * scaleFactor))
     val targetNode = network.constValue(targetTensor)
-    targetNode.getLayer.asInstanceOf[ConstLayer].setFrozen(false)
 
     val wrongness = network.add(new MeanSqLossLayer(), network.add(forwardModel.freeze(), targetNode), network.constValue(originalTensor))
 
     val fakeness = network.add(new EntropyLossLayer(), network.add(discriminatorModel.freeze(), targetNode), network.constValue(new Tensor(3).set(0, 1)))
 
     network.add(new ProductInputsLayer(), fakeness, network.add(new SumInputsLayer(), wrongness, network.constValue(new Tensor(1).set(0, 1))))
-    assert(!targetNode.getLayer.asInstanceOf[ConstLayer].isFrozen)
 
     val executorFunction = new ArrayTrainable(Array(Array[Tensor]()), network, 1)
     val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(executorFunction)

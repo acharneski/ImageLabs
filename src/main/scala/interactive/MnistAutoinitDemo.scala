@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
 import _root_.util.NetworkViz._
 import _root_.util._
 import com.simiacryptus.mindseye.eval.SampledArrayTrainable
-import com.simiacryptus.mindseye.lang.Tensor
+import com.simiacryptus.mindseye.lang.{Layer, LayerBase, Tensor}
 import com.simiacryptus.mindseye.layers.aparapi.ConvolutionLayer
 import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.{DAGNetwork, PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
@@ -162,7 +162,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
       trainer.setTimeout(5, TimeUnit.MINUTES)
       trainer.setTerminateThreshold(Double.NegativeInfinity)
       trainer.setOrientation(new TrustRegionStrategy() {
-        override def getRegionPolicy(layer: LayerBase): TrustRegion = layer match {
+        override def getRegionPolicy(layer: Layer): TrustRegion = layer match {
           case _ ⇒ null//new LinearSumConstraint
         }
       })
@@ -181,7 +181,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
     model
   }
 
-  def buildTrainer(data: Seq[Array[Tensor]], model: LayerBase): IterativeTrainer = {
+  def buildTrainer(data: Seq[Array[Tensor]], model: Layer): IterativeTrainer = {
     val trainingNetwork: SupervisedNetwork = new SimpleLossNetwork(model, new EntropyLossLayer)
     val trainable = new SampledArrayTrainable(data.toArray, trainingNetwork, 1000)
     val trainer = new com.simiacryptus.mindseye.opt.IterativeTrainer(trainable)
@@ -253,7 +253,7 @@ class MnistAutoinitDemo(server: StreamNanoHTTPD, log: HtmlNotebookOutput with Sc
     waitForExit()
   }
 
-  def validation(log: HtmlNotebookOutput with ScalaNotebookOutput, model: LayerBase) = {
+  def validation(log: HtmlNotebookOutput with ScalaNotebookOutput, model: Layer) = {
     log.h2("Validation")
     log.p("Here we examine a sample of validation rows, randomly selected: ")
     log.eval {

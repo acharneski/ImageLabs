@@ -28,6 +28,8 @@ import java.util.concurrent.{Semaphore, TimeUnit}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.simiacryptus.mindseye.eval.SampledArrayTrainable
 import com.simiacryptus.mindseye.lang.Tensor
+import com.simiacryptus.mindseye.layers.cudnn.PoolingLayer
+import com.simiacryptus.mindseye.layers.cudnn.PoolingLayer.PoolingMode
 import com.simiacryptus.mindseye.layers.java._
 import com.simiacryptus.mindseye.network.util.InceptionLayer
 import com.simiacryptus.mindseye.network.{PipelineNetwork, SimpleLossNetwork, SupervisedNetwork}
@@ -141,12 +143,12 @@ class Caltech101Demo {
         Array(Array(5,5,3)),
         Array(Array(3,3,9))
       ))).addTo(monitoringRoot,"inception1"))
-      model.add(new MaxPoolingLayer(2, 2, 1))
+      model.add(new PoolingLayer().setMode(PoolingMode.Max).setStrideXY(2, 2))
       model.add(new MonitoringWrapperLayer(new InceptionLayer(Array(
         Array(Array(5,5,4)),
         Array(Array(3,3,16))
       ))).addTo(monitoringRoot,"inception2"))
-      model.add(new MaxPoolingLayer(2, 2, 1))
+      model.add(new PoolingLayer().setMode(PoolingMode.Max).setStrideXY(2, 2))
       model.add(new MonitoringWrapperLayer(new FullyConnectedLayer(Array[Int](64, 64, 5), outputSize)
         .set(Java8Util.cvt(() ⇒ Util.R.get.nextGaussian * 0.01))).addTo(monitoringRoot, "synapse1"))
       model.add(new BiasLayer(outputSize: _*))

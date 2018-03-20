@@ -22,7 +22,6 @@ package report
 import java.awt.Color
 import java.lang
 import java.util.concurrent.TimeUnit
-import javax.imageio.ImageIO
 
 import _root_.util.{ReportNotebook, ScalaNotebookOutput}
 import com.simiacryptus.mindseye.eval.SampledArrayTrainable
@@ -35,6 +34,7 @@ import com.simiacryptus.mindseye.opt.orient.LBFGS
 import com.simiacryptus.mindseye.test.data._
 import com.simiacryptus.util.TableOutput
 import com.simiacryptus.util.io.IOUtil
+import javax.imageio.ImageIO
 import org.scalatest.{MustMatchers, WordSpec}
 import smile.plot.{PlotCanvas, ScatterPlot}
 import util.Java8Util._
@@ -253,7 +253,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook {
     }
   }
 
-  private def representationMatrix(log: ScalaNotebookOutput, encoder: LayerBase, decoder: LayerBase, band: Int = 0, probeIntensity: Double = 255.0) = {
+  private def representationMatrix(log: ScalaNotebookOutput, encoder: Layer, decoder: Layer, band: Int = 0, probeIntensity: Double = 255.0) = {
     val inputPrototype = data.head
     val dims = inputPrototype.getDimensions()
     val encoded: Tensor = encoder.eval(inputPrototype).getData.get(0)
@@ -346,7 +346,7 @@ class AutoencoderDemo extends WordSpec with MustMatchers with ReportNotebook {
     }, width = dims(0) * width, height = dims(1) * height)
   }
 
-  private def reportTable(log: ScalaNotebookOutput, encoder: LayerBase, decoder: LayerBase) = {
+  private def reportTable(log: ScalaNotebookOutput, encoder: Layer, decoder: Layer) = {
     log.eval {
       TableOutput.create(data.take(20).map(testObj ⇒ {
         var evalModel: PipelineNetwork = new PipelineNetwork
