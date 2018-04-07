@@ -357,7 +357,7 @@
 //        trainer.setOrientation(new LBFGS() {
 //          override def reset(): Unit = {
 //            model.asInstanceOf[DAGNetwork].visitLayers(Java8Util.cvt(layer => layer match {
-//              case layer: DropoutNoiseLayer => layer.shuffle(com.simiacryptus.mindseye.layers.java.StochasticComponent.random.get().nextLong())
+//              case layer: DropoutNoiseLayer => layer.shuffle(com.simiacryptus.mindseye.layers.StochasticComponent.random.get().nextLong())
 //              case _ =>
 //            }))
 //            super.reset()
