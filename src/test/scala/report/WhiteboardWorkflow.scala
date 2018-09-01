@@ -333,7 +333,7 @@
 //      VisualizeBinaryData.renderBinary(finalBinaryMask, false, null)
 //    })
 //
-//    log.p("Use threshold mask to generate a background image")
+//    log.p("Use threshold mask to optimize a background image")
 //    val averageRGB = log.code(() ⇒ {
 //      (0 until 3).map(b ⇒ ImageStatistics.mean(rgb.getBand(b)))
 //    })
@@ -362,7 +362,7 @@
 //      ConvertBufferedImage.convertTo(maskedBackground, null, false)
 //    })
 //
-//    log.p("Use threshold mask to generate a mask the foreground image (contrasted mapCoords the background)")
+//    log.p("Use threshold mask to optimize a mask the foreground image (contrasted mapCoords the background)")
 //    val maskedForground: Planar[GrayF32] = log.code(() ⇒ {
 //      val maskedForground: Planar[GrayF32] = rgb.clone()
 //      (0 until maskedForground.getWidth).foreach(x ⇒

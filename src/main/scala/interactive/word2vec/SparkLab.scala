@@ -210,7 +210,7 @@
 //    analogy(rdd, "red", "green")("white")(50)
 //    analogy(rdd, "England", "London")("USA")(50)
 //
-//    out.out("We can also generate word taxonomies given a few base words:")
+//    out.out("We can also optimize word taxonomies given a few base words:")
 //    writeModel(selectCluster_inplane(rdd = rdd, n = 500,
 //      positiveExamples = List("happy", "sad", "laughing", "crying", "depressed", "excited")
 //    ).map(x => (x._1, x._3)), "file:///D://SimiaCryptus/data/wordCluster_emote_500")
@@ -219,7 +219,7 @@
 //      positiveExamples = List("USA", "England", "Japan", "USSR")
 //    ).map(x => (x._1, x._3)), "file:///D://SimiaCryptus/data/wordCluster_countries_500")
 //
-//    out.out("We can also generate a continuous spectrums from one term to another:")
+//    out.out("We can also optimize a continuous spectrums from one term to another:")
 //    continuum(rdd, "hell", "heaven")
 //    continuum(rdd, "love", "hate")
 //    continuum(rdd, "happy", "sad")

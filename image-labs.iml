@@ -268,7 +268,7 @@
     <orderEntry type="library" name="Maven: org.apache.spark:spark-unsafe_2.11:2.3.1" level="project" />
     <orderEntry type="library" name="Maven: net.java.dev.jets3t:jets3t:0.9.4" level="project" />
     <orderEntry type="library" name="Maven: org.apache.httpcomponents:httpcore:4.4.1" level="project" />
-    <orderEntry type="library" name="Maven: commons-codec:commons-codec:2.0-SNAPSHOT" level="project" />
+    <orderEntry type="library" name="Maven: commons-codec:commons-codec:1.11" level="project" />
     <orderEntry type="library" name="Maven: javax.activation:activation:1.1.1" level="project" />
     <orderEntry type="library" name="Maven: org.bouncycastle:bcprov-jdk15on:1.52" level="project" />
     <orderEntry type="library" name="Maven: com.jamesmurty.utils:java-xmlbuilder:1.1" level="project" />
