@@ -150,7 +150,7 @@
 //          trainer.setMonitor(monitor)
 //          trainer.setTimeout(minutesPerStep, TimeUnit.MINUTES)
 //          trainer.setTerminateThreshold(1.0)
-//          trainer.run()
+//          trainer.eval()
 //          categorizationNetwork
 //        }
 //        mnistClassificationReport(log, categorizationNetwork)
@@ -166,7 +166,7 @@
 //          trainer.setMonitor(monitor)
 //          trainer.setTimeout(minutesPerStep, TimeUnit.MINUTES)
 //          trainer.setTerminateThreshold(1.0)
-//          trainer.run()
+//          trainer.eval()
 //          categorizationNetwork
 //        }
 //        mnistClassificationReport(log, categorizationNetwork)

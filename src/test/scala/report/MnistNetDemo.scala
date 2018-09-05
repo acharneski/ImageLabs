@@ -187,7 +187,7 @@
 //      trainer.setMonitor(monitor)
 //      trainer.setTimeout(Math.min(trainingTimeMinutes, 10), TimeUnit.MINUTES)
 //      trainer.setTerminateThreshold(1.0)
-//      trainer.run()
+//      trainer.eval()
 //    }
 //    log.p("The second phase of training uses more data")
 //    log.eval {
@@ -198,7 +198,7 @@
 //      trainer.setMonitor(monitor)
 //      trainer.setTimeout(trainingTimeMinutes, TimeUnit.MINUTES)
 //      trainer.setTerminateThreshold(0.05)
-//      trainer.run()
+//      trainer.eval()
 //    }
 //
 //    log.p("After training, we save the following parameterized model: ")

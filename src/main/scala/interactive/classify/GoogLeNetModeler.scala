@@ -80,8 +80,8 @@
 //  def main(args: Array[String]): Unit = {
 //
 //    report((server, out) ⇒ args match {
-//      case Array(source) ⇒ new GoogLeNetModeler(source, server, out).run()
-//      case _ ⇒ new GoogLeNetModeler("D:\\testImages\\256_ObjectCategories", server, out).run()
+//      case Array(source) ⇒ new GoogLeNetModeler(source, server, out).eval()
+//      case _ ⇒ new GoogLeNetModeler("D:\\testImages\\256_ObjectCategories", server, out).eval()
 //    })
 //
 //  }
@@ -275,7 +275,7 @@
 //
 //class GoogLeNetModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 //
-//  def run(awaitExit: Boolean = true): Unit = {
+//  def eval(awaitExit: Boolean = true): Unit = {
 //    recordMetrics = false
 //    defineHeader()
 //    declareTestHandler()
@@ -370,7 +370,7 @@
 //        trainer.setTerminateThreshold(0.0)
 //        trainer
 //      }
-//      trainer2.run()
+//      trainer2.eval()
 //    }: Unit, modelName)
 //    (for (i <- 1 to 3) yield Random.shuffle(selectedCategories.keys).take(2).toList).distinct.foreach {
 //      case Seq(from: String, to: String) => gan(out, model)(imageCount = 1, sourceCategory = from, targetCategory = to)
@@ -419,7 +419,7 @@
 //        trainer.setTerminateThreshold(0.01)
 //        trainer
 //      }
-//      trainer1.run()
+//      trainer1.eval()
 //      System.out.print(s"Finished processing ${adversarialData.length} images")
 //      val evalNetwork = new PipelineNetwork()
 //      evalNetwork.add(biasLayer)

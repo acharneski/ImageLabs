@@ -75,8 +75,8 @@
 //  def main(args: Array[String]): Unit = {
 //
 //    report((server, out) ⇒ args match {
-//      case Array(source) ⇒ new ClassifierModeler(source, server, out).run()
-//      case _ ⇒ new ClassifierModeler("D:\\testImages\\256_ObjectCategories", server, out).run()
+//      case Array(source) ⇒ new ClassifierModeler(source, server, out).eval()
+//      case _ ⇒ new ClassifierModeler("D:\\testImages\\256_ObjectCategories", server, out).eval()
 //    })
 //
 //  }
@@ -185,7 +185,7 @@
 //
 //class ClassifierModeler(source: String, server: StreamNanoHTTPD, out: HtmlNotebookOutput with ScalaNotebookOutput) extends MindsEyeNotebook(server, out) {
 //
-//  def run(awaitExit:Boolean=true): Unit = {
+//  def eval(awaitExit:Boolean=true): Unit = {
 //    defineHeader()
 //    declareTestHandler()
 //    out.out("<hr/>")
@@ -233,7 +233,7 @@
 //        trainer.setTerminateThreshold(1.0)
 //        trainer
 //      }
-//      trainer.run()
+//      trainer.eval()
 //    }: Unit, modelName)
 //  }
 //
@@ -244,7 +244,7 @@
 //      var inner: Trainable = new SampledArrayTrainable(data, model, sampleSize)
 //      val trainer = new LayerRateDiagnosticTrainer(inner).setStrict(true).setMaxIterations(1)
 //      trainer.setMonitor(monitor)
-//      trainer.run()
+//      trainer.eval()
 //      trainer.getLayerRates().asScala.toMap
 //    }
 //  }, modelName)
@@ -272,7 +272,7 @@
 //      trainer.setMaxIterations(maxIterations)
 //      trainer
 //    }
-//    trainer.run()
+//    trainer.eval()
 //  }, modelName)
 //
 //  def step_LBFGS(sampleSize: Int, timeoutMin: Int, iterationSize: Int): Unit = phase(modelName, (model: LayerBase) ⇒ {
@@ -293,7 +293,7 @@
 //      trainer.setTerminateThreshold(0.0)
 //      trainer
 //    }
-//    trainer.run()
+//    trainer.eval()
 //  }, modelName)
 //
 //  def declareTestHandler() = {

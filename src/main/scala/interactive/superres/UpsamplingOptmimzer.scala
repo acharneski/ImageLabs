@@ -74,7 +74,7 @@
 //  lazy val discriminatorNetwork = loadModel("descriminator_1")
 //  lazy val forwardNetwork = loadModel("downsample_1")
 //
-//  def run(awaitExit:Boolean=true): Unit = {
+//  def eval(awaitExit:Boolean=true): Unit = {
 //    defineHeader()
 //    out.out("<hr/>")
 //    Random.shuffle(rawData.toList).grouped(10).map(data ⇒ {
@@ -101,8 +101,8 @@
 //  def main(args: Array[String]): Unit = {
 //
 //    report((server, out) ⇒ args match {
-//      case Array(source) ⇒ new UpsamplingOptimizer(source, server, out).run()
-//      case _ ⇒ new UpsamplingOptimizer("E:\\testImages\\256_ObjectCategories", server, out).run()
+//      case Array(source) ⇒ new UpsamplingOptimizer(source, server, out).eval()
+//      case _ ⇒ new UpsamplingOptimizer("E:\\testImages\\256_ObjectCategories", server, out).eval()
 //    })
 //  }
 //
@@ -128,7 +128,7 @@
 //    trainer.setTimeout(1, TimeUnit.MINUTES)
 //    trainer.setTerminateThreshold(1e-4)
 //    trainer.setMaxIterations(100)
-//    trainer.run()
+//    trainer.eval()
 //
 //    targetTensor
 //  }

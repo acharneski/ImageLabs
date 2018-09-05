@@ -97,7 +97,7 @@
 //        trainer.setMonitor(monitor)
 //        trainer.setTimeout(scheduledStep.timeoutMinutes, TimeUnit.MINUTES)
 //        trainer.setTerminateThreshold(scheduledStep.terminationThreshold)
-//        trainer.run()
+//        trainer.eval()
 //      }
 //      log.eval {
 //        getBlankDeltaSet(model).getMap.asScala.map(ent ⇒ {

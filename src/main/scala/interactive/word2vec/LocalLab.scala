@@ -65,7 +65,7 @@
 //  def main(args: Array[String]): Unit = {
 //
 //    report((server, out) ⇒ args match {
-//      case Array() ⇒ new LocalLab(server, out).run()
+//      case Array() ⇒ new LocalLab(server, out).eval()
 //    })
 //
 //  }
@@ -194,7 +194,7 @@
 //    }
 //  }
 //
-//  def run(awaitExit: Boolean = true): Unit = {
+//  def eval(awaitExit: Boolean = true): Unit = {
 //    val rdd = loadLocal()
 //
 //    {

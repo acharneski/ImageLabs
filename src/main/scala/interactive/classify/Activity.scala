@@ -46,7 +46,7 @@
 //object Activity extends Report {
 //
 //  def main(args: Array[String]): Unit = {
-//    new Activity().run()
+//    new Activity().eval()
 //    Thread.sleep(60*1000*5)
 //  }
 //
@@ -55,7 +55,7 @@
 //
 //
 //class Activity() {
-//  def run(): Unit = {
+//  def eval(): Unit = {
 //    import java.awt.Toolkit
 //    Toolkit.getDefaultToolkit.addAWTEventListener(new AWTEventListener() {
 //      override def eventDispatched(event: AWTEvent): Unit = {

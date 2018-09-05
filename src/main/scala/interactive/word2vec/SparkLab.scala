@@ -72,7 +72,7 @@
 //
 //  def main(args: Array[String]): Unit = {
 //    report((server, out) ⇒ args match {
-//      case Array() ⇒ new SparkLab(server, out).run()
+//      case Array() ⇒ new SparkLab(server, out).eval()
 //    })
 //  }
 //
@@ -197,7 +197,7 @@
 //    str.map(key => value.getOrElse(key, value.map(t => t._1.toLowerCase -> t._2).getOrElse(key.toLowerCase, null))).toList.filter(_!=null)
 //  }
 //
-//  def run(awaitExit: Boolean = true): Unit = {
+//  def eval(awaitExit: Boolean = true): Unit = {
 //    CodeUtil.projectRoot = new File("../image-labs")
 //    out.sourceRoot = "https://github.com/acharneski/imagelabs/tree/blog-2017-10-07/"
 //

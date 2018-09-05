@@ -63,7 +63,7 @@
 //object MnistAutoinitDemo extends Report {
 //
 //  def main(args: Array[String]): Unit = {
-//    report((s,log)⇒new MnistAutoinitDemo(s,log).run)
+//    report((s,log)⇒new MnistAutoinitDemo(s,log).eval)
 //    System.exit(0)
 //  }
 //}
@@ -82,7 +82,7 @@
 //        model
 //      }
 //
-//    }.run)
+//    }.eval)
 //    System.exit(0)
 //  }
 //}
@@ -185,7 +185,7 @@
 //          case _ ⇒ null//new LinearSumConstraint
 //        }
 //      })
-//      trainer.run()
+//      trainer.eval()
 //    }
 //  }
 //
@@ -211,7 +211,7 @@
 //    trainer
 //  }
 //
-//  def run {
+//  def eval {
 //
 //    log.p("In this apply we newTrainer a simple neural network against the MNIST handwritten digit dataset")
 //
@@ -257,7 +257,7 @@
 //    monitoringRoot.clearConstants()
 //
 //    log.p("We trainCjGD using a the following strategy: ")
-//    buildTrainer(data, model).run()
+//    buildTrainer(data, model).eval()
 //
 //    log.p("A summary of the training timeline: ")
 //    summarizeHistory(log)

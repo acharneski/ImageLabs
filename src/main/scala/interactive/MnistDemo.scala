@@ -60,7 +60,7 @@
 //object MnistDemo extends Report {
 //
 //  def main(args: Array[String]): Unit = {
-//    report((s,log)⇒new MnistDemo(s,log).run)
+//    report((s,log)⇒new MnistDemo(s,log).eval)
 //    System.exit(0)
 //  }
 //}
@@ -89,7 +89,7 @@
 //        trainer.setTerminateThreshold(0.0)
 //        trainer
 //      })
-//    }.run)
+//    }.eval)
 //    System.exit(0)
 //  }
 //}
@@ -122,7 +122,7 @@
 //    trainer
 //  })
 //
-//  def run {
+//  def eval {
 //
 //    log.p("In this apply we newTrainer a simple neural network against the MNIST handwritten digit dataset")
 //
@@ -159,7 +159,7 @@
 //
 //    log.p("We trainCjGD using a the following strategy: ")
 //    buildTrainer(data).foreach(trainer ⇒ log.eval {
-//      trainer.run()
+//      trainer.eval()
 //    })
 //
 //    log.p("A summary of the training timeline: ")

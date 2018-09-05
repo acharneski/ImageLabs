@@ -70,13 +70,13 @@
 //object Caltech101Demo extends Report {
 //
 //  def main(args: Array[String]): Unit = {
-//    report(new Caltech101Demo().run)
+//    report(new Caltech101Demo().eval)
 //    System.exit(0)
 //  }
 //}
 //class Caltech101Demo {
 //
-//  def run(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNotebookOutput) {
+//  def eval(server: StreamNanoHTTPD, log: HtmlNotebookOutput with ScalaNotebookOutput) {
 //    val inputSize = Array[Int](256, 256, 3)
 //    log.h1("Caltech 101")
 //    val history = new scala.collection.mutable.ArrayBuffer[Step]()
@@ -97,7 +97,7 @@
 //    log.p("View the _log: <a href='/_log'>/_log</a>")
 //    val logOut = new TeeOutputStream(log.file("_log.txt"), true)
 //    val logPrintStream = new PrintStream(logOut)
-//    server.addSessionHandler("log", Java8Util.cvt((session : IHTTPSession)⇒{
+//    server.addGET("log", Java8Util.cvt((session : IHTTPSession)⇒{
 //      NanoHTTPD.newChunkedResponse(NanoHTTPD.Response.Status.OK, "text/plain", logOut.newInputStream())
 //    }))
 //    val monitor = new TrainingMonitor {
@@ -191,7 +191,7 @@
 //      trainer
 //    }
 //    log.eval {
-//      trainer.run()
+//      trainer.eval()
 //    }
 //    log.p("After training, we have the following parameterized model: ")
 //    log.eval {

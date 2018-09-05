@@ -134,7 +134,7 @@
 //          trainer
 //        }
 //        log.eval {
-//          trainer.run()
+//          trainer.eval()
 //        }
 //        log.p("After training, we have the following parameterized model: ")
 //        log.eval {
@@ -235,7 +235,7 @@
 //            trainer
 //          }
 //          log.eval {
-//            trainer.run()
+//            trainer.eval()
 //          }
 //
 //          def plotXY(gfx: Graphics2D) = {
@@ -455,7 +455,7 @@
 //          bias.getLayer.asInstanceOf[BiasLayer].addWeights(new DoubleSupplier {
 //            override def getAsDouble: Double = Util.R.get.nextGaussian * 1e-5
 //          })
-//          trainer.run()
+//          trainer.eval()
 //        }
 //
 //        log.p("Which results in the convergence timeline: ")
