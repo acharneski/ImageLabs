@@ -76,7 +76,7 @@
 //        log.p("In this apply we newTrainer a simple neural network against the MNIST handwritten digit dataset")
 //
 //        log.h2("Data")
-//        log.p("First, we cache the training dataset: ")
+//        log.p("First, we cacheLocal the training dataset: ")
 //        val data: Seq[Array[Tensor]] = log.code(() ⇒ {
 //          MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
 //            Array(labeledObj.data, toOutNDArray(toOut(labeledObj.label), 10))
@@ -384,7 +384,7 @@
 //          net
 //        }
 //
-//        log.p("We cache an ideal training image, which we will try to reconstruct: ")
+//        log.p("We cacheLocal an ideal training image, which we will try to reconstruct: ")
 //        val idealImage = log.eval {
 //          val read = ImageIO.read(getClass.getResourceAsStream("/monkey1.jpg"))
 //

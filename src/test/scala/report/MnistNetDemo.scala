@@ -157,7 +157,7 @@
 //
 //  def test(log: ScalaNotebookOutput, model: PipelineNetwork) = {
 //    log.h2("Data")
-//    log.p("First, we cache the training dataset: ")
+//    log.p("First, we cacheLocal the training dataset: ")
 //    val trainingData: Seq[Array[Tensor]] = log.code(() ⇒ {
 //      MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
 //        Array(labeledObj.data, toOutNDArray(toOut(labeledObj.label), 10))

@@ -328,7 +328,7 @@
 //  def loadWord2VecRDD( parquetUrl: String = "file:///H:/data_word2vec0/final",
 //                       binUrl: String = "C:\\Users\\andre\\Downloads\\GoogleNews-vectors-negative300.bin.gz"
 //                     ): RDD[(String, Array[Float])] = {
-//    cache(parquetUrl) {
+//    cacheLocal(parquetUrl) {
 //      val inputStream = new DataInputStream(new GZIPInputStream(new BufferedInputStream(new FileInputStream(binUrl))))
 //      val header = readUntil(inputStream, '\n')
 //      val (records, dimensions) = header.split(" ") match {
@@ -345,7 +345,7 @@
 //  def loadFastTextRDD( parquetUrl: String = "file:///H:/data_wiki.en/final",
 //                       binUrl: String = "C:\\Users\\andre\\Downloads\\wiki.en\\wiki.en.vec"
 //                     ): RDD[(String, Array[Float])] = {
-//    cache(parquetUrl) {
+//    cacheLocal(parquetUrl) {
 //
 //      val inputStream = new BufferedReader(new InputStreamReader(new FileInputStream(binUrl)))
 //      val header = inputStream.readLine()
@@ -364,7 +364,7 @@
 //    }
 //  }
 //
-//  private def cache(file: String)(data: => Stream[(String, Array[Float])],
+//  private def cacheLocal(file: String)(data: => Stream[(String, Array[Float])],
 //                                  tempFolder: String = file + "/../",
 //                                  bufferSize: Int = 100000
 //  ): RDD[(String, Array[Float])] = {

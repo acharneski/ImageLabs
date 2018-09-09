@@ -127,7 +127,7 @@
 //    log.p("In this apply we newTrainer a simple neural network against the MNIST handwritten digit dataset")
 //
 //    log.h2("Data")
-//    log.p("First, we cache the training dataset: ")
+//    log.p("First, we cacheLocal the training dataset: ")
 //    val data: Seq[Array[Tensor]] = log.eval {
 //      MNIST.trainingDataStream().iterator().asScala.toStream.map(labeledObj ⇒ {
 //        Array(labeledObj.data, toOutNDArray(toOut(labeledObj.label), 10))

@@ -85,7 +85,7 @@
 //  "Whiteboard Image Processing Demo" should {
 //    "Optimize whiteboard image" in {
 //      report("workflow", log ⇒ {
-//        log.p("First, we cache an photo of a whiteboard")
+//        log.p("First, we cacheLocal an photo of a whiteboard")
 //        val sourceImage = log.code(() ⇒ {
 //          ImageIO.read(getClass.getClassLoader.getResourceAsStream("Whiteboard1.jpg"))
 //        })
